@@ -1,26 +1,169 @@
-@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Syncopate:wght@400;700&family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500;600&display=swap');
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --black:   #000000;
+  --black2:  #080808;
+  --black3:  #101010;
+  --black4:  #181818;
+  --white:   #ffffff;
+  --silver:  #c8cdd4;
+  --silver2: #8e9aa8;
+  --silver3: #5a6470;
+  --silver4: #2e3840;
+  --cyan:    #00b4d8;
+  --cyan2:   #4ac8e8;
+  --cyan3:   #007a95;
+  --border:  rgba(200,205,212,0.12);
+  --border2: rgba(200,205,212,0.06);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--black);
+  color: var(--silver);
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(22px) }
+  to   { opacity: 1; transform: translateY(0) }
+}
+@keyframes spin { to { transform: rotate(360deg) } }
+
+.btn-primary {
+  font-family: 'Syncopate', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  background: var(--white);
+  color: var(--black);
+  border: none;
+  padding: 16px 40px;
+  cursor: pointer;
+  transition: all 0.3s;
+  display: inline-block;
+  text-decoration: none;
+  text-align: center;
+}
+.btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(0,180,216,0.2); }
+.btn-primary:disabled { opacity: 0.2; cursor: not-allowed; transform: none; }
+
+.btn-outline {
+  font-family: 'Syncopate', sans-serif;
+  font-size: 9px;
+  font-weight: 400;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  background: transparent;
+  color: var(--silver2);
+  border: 1px solid var(--silver4);
+  padding: 14px 28px;
+  cursor: pointer;
+  transition: all 0.3s;
+  display: inline-block;
+  text-decoration: none;
+  text-align: center;
+}
+.btn-outline:hover { border-color: var(--silver2); color: var(--white); }
+
+.btn-ghost {
+  background: none;
+  border: none;
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: var(--silver3);
+  cursor: pointer;
+  padding: 6px 10px;
+  transition: color 0.2s;
+}
+.btn-ghost:hover { color: var(--white); }
+
+.form-group { margin-bottom: 20px; }
+
+.form-label {
+  display: block;
+  font-family: 'DM Mono', monospace;
+  font-size: 8px;
+  letter-spacing: 3px;
+  color: var(--silver3);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+.form-input {
+  width: 100%;
+  background: var(--black3);
+  border: 1px solid var(--border);
+  padding: 14px 16px;
+  color: var(--white);
+  font-family: 'DM Mono', monospace;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.form-input:focus { border-color: var(--cyan3); }
+.form-input::placeholder { color: var(--silver4); }
+
+.auth-error {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: #e74c3c;
+  margin-top: 12px;
+  padding: 10px 14px;
+  border-left: 2px solid #e74c3c;
+  background: rgba(231,76,60,0.06);
+}
+
+.loading-ring {
+  width: 52px;
+  height: 52px;
+  border: 1px solid var(--silver4);
+  border-top-color: var(--cyan);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 32px;
+}
+
+.section-title {
+  font-family: 'Syncopate', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 4px;
+  color: var(--cyan);
+  text-transform: uppercase;
+}
+
+.empty-state {
+  background: var(--black2);
+  border: 1px solid var(--border);
+  padding: 72px 32px;
+  text-align: center;
+}
+.empty-state-text {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 20px;
+  font-style: italic;
+  color: var(--silver3);
+  line-height: 1.6;
+}
+
+.meta-chip {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: var(--silver2);
+  border: 1px solid var(--border);
+  padding: 4px 10px;
+  text-transform: uppercase;
+  background: var(--black3);
+}
+
+@media (max-width: 768px) {
+  .hide-mobile { display: none !important; }
 }

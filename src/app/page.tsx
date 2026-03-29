@@ -1,65 +1,117 @@
-import Image from "next/image";
+'use client'
+import Link from 'next/link'
+import Header from '@/components/Header'
 
-export default function Home() {
+export default function HomePage() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <>
+      <div style={{
+        position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none',
+        backgroundImage: 'url(https://images.unsplash.com/photo-1526506118085-60ce8714f8c5?w=1920&q=80&fit=crop&crop=center)',
+        backgroundSize: 'cover', backgroundPosition: 'center', opacity: 1,
+      }}>
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom,rgba(0,0,0,0.75) 0%,rgba(0,0,0,0.65) 40%,rgba(0,0,0,0.82) 100%)' }} />
+      </div>
+
+      <Header />
+
+      <main style={{ position: 'relative', zIndex: 2, paddingTop: 64 }}>
+        <section style={{
+          display: 'flex', flexDirection: 'column', alignItems: 'center',
+          justifyContent: 'center', textAlign: 'center',
+          minHeight: 'calc(100vh - 64px)', padding: '80px 40px',
+          position: 'relative', overflow: 'hidden',
+        }}>
+          <div style={{
+            position: 'absolute',
+            fontFamily: "'Syncopate', sans-serif",
+            fontSize: 'clamp(120px, 22vw, 300px)',
+            fontWeight: 700, letterSpacing: -4,
+            color: 'rgba(0,180,216,0.03)',
+            pointerEvents: 'none', userSelect: 'none',
+            whiteSpace: 'nowrap', top: '50%', left: '50%',
+            transform: 'translate(-50%, -50%)',
+          }}>
+            MOBILITY
+          </div>
+
+          <div style={{
+            fontFamily: "'DM Mono', monospace", fontSize: 10, letterSpacing: 5,
+            color: 'var(--cyan)', textTransform: 'uppercase', marginBottom: 28,
+            animation: 'fadeUp 0.8s 0.2s both',
+          }}>
+            Evidence-Based Joint Mobility
+          </div>
+
+          <h1 style={{
+            fontFamily: "'Syncopate', sans-serif",
+            fontSize: 'clamp(48px, 10vw, 120px)',
+            fontWeight: 700, letterSpacing: 8, lineHeight: 1,
+            color: 'var(--white)', marginBottom: 12,
+            animation: 'fadeUp 0.8s 0.35s both',
+          }}>
+            MOVE<span style={{ color: 'var(--cyan)' }}>&</span>GROOVE
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+
+          <p style={{
+            fontFamily: "'Cormorant Garamond', serif",
+            fontSize: 'clamp(18px, 2.5vw, 24px)',
+            fontStyle: 'italic', fontWeight: 300,
+            color: 'var(--silver3)', letterSpacing: 3,
+            marginBottom: 60,
+            animation: 'fadeUp 0.8s 0.5s both',
+          }}>
+            Trusted by Elite Athletes, Crafted for You
           </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 12, marginBottom: 60,
+            animation: 'fadeUp 0.8s 0.65s both',
+            flexWrap: 'wrap', justifyContent: 'center',
+          }}>
+            {[
+              { label: 'RELEASE',    sub: 'Flexibility',        color: 'var(--silver2)', border: 'var(--silver4)',        bg: 'linear-gradient(135deg,var(--black3),var(--black4))' },
+              { op: '+' },
+              { label: 'ACTIVATION', sub: 'Strength Endurance', color: 'var(--white)',   border: 'rgba(200,205,212,0.3)', bg: 'linear-gradient(135deg,var(--black4),var(--black3))' },
+              { op: '+' },
+              { label: 'RANGE',      sub: 'End Range Control',  color: 'var(--cyan)',    border: 'rgba(0,180,216,0.4)',   bg: 'linear-gradient(135deg,rgba(0,180,216,0.08),rgba(0,180,216,0.03))' },
+              { op: '=' },
+              { label: 'MOBILITY',   sub: '',                   color: 'var(--silver3)', border: 'var(--silver4)',        bg: 'var(--black2)' },
+            ].map((item, i) => {
+              if ('op' in item) return (
+                <span key={i} style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 28, color: 'var(--silver4)', fontWeight: 300 }}>
+                  {item.op}
+                </span>
+              )
+              return (
+                <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <div style={{
+                    fontFamily: "'Syncopate',sans-serif", fontSize: 11, fontWeight: 700,
+                    letterSpacing: 3, textTransform: 'uppercase',
+                    padding: '14px 24px', border: `1px solid ${item.border}`,
+                    color: item.color, background: item.bg,
+                  }}>
+                    {item.label}
+                  </div>
+                  {item.sub && (
+                    <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 13, color: 'var(--silver2)', marginTop: 8 }}>
+                      {item.sub}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+
+          <div style={{
+            display: 'flex', gap: 16, flexWrap: 'wrap', justifyContent: 'center',
+            animation: 'fadeUp 0.8s 0.8s both',
+          }}>
+            <Link href="/auth" className="btn-primary">GET STARTED</Link>
+            <Link href="/quiz" className="btn-outline">TRY DEMO</Link>
+          </div>
+        </section>
       </main>
-    </div>
-  );
+    </>
+  )
 }
