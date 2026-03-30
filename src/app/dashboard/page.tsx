@@ -146,8 +146,8 @@ const firstName_cap = firstName.charAt(0).toUpperCase() + firstName.slice(1).toL
             border: '1px solid var(--border)', marginBottom: 48,
           }}>
             {[
-              { icon: '🫧', title: 'Recovery Session', sub: 'Foam roll series for tissue quality and recovery.', badge: '10 · 15 · 20 · 30 MIN', href: '/recovery' },
-              { icon: '📅', title: 'Mobility Programme', sub: 'Structured 4, 8 or 12-week programme with progressive overload.', badge: '4 · 8 · 12 WEEKS', href: '/programs' },
+              { icon: '🫧', title: 'Recovery Session', sub: 'Foam roll series for tissue quality and recovery.', badge: '10 · 15 · 20 · 30 MIN', href: '/quiz' },
+              { icon: '📅', title: 'New Routine', sub: 'Build a sport-specific or area-focused mobility session.', badge: 'AI GENERATED', href: '/quiz' },
             ].map(a => (
               <div key={a.title} onClick={() => router.push(a.href)} style={{
                 background: 'var(--black2)', padding: '32px 28px', cursor: 'pointer', transition: 'background 0.2s',
