@@ -146,8 +146,10 @@ const firstName_cap = firstName.charAt(0).toUpperCase() + firstName.slice(1).toL
             border: '1px solid var(--border)', marginBottom: 48,
           }}>
             {[
-              { icon: '🫧', title: 'Recovery Session', sub: 'Foam roll series for tissue quality and recovery.', badge: '10 · 15 · 20 · 30 MIN', href: '/quiz' },
-              { icon: '📅', title: 'New Routine', sub: 'Build a sport-specific or area-focused mobility session.', badge: 'AI GENERATED', href: '/quiz' },
+             { icon: '📅', title: 'New Routine', sub: 'Build a sport-specific or area-focused mobility session.', badge: 'AI GENERATED', href: '/quiz' },
+{ icon: '🫧', title: 'Recovery Session', sub: 'Foam roll series for tissue quality and recovery.', badge: '10 · 15 · 20 · 30 MIN', href: '/quiz' },
+{ icon: '🔬', title: 'Mobility Screening', sub: '11-question assessment across hips, shoulders, and spine.', badge: '3 MIN · 11 QUESTIONS', href: '/screening' },
+{ icon: '⚡', title: 'Movement Battery', sub: 'Five fundamental movement tests scored 0–3.', badge: '5 TESTS · 10 MIN', href: '/battery' },
             ].map(a => (
               <div key={a.title} onClick={() => router.push(a.href)} style={{
                 background: 'var(--black2)', padding: '32px 28px', cursor: 'pointer', transition: 'background 0.2s',
