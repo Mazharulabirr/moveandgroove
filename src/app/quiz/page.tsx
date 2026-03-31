@@ -37,7 +37,7 @@ const GOALS = [
 type Mode = 'sport' | 'area' | null
 type Step = 1 | '2a' | '2b' | 3 | 4 | 5
 
-const API = ''
+const API = '/api'
 
 export default function QuizPage() {
   const router = useRouter()

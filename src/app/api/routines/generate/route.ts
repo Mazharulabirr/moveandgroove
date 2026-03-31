@@ -84,11 +84,15 @@ export async function POST(req: NextRequest) {
           pillar: 'prep',
           phaseDescription: 'Myofascial release to reduce tissue tension and prepare the target joints for loading.',
           exercises: foamRollExercises.map((ex: any) => ({
-            videoId: null, name: ex.name, targetArea: ex.area,
-            sets: ex.sets, reps: null, holdSeconds: ex.holdSeconds,
-            rationale: ex.notes,
-            study: 'Cheatham et al. (2015). The effects of self-myofascial release using a foam roll on joint ROM, muscle recovery, and performance. IJSPT.',
-            isFoamRoll: true,
+            videoId:      null,
+            name:         ex.name,
+            targetArea:   ex.area,
+            sets:         ex.sets,
+            reps:         null,
+            holdSeconds:  ex.holdSeconds,
+            rationale:    ex.notes,
+            study:        'Cheatham et al. (2015). The effects of self-myofascial release using a foam roll on joint ROM, muscle recovery, and performance. IJSPT.',
+            isFoamRoll:   true,
           })),
         }
       }
@@ -156,22 +160,28 @@ Respond ONLY in valid JSON (no markdown):
 }`
 
     const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model:      'claude-sonnet-4-20250514',
       max_tokens: 4000,
-      messages: [{ role: 'user', content: prompt }],
+      messages:   [{ role: 'user', content: prompt }],
     })
 
-    const raw      = message.content.map((b: any) => b.text || '').join('')
-    const jsonStart = raw.indexOf('{')
-    const jsonEnd   = raw.lastIndexOf('}')
-    const routine   = JSON.parse(raw.slice(jsonStart, jsonEnd + 1))
+    // --- FIXED: robust JSON extraction ---
+    const raw     = message.content.map((b: any) => b.text || '').join('')
+    const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+    const jsonStart = cleaned.indexOf('{')
+    const jsonEnd   = cleaned.lastIndexOf('}')
+    if (jsonStart === -1 || jsonEnd === -1) {
+      throw new Error(`AI returned non-JSON response: ${cleaned.slice(0, 200)}`)
+    }
+    const routine = JSON.parse(cleaned.slice(jsonStart, jsonEnd + 1))
+    // --- END FIX ---
 
     if (prepPhase) {
       routine.phases.unshift(prepPhase)
       routine.totalExercises += prepPhase.exercises.length
     }
 
-    // Save to DB if user logged in
+    // Save to DB if user is logged in
     if (userId) {
       const { data: savedRoutine, error: routineError } = await supabase
         .from('routines')
@@ -215,6 +225,7 @@ Respond ONLY in valid JSON (no markdown):
     }
 
     return NextResponse.json(routine)
+
   } catch (err: any) {
     console.error('[generate]', err)
     return NextResponse.json({ error: err.message }, { status: 500 })
