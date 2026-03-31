@@ -151,6 +151,7 @@ const firstName_cap = firstName.charAt(0).toUpperCase() + firstName.slice(1).toL
 { icon: '🔬', title: 'Mobility Screening', sub: '11-question assessment across hips, shoulders, and spine.', badge: '3 MIN · 11 QUESTIONS', href: '/screening' },
 { icon: '⚡', title: 'Movement Battery', sub: 'Five fundamental movement tests scored 0–3.', badge: '5 TESTS · 10 MIN', href: '/battery' },
 { icon: '📊', title: 'My Results', sub: 'View your mobility scores and track progress over time.', badge: 'SCORE HISTORY', href: '/results' },
+{ icon: '🌅', title: 'Daily Check-in', sub: 'Rate your sleep, energy, soreness and motivation.', badge: '5 QUESTIONS · 1 MIN', href: '/readiness' },
             ].map(a => (
               <div key={a.title} onClick={() => router.push(a.href)} style={{
                 background: 'var(--black2)', padding: '32px 28px', cursor: 'pointer', transition: 'background 0.2s',
