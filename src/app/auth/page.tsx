@@ -31,7 +31,7 @@ export default function AuthPage() {
 
   async function handleSignUp() {
     setError(''); setLoading(true)
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email: suEmail,
       password: suPassword,
       options: { data: { full_name: suName } },
@@ -42,6 +42,17 @@ export default function AuthPage() {
         : error.message
       setError(msg); setLoading(false); return
     }
+
+    if (data.user) {
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .upsert([{ id: data.user.id, is_pro: false }], { onConflict: 'id' })
+
+      if (profileError) {
+        console.warn('[auth.handleSignUp] profile upsert skipped', profileError.message)
+      }
+    }
+
     router.push('/dashboard')
   }
 

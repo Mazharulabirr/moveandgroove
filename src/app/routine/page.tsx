@@ -165,6 +165,8 @@ export default function RoutinePage() {
 
   const sportLabel = meta?.sport ? meta.sport.toUpperCase() : null
   const areasLabel = meta?.areas?.length > 0 ? meta.areas.map((a: string) => a.toUpperCase()).join(' · ') : 'FULL BODY'
+  const builderHref = meta?.source === 'recovery' ? '/recovery' : '/quiz'
+  const builderLabel = meta?.source === 'recovery' ? 'REGENERATE RECOVERY' : 'GENERATE NEW ROUTINE'
 
   return (
     <>
@@ -179,10 +181,10 @@ export default function RoutinePage() {
       <Header />
 
       <main style={{ position: 'relative', zIndex: 2, paddingTop: 64 }}>
-        <div style={{ maxWidth: 980, margin: '0 auto', padding: '52px 48px' }}>
+        <div className="mg-page-shell" style={{ maxWidth: 980 }}>
 
           {/* Header */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 48, paddingBottom: 32, borderBottom: '1px solid var(--border)', gap: 24 }}>
+          <div className="mg-split-section" style={{ alignItems: 'flex-start', marginBottom: 48, paddingBottom: 32, borderBottom: '1px solid var(--border)', gap: 24 }}>
             <div>
               <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 4, color: 'var(--cyan)', marginBottom: 12, textTransform: 'uppercase' }}>
                 // MOVE&GROOVE · {new Date().toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long' }).toUpperCase()}
@@ -207,8 +209,8 @@ export default function RoutinePage() {
               </div>
             </div>
             <div style={{ display: 'flex', gap: 10, flexShrink: 0, flexWrap: 'wrap' }}>
-              <button className="btn-outline" onClick={() => router.push('/quiz')}>← ADJUST</button>
-              <button className="btn-primary" onClick={() => router.push('/quiz')}>REGENERATE</button>
+              <button className="btn-outline" onClick={() => router.push(builderHref)}>← ADJUST</button>
+              <button className="btn-primary" onClick={() => router.push(builderHref)}>REGENERATE</button>
             </div>
           </div>
 
@@ -237,7 +239,7 @@ export default function RoutinePage() {
                     onMouseEnter={e => (e.currentTarget.style.background = 'var(--black2)')}
                     onMouseLeave={e => (e.currentTarget.style.background = 'var(--black)')}
                   >
-                    <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr' }}>
+                    <div className="mg-grid-2" style={{ gridTemplateColumns: '240px 1fr' }}>
                       {/* Video placeholder */}
                       <div style={{ width: 240, minHeight: 160, background: 'var(--black3)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, borderRight: '1px solid var(--border)' }}>
                         <svg viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" strokeWidth="1" style={{ width: 28, opacity: 0.12 }}>
@@ -312,7 +314,7 @@ export default function RoutinePage() {
           {/* Footer */}
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', padding: '52px 0', flexWrap: 'wrap' }}>
             <button className="btn-outline" onClick={() => router.push('/dashboard')}>← HOME</button>
-            <button className="btn-primary" onClick={() => router.push('/quiz')}>GENERATE NEW ROUTINE</button>
+            <button className="btn-primary" onClick={() => router.push(builderHref)}>{builderLabel}</button>
           </div>
 
         </div>

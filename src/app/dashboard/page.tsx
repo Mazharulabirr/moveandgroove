@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Header from '@/components/Header'
 import { createClient } from '@/lib/supabase/client'
+import { getIsPro } from '@/lib/profiles'
 import type { User } from '@supabase/supabase-js'
 
 interface Stats {
@@ -29,6 +30,7 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<Stats>({ totalSessions: 0, totalMinutes: 0, thisWeek: 0 })
   const [routines, setRoutines] = useState<Routine[]>([])
   const [loading, setLoading] = useState(true)
+  const [isPro, setIsPro] = useState(false)
 
  useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -60,6 +62,7 @@ export default function DashboardPage() {
         .order('created_at', { ascending: false })
 
       if (savedRoutines) setRoutines(savedRoutines)
+      setIsPro(await getIsPro(supabase as never, userId))
     } catch (e) {
       console.error(e)
     }
@@ -97,11 +100,11 @@ const firstName_cap = firstName.charAt(0).toUpperCase() + firstName.slice(1).toL
       <Header />
 
       <main style={{ position: 'relative', zIndex: 2, paddingTop: 64 }}>
-        <div style={{ padding: '56px 48px' }}>
+        <div className="mg-page-shell">
 
           {/* Top */}
-          <div style={{
-            display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end',
+          <div className="mg-split-section" style={{
+            alignItems: 'flex-end',
             marginBottom: 56, paddingBottom: 32, borderBottom: '1px solid var(--border)', gap: 24,
           }}>
             <div>
@@ -118,8 +121,7 @@ const firstName_cap = firstName.charAt(0).toUpperCase() + firstName.slice(1).toL
           </div>
 
           {/* Stats */}
-          <div style={{
-            display: 'grid', gridTemplateColumns: 'repeat(3,1fr)',
+          <div className="mg-grid-3" style={{
             gap: 1, background: 'var(--border)',
             marginBottom: 56, border: '1px solid var(--border)',
           }}>
@@ -139,6 +141,32 @@ const firstName_cap = firstName.charAt(0).toUpperCase() + firstName.slice(1).toL
             ))}
           </div>
 
+          {!isPro && (
+            <div style={{
+              background: 'linear-gradient(180deg, rgba(0,180,216,0.06) 0%, var(--black2) 100%)',
+              border: '1px solid rgba(0,180,216,0.18)',
+              padding: '26px 28px',
+              marginBottom: 32,
+            }}>
+              <div className="mg-split-section" style={{ alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: 'var(--cyan)', textTransform: 'uppercase', marginBottom: 10 }}>
+                    // Pro Access
+                  </div>
+                  <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 18, fontWeight: 700, letterSpacing: 2, color: 'var(--white)', marginBottom: 8 }}>
+                    UNLOCK PROGRAMS + HISTORY
+                  </div>
+                  <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: 'var(--silver2)', lineHeight: 1.7 }}>
+                    Upgrade to access the weekly calendar, four-week blocks, and extended score history.
+                  </div>
+                </div>
+                <button className="btn-primary" onClick={() => router.push('/upgrade')}>
+                  UPGRADE
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Quick Actions */}
           <div style={{
             display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))',
@@ -147,12 +175,13 @@ const firstName_cap = firstName.charAt(0).toUpperCase() + firstName.slice(1).toL
           }}>
             {[
              { icon: '📅', title: 'New Routine', sub: 'Build a sport-specific or area-focused mobility session.', badge: 'AI GENERATED', href: '/quiz' },
-{ icon: '🫧', title: 'Recovery Session', sub: 'Foam roll series for tissue quality and recovery.', badge: '10 · 15 · 20 · 30 MIN', href: '/quiz' },
+{ icon: '🫧', title: 'Recovery Session', sub: 'Foam roll series for tissue quality and recovery.', badge: '15 · 20 · 30 MIN', href: '/recovery' },
 { icon: '🔬', title: 'Mobility Screening', sub: '11-question assessment across hips, shoulders, and spine.', badge: '3 MIN · 11 QUESTIONS', href: '/screening' },
 { icon: '⚡', title: 'Movement Battery', sub: 'Five fundamental movement tests scored 0–3.', badge: '5 TESTS · 10 MIN', href: '/battery' },
 { icon: '📊', title: 'My Results', sub: 'View your mobility scores and track progress over time.', badge: 'SCORE HISTORY', href: '/results' },
 { icon: '🌅', title: 'Daily Check-in', sub: 'Rate your sleep, energy, soreness and motivation.', badge: '5 QUESTIONS · 1 MIN', href: '/readiness' },
-{ icon: '📋', title: 'Session Check-in', sub: 'Pre or post session — log your focus, RPE, and feedback.', badge: 'PRE · POST', href: '/session-checkin' }, 
+{ icon: '📋', title: 'Session Check-in', sub: 'Pre or post session — log your focus, RPE, and feedback.', badge: 'PRE · POST', href: '/session-checkin' },
+{ icon: '🗓️', title: 'Programs + Calendar', sub: 'Map your weekly sessions into a rolling 4-week block.', badge: 'WEEKLY VIEW', href: '/programs' },
 ].map(a => (
               <div key={a.title} onClick={() => router.push(a.href)} style={{
                 background: 'var(--black2)', padding: '32px 28px', cursor: 'pointer', transition: 'background 0.2s',

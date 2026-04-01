@@ -156,7 +156,7 @@ export default function QuizPage() {
       <Header />
 
       <main style={{ position: 'relative', zIndex: 2, paddingTop: 64 }}>
-        <div style={{ maxWidth: 820, margin: '0 auto', padding: '56px 48px' }}>
+        <div className="mg-page-shell" style={{ maxWidth: 820 }}>
 
           {/* Progress bar */}
           <div style={{ width: '100%', height: 1, background: 'var(--border)', marginBottom: 52, position: 'relative' }}>
@@ -173,7 +173,7 @@ export default function QuizPage() {
             <div>
               <Q>SPORT OR<br />BODY AREA?</Q>
               <Sub>Select your sport for a targeted routine, or choose specific joints to work on.</Sub>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, background: 'var(--border)', border: '1px solid var(--border)' }}>
+              <div className="mg-grid-2" style={{ gap: 1, background: 'var(--border)', border: '1px solid var(--border)' }}>
                 {[
                   { id: 'sport', icon: '🏅', label: 'Sport-Specific',  sub: "Tailored to your sport's biomechanical demands" },
                   { id: 'area',  icon: '🎯', label: 'Body Area Focus', sub: 'Choose which joints you want to work on' },
@@ -199,7 +199,7 @@ export default function QuizPage() {
             <div>
               <Q>SELECT<br />YOUR SPORT</Q>
               <Sub>Each sport profile is built from peer-reviewed biomechanical and injury research.</Sub>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 1, background: 'var(--border)', border: '1px solid var(--border)' }}>
+              <div className="mg-grid-4" style={{ gap: 1, background: 'var(--border)', border: '1px solid var(--border)' }}>
                 {SPORTS.map(s => (
                   <div key={s.id}
                     onClick={() => setSport(s.id)}
@@ -221,7 +221,7 @@ export default function QuizPage() {
             <div>
               <Q>WHICH AREAS<br />TO WORK?</Q>
               <Sub>Select one or more areas to focus on.</Sub>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 1, background: 'var(--border)', border: '1px solid var(--border)' }}>
+              <div className="mg-grid-3" style={{ gap: 1, background: 'var(--border)', border: '1px solid var(--border)' }}>
                 {AREAS.map(a => (
                   <div key={a.id}
                     onClick={() => toggleArea(a.id)}
@@ -268,7 +268,7 @@ export default function QuizPage() {
             <div>
               <Q>WHAT'S YOUR<br />MAIN FOCUS?</Q>
               <Sub>This determines how the three pillars are weighted for your session.</Sub>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, background: 'var(--border)', border: '1px solid var(--border)' }}>
+              <div className="mg-grid-2" style={{ gap: 1, background: 'var(--border)', border: '1px solid var(--border)' }}>
                 {GOALS.map(g => (
                   <div key={g.id}
                     onClick={() => setGoal(g.id)}
@@ -291,7 +291,7 @@ export default function QuizPage() {
             <div>
               <Q>INCLUDE FOAM<br />ROLL PREP?</Q>
               <Sub>A short myofascial release phase before your session reduces tissue tension and prepares your joints for loading.</Sub>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, background: 'var(--border)', border: '1px solid var(--border)', marginBottom: 44 }}>
+              <div className="mg-grid-2" style={{ gap: 1, background: 'var(--border)', border: '1px solid var(--border)', marginBottom: 44 }}>
                 {[
                   { val: true,  icon: '🫧', label: 'YES — Include Prep',   sub: 'Adds foam roll exercises before Release. Duration adjusted automatically.' },
                   { val: false, icon: '⚡', label: 'NO — Skip to Release', sub: 'Jump straight into stretching and mobility work.' },

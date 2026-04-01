@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Header from '@/components/Header'
+import ProGate from '@/components/ProGate'
 import { createClient } from '@/lib/supabase/client'
 
 const UC = 'uppercase' as const
@@ -148,7 +149,7 @@ export default function ResultsPage() {
       <Header />
 
       <div style={{ position: 'relative', zIndex: 2, paddingTop: 80 }}>
-        <div style={{ maxWidth: 1600, margin: '0 auto', padding: '60px 100px' }}>
+        <div className="mg-page-shell" style={{ maxWidth: 1600 }}>
 
           {/* Header */}
           <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 15, letterSpacing: 6, color: 'var(--cyan)', marginBottom: 32, textTransform: UC }}>Mobility Profile</p>
@@ -176,7 +177,7 @@ export default function ResultsPage() {
           {(latestScreening || latestBattery) && (
             <>
               {/* Latest scores side by side */}
-              <div style={{ display: 'grid', gridTemplateColumns: latestScreening && latestBattery ? '1fr 1fr' : '1fr', gap: 2, background: 'var(--border)', border: '1px solid var(--border)', marginBottom: 2 }}>
+              <div className={latestScreening && latestBattery ? 'mg-grid-2' : ''} style={{ display: 'grid', gridTemplateColumns: latestScreening && latestBattery ? undefined : '1fr', gap: 2, background: 'var(--border)', border: '1px solid var(--border)', marginBottom: 2 }}>
 
                 {/* Screening score */}
                 {latestScreening && (
@@ -203,7 +204,7 @@ export default function ResultsPage() {
 
               {/* Regional breakdown */}
               {latestScreening && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 2, background: 'var(--border)', border: '1px solid var(--border)', borderTop: 'none', marginBottom: 2 }}>
+                <div className="mg-grid-3" style={{ gap: 2, background: 'var(--border)', border: '1px solid var(--border)', borderTop: 'none', marginBottom: 2 }}>
                   {[
                     { label: 'Hips',      score: latestScreening.hip_score,      icon: '🦵' },
                     { label: 'Shoulders', score: latestScreening.shoulder_score,  icon: '💪' },
@@ -224,7 +225,7 @@ export default function ResultsPage() {
 
               {/* Battery breakdown */}
               {latestBattery && latestBattery.scores && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 2, background: 'var(--border)', border: '1px solid var(--border)', borderTop: 'none', marginBottom: 48 }}>
+                <div className="mg-grid-5" style={{ gap: 2, background: 'var(--border)', border: '1px solid var(--border)', borderTop: 'none', marginBottom: 48 }}>
                   {Object.entries(latestBattery.scores).map(([id, val]) => {
                     const score = val as number
                     const pct   = (score / 3) * 100
@@ -265,9 +266,13 @@ export default function ResultsPage() {
 
               {/* Score history */}
               {(screeningHistory.length > 1 || batteryHistory.length > 1) && (
-                <>
+                <ProGate
+                  title="SCORE HISTORY"
+                  description="Extended assessment history is a Pro feature. Your latest results stay visible, and Pro unlocks the deeper trend view."
+                  features={['Screening history over time', 'Battery history trends', 'Progress context for planning']}
+                >
                   <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 13, letterSpacing: 4, color: 'var(--cyan)', marginBottom: 24, textTransform: UC }}>Score History</p>
-                  <div style={{ display: 'grid', gridTemplateColumns: screeningHistory.length > 1 && batteryHistory.length > 1 ? '1fr 1fr' : '1fr', gap: 2, marginBottom: 48 }}>
+                  <div className={screeningHistory.length > 1 && batteryHistory.length > 1 ? 'mg-grid-2' : ''} style={{ display: 'grid', gridTemplateColumns: screeningHistory.length > 1 && batteryHistory.length > 1 ? undefined : '1fr', gap: 2, marginBottom: 48 }}>
 
                     {/* Screening history */}
                     {screeningHistory.length > 1 && (
@@ -310,7 +315,7 @@ export default function ResultsPage() {
                       </div>
                     )}
                   </div>
-                </>
+                </ProGate>
               )}
 
               {/* CTAs */}
