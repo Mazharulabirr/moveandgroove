@@ -1,9 +1,9 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Header from '@/components/Header'
-import { Icon, type IconName } from '@/components/Icons'
+import { IconCheckin, IconGeneral, IconHips, IconShoulders, IconSpine } from '@/components/Icons'
 import { createClient } from '@/lib/supabase/client'
 
 type Option = { id: string; label: string; value: number }
@@ -12,7 +12,7 @@ type Question = {
   id: string
   region: Region
   regionLabel: string
-  regionIcon: IconName
+  RegionIcon: typeof IconHips
   text: string
   sub: string
   instruction: string
@@ -30,7 +30,7 @@ const QUESTIONS: Question[] = [
     id: 'activity_level',
     region: 'general',
     regionLabel: 'GENERAL',
-    regionIcon: 'general',
+    RegionIcon: IconGeneral,
     text: 'HOW ACTIVE ARE YOU?',
     sub: 'Helps us calibrate intensity and volume.',
     instruction: 'Think about a typical week - training, gym, sport, or walking.',
@@ -47,7 +47,7 @@ const QUESTIONS: Question[] = [
     id: 'pain_presence',
     region: 'general',
     regionLabel: 'GENERAL',
-    regionIcon: 'general',
+    RegionIcon: IconGeneral,
     text: 'ANY CURRENT PAIN?',
     sub: 'Flags areas that need modified loading or extra care.',
     instruction: 'Think about the last 2 weeks - any aches or injuries anywhere.',
@@ -64,7 +64,7 @@ const QUESTIONS: Question[] = [
     id: 'hip_flexion',
     region: 'hips',
     regionLabel: 'HIPS',
-    regionIcon: 'hips',
+    RegionIcon: IconHips,
     text: 'KNEE TO CHEST - HOW FAR?',
     sub: 'Tests hip flexion - how well your hip folds toward your body.',
     instruction: 'Lie flat on your back. Pull one knee toward your chest with both hands. Keep your lower back pressed flat and do not let the other leg lift.',
@@ -81,7 +81,7 @@ const QUESTIONS: Question[] = [
     id: 'hip_rotation',
     region: 'hips',
     regionLabel: 'HIPS',
-    regionIcon: 'hips',
+    RegionIcon: IconHips,
     text: 'HIP ROTATION - BOTH WAYS?',
     sub: 'Tests how freely your hip rotates - critical for sport.',
     instruction: 'Sit on a chair edge with feet hanging. Rotate one foot inward then outward. Thigh stays still and only the lower leg moves.',
@@ -98,7 +98,7 @@ const QUESTIONS: Question[] = [
     id: 'hip_stiffness',
     region: 'hips',
     regionLabel: 'HIPS',
-    regionIcon: 'hips',
+    RegionIcon: IconHips,
     text: 'MORNING HIP STIFFNESS?',
     sub: 'Prolonged stiffness is a key indicator of joint restriction.',
     instruction: 'When you first get out of bed, how do your hips feel and how long until they loosen off?',
@@ -115,7 +115,7 @@ const QUESTIONS: Question[] = [
     id: 'shoulder_overhead',
     region: 'shoulders',
     regionLabel: 'SHOULDERS',
-    regionIcon: 'shoulders',
+    RegionIcon: IconShoulders,
     text: 'ARMS OVERHEAD - FULLY VERTICAL?',
     sub: 'Tests shoulder flexion and upper back mobility.',
     instruction: 'Stand back flat against a wall. Raise both arms overhead with thumbs aiming to touch the wall while keeping the lower back flat.',
@@ -132,7 +132,7 @@ const QUESTIONS: Question[] = [
     id: 'shoulder_rotation',
     region: 'shoulders',
     regionLabel: 'SHOULDERS',
-    regionIcon: 'shoulders',
+    RegionIcon: IconShoulders,
     text: 'SCRATCH TEST - REACH BOTH WAYS?',
     sub: 'Tests internal and external shoulder rotation.',
     instruction: 'One hand reaches up your back from below and the other comes down from above. Try to touch fingers and compare both sides.',
@@ -149,7 +149,7 @@ const QUESTIONS: Question[] = [
     id: 'shoulder_stability',
     region: 'shoulders',
     regionLabel: 'SHOULDERS',
-    regionIcon: 'shoulders',
+    RegionIcon: IconShoulders,
     text: 'SHOULDERS STABLE WHEN PUSHING?',
     sub: 'Reflects rotator cuff strength and joint integrity.',
     instruction: 'Think about push-ups, overhead press, or pushing a door. Do your shoulders feel solid, or do they shift, click, or feel like they might give way?',
@@ -166,7 +166,7 @@ const QUESTIONS: Question[] = [
     id: 'thoracic_rotation',
     region: 'spine',
     regionLabel: 'SPINE',
-    regionIcon: 'spine',
+    RegionIcon: IconSpine,
     text: 'SEATED ROTATION - HOW FAR?',
     sub: 'Tests thoracic rotation - often restricted in athletes.',
     instruction: 'Sit upright with feet flat and arms crossed over chest. Rotate upper body left then right while hips and legs stay still.',
@@ -183,7 +183,7 @@ const QUESTIONS: Question[] = [
     id: 'lumbar_flexion',
     region: 'spine',
     regionLabel: 'SPINE',
-    regionIcon: 'spine',
+    RegionIcon: IconSpine,
     text: 'TOE TOUCH - HOW FAR?',
     sub: 'Screens lower back and hamstring flexibility.',
     instruction: 'Stand with feet together and legs straight. Bend forward slowly without bouncing and note where your fingertips reach.',
@@ -200,7 +200,7 @@ const QUESTIONS: Question[] = [
     id: 'spine_pain',
     region: 'spine',
     regionLabel: 'SPINE',
-    regionIcon: 'spine',
+    RegionIcon: IconSpine,
     text: 'BACK OR NECK PAIN - HOW OFTEN?',
     sub: 'Baseline to track improvement over time.',
     instruction: 'Over the last 4 weeks, how often did you feel pain or aching anywhere in your back or neck?',
@@ -346,12 +346,12 @@ export default function ScreeningPage() {
               </p>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 2, background: 'var(--border)', border: '1px solid var(--border)', marginBottom: 64 }}>
                 {[
-                  { icon: 'hips' as IconName, label: 'Hips', color: REGION_COLORS.hips },
-                  { icon: 'shoulders' as IconName, label: 'Shoulders', color: REGION_COLORS.shoulders },
-                  { icon: 'spine' as IconName, label: 'Spine', color: REGION_COLORS.spine },
+                  { Icon: IconHips, label: 'Hips', color: REGION_COLORS.hips },
+                  { Icon: IconShoulders, label: 'Shoulders', color: REGION_COLORS.shoulders },
+                  { Icon: IconSpine, label: 'Spine', color: REGION_COLORS.spine },
                 ].map((region) => (
                   <div key={region.label} style={{ background: 'var(--black2)', padding: '60px 24px', textAlign: CA }}>
-                    <span style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}><Icon name={region.icon} size={56} color={region.color} /></span>
+                    <span style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}><region.Icon size={56} color={region.color} /></span>
                     <p style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 18, fontWeight: 700, letterSpacing: 3, color: region.color, marginBottom: 12 }}>{region.label}</p>
                     <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 14, letterSpacing: 2, color: 'var(--silver3)' }}>3 questions</p>
                   </div>
@@ -372,7 +372,7 @@ export default function ScreeningPage() {
               <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 15, letterSpacing: 4, color: 'var(--silver3)', marginBottom: 44, textTransform: UC }}>Question {step} of {TOTAL}</p>
 
               <div style={{ display: 'inline-flex', alignItems: 'center', gap: 16, background: `${regionColor}20`, border: `1px solid ${regionColor}50`, padding: '18px 40px', marginBottom: 44 }}>
-                <Icon name={question.regionIcon} size={38} color={regionColor} />
+                <question.RegionIcon size={38} color={regionColor} />
                 <span style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 22, fontWeight: 700, letterSpacing: 4, color: regionColor, textTransform: UC }}>{question.regionLabel}</span>
               </div>
 
@@ -395,7 +395,7 @@ export default function ScreeningPage() {
                           <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 26, fontWeight: selected ? 600 : 400, color: selected ? 'var(--white)' : 'var(--silver)', lineHeight: 1.4 }}>{option.label}</span>
                           {selected && (
                             <span style={{ marginLeft: 'auto', flexShrink: 0, display: 'flex' }}>
-                              <Icon name="checkin" size={26} color={regionColor} />
+                              <IconCheckin size={26} color={regionColor} />
                             </span>
                           )}
                         </div>
@@ -438,7 +438,7 @@ export default function ScreeningPage() {
                           <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 26, fontWeight: selected ? 600 : 400, color: selected ? 'var(--white)' : 'var(--silver)', lineHeight: 1.4 }}>{option.label}</span>
                           {selected && (
                             <span style={{ marginLeft: 'auto', flexShrink: 0, display: 'flex' }}>
-                              <Icon name="checkin" size={26} color={regionColor} />
+                              <IconCheckin size={26} color={regionColor} />
                             </span>
                           )}
                         </div>
@@ -476,10 +476,10 @@ export default function ScreeningPage() {
                 {(['hips', 'shoulders', 'spine'] as const).map((region) => {
                   const score = scores[region]
                   const status = scoreLabel(score.pct)
-                  const iconName = region === 'hips' ? 'hips' : region === 'shoulders' ? 'shoulders' : 'spine'
+                  const RegionSummaryIcon = region === 'hips' ? IconHips : region === 'shoulders' ? IconShoulders : IconSpine
                   return (
                     <div key={region} style={{ background: 'var(--black2)', padding: '56px 32px', textAlign: CA }}>
-                      <span style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}><Icon name={iconName} size={56} color={status.color} /></span>
+                      <span style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}><RegionSummaryIcon size={56} color={status.color} /></span>
                       <p style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 16, fontWeight: 700, letterSpacing: 3, color: 'var(--silver)', marginBottom: 24, textTransform: UC }}>{region}</p>
                       <div style={{ height: 3, background: 'var(--silver4)', marginBottom: 16, position: 'relative' }}>
                         <div style={{ position: 'absolute', top: 0, left: 0, height: '100%', width: `${score.pct}%`, background: status.color, transition: 'width 1.2s ease' }} />
@@ -522,3 +522,4 @@ export default function ScreeningPage() {
     </div>
   )
 }
+

@@ -1,14 +1,21 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Header from '@/components/Header'
-import { Icon } from '@/components/Icons'
+import { IconCheckin, IconEnergy, IconMotivation, IconSleep, IconSoreness, IconStress } from '@/components/Icons'
 import { createClient } from '@/lib/supabase/client'
 import { READINESS_QUESTIONS, readinessLabel, readinessScore } from '@/lib/readiness'
 
 const UC = 'uppercase' as const
 const TOTAL = READINESS_QUESTIONS.length
+const READINESS_ICONS = {
+  sleep: IconSleep,
+  soreness: IconSoreness,
+  energy: IconEnergy,
+  stress: IconStress,
+  motivation: IconMotivation,
+}
 
 export default function ReadinessPage() {
   const router = useRouter()
@@ -87,12 +94,15 @@ export default function ReadinessPage() {
                 5 quick questions in under a minute. Your readiness score shapes today&apos;s session recommendation.
               </p>
               <div className="mg-grid-5" style={{ gap: 2, background: 'var(--border)', border: '1px solid var(--border)', marginBottom: 56 }}>
-                {READINESS_QUESTIONS.map((item) => (
-                  <div key={item.id} style={{ background: 'var(--black2)', padding: '32px 16px', textAlign: 'center' }}>
-                    <span style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}><Icon name={item.icon} size={28} color="var(--cyan)" /></span>
-                    <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 2, color: 'var(--silver3)', textTransform: UC }}>{item.id}</p>
-                  </div>
-                ))}
+                {READINESS_QUESTIONS.map((item) => {
+                  const ReadinessIcon = READINESS_ICONS[item.id as keyof typeof READINESS_ICONS]
+                  return (
+                    <div key={item.id} style={{ background: 'var(--black2)', padding: '32px 16px', textAlign: 'center' }}>
+                      <span style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}><ReadinessIcon size={28} color="var(--cyan)" /></span>
+                      <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 2, color: 'var(--silver3)', textTransform: UC }}>{item.id}</p>
+                    </div>
+                  )
+                })}
               </div>
               <div style={{ display: 'flex', gap: 16 }}>
                 <button className="btn-outline" onClick={() => router.push('/dashboard')}>BACK</button>
@@ -108,7 +118,10 @@ export default function ReadinessPage() {
               </div>
               <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 14, letterSpacing: 4, color: 'var(--silver3)', marginBottom: 44, textTransform: UC }}>Question {step} of {TOTAL}</p>
 
-              <span style={{ display: 'flex', marginBottom: 24 }}><Icon name={question.icon} size={48} color="var(--cyan)" /></span>
+              {(() => {
+                const ReadinessIcon = READINESS_ICONS[question.id as keyof typeof READINESS_ICONS]
+                return <span style={{ display: 'flex', marginBottom: 24 }}><ReadinessIcon size={48} color="var(--cyan)" /></span>
+              })()}
               <p style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 56, fontWeight: 700, letterSpacing: 2, color: 'var(--white)', lineHeight: 1.1, marginBottom: 20 }}>{question.text}</p>
               <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 22, color: 'var(--silver2)', marginBottom: 48, lineHeight: 1.6 }}>{question.sub}</p>
 
@@ -119,7 +132,7 @@ export default function ReadinessPage() {
                     <div key={option.value} onClick={() => pick(question.id, option.value)} style={{ background: selected ? 'var(--black3)' : 'var(--black2)', padding: '28px 48px', cursor: 'pointer', transition: 'background 0.2s', display: 'flex', alignItems: 'center', gap: 28, borderLeft: selected ? '6px solid var(--cyan)' : '6px solid transparent' }}>
                       <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 16, letterSpacing: 2, color: selected ? 'var(--cyan)' : 'var(--silver4)', minWidth: 32, flexShrink: 0 }}>{index + 1}</span>
                       <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 24, fontWeight: selected ? 600 : 400, color: selected ? 'var(--white)' : 'var(--silver)', lineHeight: 1.4 }}>{option.label}</span>
-                      {selected && <span style={{ marginLeft: 'auto', display: 'flex' }}><Icon name="checkin" size={26} color="var(--cyan)" /></span>}
+                      {selected && <span style={{ marginLeft: 'auto', display: 'flex' }}><IconCheckin size={26} color="var(--cyan)" /></span>}
                     </div>
                   )
                 })}
@@ -150,9 +163,10 @@ export default function ReadinessPage() {
                   const value = answers[item.id] ?? 0
                   const pct = (value / 4) * 100
                   const color = pct >= 75 ? '#00b4d8' : pct >= 50 ? '#4ac8e8' : pct >= 25 ? '#e8a94a' : '#e74c3c'
+                  const ReadinessIcon = READINESS_ICONS[item.id as keyof typeof READINESS_ICONS]
                   return (
                     <div key={item.id} style={{ background: 'var(--black2)', padding: '32px 16px', textAlign: 'center' }}>
-                      <span style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}><Icon name={item.icon} size={26} color={color} /></span>
+                      <span style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}><ReadinessIcon size={26} color={color} /></span>
                       <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 2, color: 'var(--silver3)', marginBottom: 16, textTransform: UC }}>{item.id}</p>
                       <div style={{ height: 3, background: 'var(--silver4)', marginBottom: 12, position: 'relative' }}>
                         <div style={{ position: 'absolute', top: 0, left: 0, height: '100%', width: `${pct}%`, background: color }} />
@@ -180,3 +194,4 @@ export default function ReadinessPage() {
     </div>
   )
 }
+

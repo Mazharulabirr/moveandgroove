@@ -1,9 +1,9 @@
-'use client'
+ï»¿'use client'
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Header from '@/components/Header'
-import { Icon, type IconName } from '@/components/Icons'
+import { IconBattery, IconCheckin, IconCheckbox, IconEnergy, IconFocus, IconPain, IconReadiness } from '@/components/Icons'
 import { createClient } from '@/lib/supabase/client'
 
 const UC = 'uppercase' as const
@@ -13,7 +13,7 @@ type Question = {
   id: string
   text: string
   sub: string
-  icon: IconName
+  Icon: typeof IconPain
   options: { value: number; label: string }[]
 }
 
@@ -22,7 +22,7 @@ const PRE_QUESTIONS: Question[] = [
     id: 'pain',
     text: 'ANY PAIN OR DISCOMFORT TODAY?',
     sub: 'This helps flag whether the session should stay clean and low-risk.',
-    icon: 'pain',
+    Icon: IconPain,
     options: [
       { value: 4, label: 'None' },
       { value: 3, label: 'Mild' },
@@ -34,7 +34,7 @@ const PRE_QUESTIONS: Question[] = [
     id: 'energy',
     text: 'HOW IS YOUR ENERGY RIGHT NOW?',
     sub: 'A quick check on how much quality work you can handle today.',
-    icon: 'energy',
+    Icon: IconEnergy,
     options: [
       { value: 4, label: 'High' },
       { value: 3, label: 'Good' },
@@ -49,7 +49,7 @@ const POST_QUESTIONS: Question[] = [
     id: 'completion',
     text: 'DID YOU COMPLETE THE SESSION?',
     sub: 'Tracks adherence and gives context for your progress.',
-    icon: 'checkbox',
+    Icon: IconCheckbox,
     options: [
       { value: 4, label: 'Fully - every exercise done' },
       { value: 3, label: 'Mostly - skipped one or two' },
@@ -61,7 +61,7 @@ const POST_QUESTIONS: Question[] = [
     id: 'rpe',
     text: 'HOW HARD DID IT FEEL?',
     sub: 'Rate of perceived exertion across the whole session.',
-    icon: 'battery',
+    Icon: IconBattery,
     options: [
       { value: 1, label: 'Very easy - barely felt it' },
       { value: 2, label: 'Moderate - good challenge' },
@@ -73,7 +73,7 @@ const POST_QUESTIONS: Question[] = [
     id: 'feel',
     text: 'HOW DO YOU FEEL NOW?',
     sub: 'Post-session feedback helps calibrate future sessions.',
-    icon: 'readiness',
+    Icon: IconReadiness,
     options: [
       { value: 4, label: 'Great - looser and energised' },
       { value: 3, label: 'Good - noticeably better' },
@@ -85,7 +85,7 @@ const POST_QUESTIONS: Question[] = [
     id: 'areas',
     text: 'ANY AREAS THAT NEED MORE WORK?',
     sub: 'Flags which regions to prioritise in your next session.',
-    icon: 'focus',
+    Icon: IconFocus,
     options: [
       { value: 4, label: 'Hips feel tight' },
       { value: 3, label: 'Shoulders feel tight' },
@@ -184,11 +184,11 @@ export default function SessionCheckinPage() {
               </p>
               <div className="mg-grid-2" style={{ gap: 2, background: 'var(--border)', border: '1px solid var(--border)', marginBottom: 56 }}>
                 {[
-                  { id: 'pre' as CheckinType, icon: 'readiness' as IconName, label: 'PRE-SESSION', sub: 'Pain and energy check before you start.', questions: 2 },
-                  { id: 'post' as CheckinType, icon: 'checkin' as IconName, label: 'POST-SESSION', sub: 'Completion, effort, feel, and next focus.', questions: 4 },
+                  { id: 'pre' as CheckinType, Icon: IconReadiness, label: 'PRE-SESSION', sub: 'Pain and energy check before you start.', questions: 2 },
+                  { id: 'post' as CheckinType, Icon: IconCheckin, label: 'POST-SESSION', sub: 'Completion, effort, feel, and next focus.', questions: 4 },
                 ].map((item) => (
                   <div key={item.id} onClick={() => { setType(item.id); setStep(1) }} style={{ background: 'var(--black2)', padding: '56px 40px', cursor: 'pointer', transition: 'background 0.2s' }}>
-                    <span style={{ display: 'flex', marginBottom: 24 }}><Icon name={item.icon} size={42} color="var(--cyan)" /></span>
+                    <span style={{ display: 'flex', marginBottom: 24 }}><item.Icon size={42} color="var(--cyan)" /></span>
                     <p style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 20, fontWeight: 700, letterSpacing: 3, color: 'var(--cyan)', marginBottom: 16 }}>{item.label}</p>
                     <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 20, color: 'var(--silver2)', lineHeight: 1.6, marginBottom: 20 }}>{item.sub}</p>
                     <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, letterSpacing: 3, color: 'var(--silver3)', textTransform: UC }}>{item.questions} questions</p>
@@ -206,10 +206,10 @@ export default function SessionCheckinPage() {
               </div>
 
               <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 14, letterSpacing: 4, color: 'var(--silver3)', marginBottom: 44, textTransform: UC }}>
-                {type === 'pre' ? 'Pre-Session' : 'Post-Session'} · Question {step} of {total}
+                {type === 'pre' ? 'Pre-Session' : 'Post-Session'} Â· Question {step} of {total}
               </p>
 
-              <span style={{ display: 'flex', marginBottom: 24 }}><Icon name={question.icon} size={48} color={accentColor} /></span>
+              <span style={{ display: 'flex', marginBottom: 24 }}><question.Icon size={48} color={accentColor} /></span>
               <p style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 52, fontWeight: 700, letterSpacing: 2, color: 'var(--white)', lineHeight: 1.1, marginBottom: 20 }}>{question.text}</p>
               <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 22, color: 'var(--silver2)', marginBottom: 48, lineHeight: 1.6 }}>{question.sub}</p>
 
@@ -220,7 +220,7 @@ export default function SessionCheckinPage() {
                     <div key={option.value} onClick={() => pick(question.id, option.value)} style={{ background: selected ? 'var(--black3)' : 'var(--black2)', padding: '28px 48px', cursor: 'pointer', transition: 'background 0.2s', display: 'flex', alignItems: 'center', gap: 28, borderLeft: selected ? `6px solid ${accentColor}` : '6px solid transparent' }}>
                       <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 16, letterSpacing: 2, color: selected ? accentColor : 'var(--silver4)', minWidth: 32, flexShrink: 0 }}>{index + 1}</span>
                       <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 24, fontWeight: selected ? 600 : 400, color: selected ? 'var(--white)' : 'var(--silver)', lineHeight: 1.4 }}>{option.label}</span>
-                      {selected && <span style={{ marginLeft: 'auto', display: 'flex' }}><Icon name="checkin" size={26} color={accentColor} /></span>}
+                      {selected && <span style={{ marginLeft: 'auto', display: 'flex' }}><IconCheckin size={26} color={accentColor} /></span>}
                     </div>
                   )
                 })}
@@ -241,7 +241,7 @@ export default function SessionCheckinPage() {
                 {type === 'pre' ? 'Pre-Session' : 'Post-Session'} Complete
               </p>
               <p style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 72, fontWeight: 700, letterSpacing: 2, color: 'var(--white)', lineHeight: 1.05, marginBottom: 32 }}>
-                {type === 'pre' ? 'LET’S GO' : 'WELL DONE'}
+                {type === 'pre' ? 'LETâ€™S GO' : 'WELL DONE'}
               </p>
 
               <div style={{ background: 'var(--black2)', border: '1px solid var(--border)', padding: '48px', marginBottom: 48 }}>
@@ -268,3 +268,4 @@ export default function SessionCheckinPage() {
     </div>
   )
 }
+

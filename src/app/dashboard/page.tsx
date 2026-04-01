@@ -1,10 +1,18 @@
-'use client'
+﻿'use client'
 
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { User } from '@supabase/supabase-js'
 import Header from '@/components/Header'
-import { Icon, type IconName } from '@/components/Icons'
+import {
+  IconBattery,
+  IconCheckin,
+  IconPrograms,
+  IconRecovery,
+  IconResults,
+  IconRoutine,
+  IconScreening,
+} from '@/components/Icons'
 import { createClient } from '@/lib/supabase/client'
 import { getIsPro } from '@/lib/profiles'
 
@@ -27,14 +35,14 @@ interface Routine {
 
 const UC = 'uppercase' as const
 
-const QUICK_ACTIONS: { icon: IconName; title: string; sub: string; badge: string; href: string }[] = [
-  { icon: 'duration', title: 'New Routine', sub: 'Build a sport-specific or area-focused mobility session.', badge: 'AI GENERATED', href: '/quiz' },
-  { icon: 'recovery', title: 'Recovery Session', sub: 'Foam roll series for tissue quality and recovery.', badge: '15 � 20 � 30 MIN', href: '/recovery' },
-  { icon: 'screening', title: 'Mobility Screening', sub: '11-question assessment across hips, shoulders, and spine.', badge: '3 MIN � 11 QUESTIONS', href: '/screening' },
-  { icon: 'battery', title: 'Movement Battery', sub: 'Five fundamental movement tests scored 0-3.', badge: '5 TESTS � 10 MIN', href: '/battery' },
-  { icon: 'results', title: 'My Results', sub: 'View your mobility scores and track progress over time.', badge: 'SCORE HISTORY', href: '/results' },
-  { icon: 'checkin', title: 'Session Check-in', sub: 'Pre or post session logging for pain, energy, RPE, and feedback.', badge: 'PRE � POST', href: '/session-checkin' },
-  { icon: 'programs', title: 'Programs + Calendar', sub: 'Map your weekly sessions into a rolling 4-week block.', badge: 'WEEKLY VIEW', href: '/programs' },
+const QUICK_ACTIONS = [
+  { Icon: IconRoutine, title: 'New Routine', sub: 'Build a sport-specific or area-focused mobility session.', badge: 'AI GENERATED', href: '/quiz' },
+  { Icon: IconRecovery, title: 'Recovery Session', sub: 'Foam roll series for tissue quality and recovery.', badge: '15 ï¿½ 20 ï¿½ 30 MIN', href: '/recovery' },
+  { Icon: IconScreening, title: 'Mobility Screening', sub: '11-question assessment across hips, shoulders, and spine.', badge: '3 MIN ï¿½ 11 QUESTIONS', href: '/screening' },
+  { Icon: IconBattery, title: 'Movement Battery', sub: 'Five fundamental movement tests scored 0-3.', badge: '5 TESTS ï¿½ 10 MIN', href: '/battery' },
+  { Icon: IconResults, title: 'My Results', sub: 'View your mobility scores and track progress over time.', badge: 'SCORE HISTORY', href: '/results' },
+  { Icon: IconCheckin, title: 'Session Check-in', sub: 'Pre or post session logging for pain, energy, RPE, and feedback.', badge: 'PRE ï¿½ POST', href: '/session-checkin' },
+  { Icon: IconPrograms, title: 'Programs + Calendar', sub: 'Map your weekly sessions into a rolling 4-week block.', badge: 'WEEKLY VIEW', href: '/programs' },
 ]
 
 export default function DashboardPage() {
@@ -215,7 +223,7 @@ export default function DashboardPage() {
                 }}
               >
                 <span style={{ display: 'flex', marginBottom: 12 }}>
-                  <Icon name={action.icon} size={28} color="var(--cyan)" />
+                  <action.Icon size={28} color="var(--cyan)" />
                 </span>
                 <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 15, fontWeight: 700, letterSpacing: 3, color: 'var(--white)', marginBottom: 8, textTransform: UC }}>
                   {action.title}
@@ -250,7 +258,7 @@ export default function DashboardPage() {
           {routines.length === 0 ? (
             <div className="empty-state">
               <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
-                <Icon name="duration" size={34} color="var(--silver4)" />
+                <IconRoutine size={34} color="var(--silver4)" />
               </div>
               <div className="empty-state-text">No saved routines yet.<br />Generate your first to begin.</div>
             </div>
@@ -269,7 +277,7 @@ export default function DashboardPage() {
                   }}
                 >
                   <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 3, color: 'var(--cyan3)', marginBottom: 10, textTransform: UC }}>
-                    {routine.sport ? routine.sport.toUpperCase() : (routine.areas || []).map((area) => area.toUpperCase()).join(' � ')}
+                    {routine.sport ? routine.sport.toUpperCase() : (routine.areas || []).map((area) => area.toUpperCase()).join(' ï¿½ ')}
                   </div>
                   <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 26, fontWeight: 600, color: 'var(--white)', marginBottom: 14, lineHeight: 1.3 }}>
                     {routine.title}
@@ -294,3 +302,4 @@ export default function DashboardPage() {
     </>
   )
 }
+

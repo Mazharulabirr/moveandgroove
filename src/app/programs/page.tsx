@@ -1,10 +1,10 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Header from '@/components/Header'
 import ProGate from '@/components/ProGate'
-import { Icon } from '@/components/Icons'
+import { IconEnergy, IconMotivation, IconSleep, IconSoreness, IconStress } from '@/components/Icons'
 import { createClient } from '@/lib/supabase/client'
 import { READINESS_QUESTIONS, readinessScore } from '@/lib/readiness'
 
@@ -102,6 +102,14 @@ function buildBlockSummary(routines: RoutineRow[]) {
       window: `${formatShort(start)} - ${formatShort(end)}`,
     }
   })
+}
+
+const READINESS_ICONS = {
+  sleep: IconSleep,
+  soreness: IconSoreness,
+  energy: IconEnergy,
+  stress: IconStress,
+  motivation: IconMotivation,
 }
 
 export default function ProgramsPage() {
@@ -306,38 +314,41 @@ export default function ProgramsPage() {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 18, marginBottom: 28 }}>
-              {READINESS_QUESTIONS.map((question, index) => (
-                <div key={question.id} style={{ border: '1px solid var(--border2)', padding: '22px 20px', background: 'var(--black3)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 10 }}>
-                    <Icon name={question.icon} size={24} color="var(--cyan)" />
-                    <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 12, fontWeight: 700, letterSpacing: 2, color: 'var(--white)', textTransform: UC }}>{index + 1}. {question.text}</div>
+              {READINESS_QUESTIONS.map((question, index) => {
+                const ReadinessIcon = READINESS_ICONS[question.id as keyof typeof READINESS_ICONS]
+                return (
+                  <div key={question.id} style={{ border: '1px solid var(--border2)', padding: '22px 20px', background: 'var(--black3)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 10 }}>
+                      <ReadinessIcon size={24} color="var(--cyan)" />
+                      <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 12, fontWeight: 700, letterSpacing: 2, color: 'var(--white)', textTransform: UC }}>{index + 1}. {question.text}</div>
+                    </div>
+                    <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: 'var(--silver2)', lineHeight: 1.7, marginBottom: 14 }}>{question.sub}</div>
+                    <div className="mg-grid-2" style={{ gap: 10 }}>
+                      {question.options.map((option) => {
+                        const selected = answers[question.id] === option.value
+                        return (
+                          <button
+                            key={option.value}
+                            onClick={() => setAnswers((prev) => ({ ...prev, [question.id]: option.value }))}
+                            style={{
+                              background: selected ? 'rgba(0,180,216,0.08)' : 'var(--black2)',
+                              color: selected ? 'var(--white)' : 'var(--silver2)',
+                              border: selected ? '1px solid rgba(0,180,216,0.3)' : '1px solid var(--border)',
+                              padding: '14px 16px',
+                              textAlign: 'left',
+                              cursor: 'pointer',
+                              fontFamily: "'DM Sans',sans-serif",
+                              fontSize: 15,
+                            }}
+                          >
+                            {option.label}
+                          </button>
+                        )
+                      })}
+                    </div>
                   </div>
-                  <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: 'var(--silver2)', lineHeight: 1.7, marginBottom: 14 }}>{question.sub}</div>
-                  <div className="mg-grid-2" style={{ gap: 10 }}>
-                    {question.options.map((option) => {
-                      const selected = answers[question.id] === option.value
-                      return (
-                        <button
-                          key={option.value}
-                          onClick={() => setAnswers((prev) => ({ ...prev, [question.id]: option.value }))}
-                          style={{
-                            background: selected ? 'rgba(0,180,216,0.08)' : 'var(--black2)',
-                            color: selected ? 'var(--white)' : 'var(--silver2)',
-                            border: selected ? '1px solid rgba(0,180,216,0.3)' : '1px solid var(--border)',
-                            padding: '14px 16px',
-                            textAlign: 'left',
-                            cursor: 'pointer',
-                            fontFamily: "'DM Sans',sans-serif",
-                            fontSize: 15,
-                          }}
-                        >
-                          {option.label}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
 
             <div className="mg-split-section" style={{ alignItems: 'center' }}>
@@ -354,3 +365,4 @@ export default function ProgramsPage() {
     </>
   )
 }
+

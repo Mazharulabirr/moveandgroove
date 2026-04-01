@@ -1,9 +1,9 @@
-'use client'
+ï»¿'use client'
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Header from '@/components/Header'
-import { Icon } from '@/components/Icons'
+import { IconRecovery, IconRoutine } from '@/components/Icons'
 import { createClient } from '@/lib/supabase/client'
 
 const UC = 'uppercase' as const
@@ -111,7 +111,7 @@ export default function RecoveryPage() {
           <div className="mg-grid-2" style={{ gap: 24, alignItems: 'stretch' }}>
             <section style={{ background: 'var(--black2)', border: '1px solid var(--border)', padding: '36px 34px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-                <Icon name="duration" size={24} color="var(--cyan)" />
+                <IconRoutine size={24} color="var(--cyan)" />
                 <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 18, fontWeight: 700, letterSpacing: 3, color: 'var(--white)', textTransform: UC }}>
                   Choose Duration
                 </div>
@@ -161,7 +161,7 @@ export default function RecoveryPage() {
 
             <section style={{ background: 'var(--black2)', border: '1px solid var(--border)', padding: '36px 34px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-                <Icon name="recovery" size={24} color="var(--cyan)" />
+                <IconRecovery size={24} color="var(--cyan)" />
                 <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: 'var(--cyan)', textTransform: UC }}>
                   {'// Session Blueprint'}
                 </div>
@@ -171,7 +171,7 @@ export default function RecoveryPage() {
               </div>
 
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
-                {['Flexibility goal', 'Prep included', 'Hips · Shoulders · Spine'].map((tag) => (
+                {['Flexibility goal', 'Prep included', 'Hips Â· Shoulders Â· Spine'].map((tag) => (
                   <span key={tag} className="meta-chip">{tag}</span>
                 ))}
               </div>
@@ -204,3 +204,4 @@ export default function RecoveryPage() {
     </>
   )
 }
+

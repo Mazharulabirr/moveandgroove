@@ -1,10 +1,21 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Header from '@/components/Header'
 import ProGate from '@/components/ProGate'
-import { Icon, type IconName } from '@/components/Icons'
+import {
+  IconBattery,
+  IconHinge,
+  IconHips,
+  IconLunge,
+  IconPress,
+  IconResults,
+  IconRotation,
+  IconShoulders,
+  IconSpine,
+  IconSquat,
+} from '@/components/Icons'
 import { createClient } from '@/lib/supabase/client'
 
 const UC = 'uppercase' as const
@@ -53,12 +64,12 @@ const BATTERY_LABELS: Record<string, string> = {
   rotation: 'Seated Rotation',
 }
 
-const BATTERY_ICONS: Record<string, IconName> = {
-  deep_squat: 'deepSquat',
-  hip_hinge: 'hipHinge',
-  shoulder_press: 'shoulderPress',
-  lunge: 'lunge',
-  rotation: 'rotation',
+const BATTERY_ICONS = {
+  deep_squat: IconSquat,
+  hip_hinge: IconHinge,
+  shoulder_press: IconPress,
+  lunge: IconLunge,
+  rotation: IconRotation,
 }
 
 export default function ResultsPage() {
@@ -158,7 +169,7 @@ export default function ResultsPage() {
 
           {hasNoData && (
             <div style={{ background: 'var(--black2)', border: '1px solid var(--border)', padding: '80px 48px', textAlign: CA, marginBottom: 48 }}>
-              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 24 }}><Icon name="results" size={42} color="var(--cyan)" /></div>
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 24 }}><IconResults size={42} color="var(--cyan)" /></div>
               <p style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 20, fontWeight: 700, letterSpacing: 2, color: 'var(--white)', marginBottom: 16 }}>NO DATA YET</p>
               <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 18, color: 'var(--silver2)', marginBottom: 40, lineHeight: 1.6 }}>
                 Complete your mobility screening and movement battery to see your scores here.
@@ -197,12 +208,12 @@ export default function ResultsPage() {
               {latestScreening && (
                 <div className="mg-grid-3" style={{ gap: 2, background: 'var(--border)', border: '1px solid var(--border)', borderTop: 'none', marginBottom: 2 }}>
                   {[
-                    { label: 'Hips', score: latestScreening.hip_score, icon: 'hips' as IconName },
-                    { label: 'Shoulders', score: latestScreening.shoulder_score, icon: 'shoulders' as IconName },
-                    { label: 'Spine', score: latestScreening.spine_score, icon: 'spine' as IconName },
+                    { label: 'Hips', score: latestScreening.hip_score, Icon: IconHips },
+                    { label: 'Shoulders', score: latestScreening.shoulder_score, Icon: IconShoulders },
+                    { label: 'Spine', score: latestScreening.spine_score, Icon: IconSpine },
                   ].map((region) => (
                     <div key={region.label} style={{ background: 'var(--black2)', padding: '40px 24px', textAlign: CA }}>
-                      <span style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}><Icon name={region.icon} size={42} color={scoreColor(region.score)} /></span>
+                      <span style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}><region.Icon size={42} color={scoreColor(region.score)} /></span>
                       <p style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 14, fontWeight: 700, letterSpacing: 3, color: 'var(--silver)', marginBottom: 20, textTransform: UC }}>{region.label}</p>
                       <div style={{ height: 3, background: 'var(--silver4)', marginBottom: 14, position: 'relative' }}>
                         <div style={{ position: 'absolute', top: 0, left: 0, height: '100%', width: `${region.score}%`, background: scoreColor(region.score), transition: 'width 1.2s ease' }} />
@@ -219,9 +230,10 @@ export default function ResultsPage() {
                   {Object.entries(latestBattery.scores).map(([id, value]) => {
                     const score = value as number
                     const pct = (score / 3) * 100
+                    const BatteryIcon = BATTERY_ICONS[id as keyof typeof BATTERY_ICONS] || IconBattery
                     return (
                       <div key={id} style={{ background: 'var(--black2)', padding: '36px 16px', textAlign: CA }}>
-                        <span style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}><Icon name={BATTERY_ICONS[id] || 'battery'} size={34} color={scoreColor(pct)} /></span>
+                        <span style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}><BatteryIcon size={34} color={scoreColor(pct)} /></span>
                         <p style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: 2, color: 'var(--silver)', marginBottom: 16, textTransform: UC }}>{BATTERY_LABELS[id] || id}</p>
                         <div style={{ height: 3, background: 'var(--silver4)', marginBottom: 12, position: 'relative' }}>
                           <div style={{ position: 'absolute', top: 0, left: 0, height: '100%', width: `${pct}%`, background: scoreColor(pct), transition: 'width 1.2s ease' }} />
@@ -316,3 +328,4 @@ export default function ResultsPage() {
     </div>
   )
 }
+

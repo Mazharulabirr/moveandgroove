@@ -1,9 +1,9 @@
-'use client'
+ï»¿'use client'
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Header from '@/components/Header'
-import { Icon, type IconName } from '@/components/Icons'
+import { IconCheckin, IconHinge, IconLunge, IconPress, IconRotation, IconSquat } from '@/components/Icons'
 import { createClient } from '@/lib/supabase/client'
 
 const UC = 'uppercase' as const
@@ -12,7 +12,7 @@ const CA = 'center' as const
 type Test = {
   id: string
   label: string
-  icon: IconName
+  Icon: typeof IconSquat
   focus: string
   what: string
   instruction: string
@@ -25,8 +25,8 @@ const TESTS: Test[] = [
   {
     id: 'deep_squat',
     label: 'DEEP SQUAT',
-    icon: 'deepSquat',
-    focus: 'Hips · Ankles · Thoracic Spine',
+    Icon: IconSquat,
+    focus: 'Hips Â· Ankles Â· Thoracic Spine',
     what: 'The deep squat tests bilateral lower-body mobility plus thoracic extension and overhead position.',
     instruction: 'Stand with feet shoulder-width apart and toes slightly out. Hold a dowel or broomstick overhead with arms fully extended. Squat as deep as possible, keeping heels flat and chest up.',
     photo: 'https://images.unsplash.com/photo-1574680096145-d05b474e2155?w=700&q=80&fit=crop',
@@ -41,8 +41,8 @@ const TESTS: Test[] = [
   {
     id: 'hip_hinge',
     label: 'HIP HINGE',
-    icon: 'hipHinge',
-    focus: 'Hamstrings · Glutes · Lower Back',
+    Icon: IconHinge,
+    focus: 'Hamstrings Â· Glutes Â· Lower Back',
     what: 'The hip hinge tests your ability to load the posterior chain while maintaining a neutral spine.',
     instruction: 'Stand tall with feet hip-width apart. Place a dowel along your spine touching head, upper back, and tailbone. Hinge forward at the hips while keeping all three contact points.',
     photo: 'https://images.unsplash.com/photo-1541534741688-6078c6bfb5c5?w=700&q=80&fit=crop',
@@ -57,8 +57,8 @@ const TESTS: Test[] = [
   {
     id: 'shoulder_press',
     label: 'SHOULDER PRESS',
-    icon: 'shoulderPress',
-    focus: 'Shoulder Flexion · Thoracic Extension · Lat Length',
+    Icon: IconPress,
+    focus: 'Shoulder Flexion Â· Thoracic Extension Â· Lat Length',
     what: 'Tests overhead shoulder mobility and stability without compensating through the lower back.',
     instruction: 'Stand with your back flat against a wall, feet slightly forward. Slide both arms up the wall, trying to get them fully overhead while keeping the lower back flat.',
     photo: 'https://images.unsplash.com/photo-1597452485669-2c7bb5fef90d?w=700&q=80&fit=crop',
@@ -73,8 +73,8 @@ const TESTS: Test[] = [
   {
     id: 'lunge',
     label: 'INLINE LUNGE',
-    icon: 'lunge',
-    focus: 'Hip Flexor · Quad · Glute · Knee Stability',
+    Icon: IconLunge,
+    focus: 'Hip Flexor Â· Quad Â· Glute Â· Knee Stability',
     what: 'The inline lunge tests hip mobility, knee stability, and trunk control in the sagittal plane.',
     instruction: 'Stand on a line or place a stick on the floor. Step forward into a lunge with your front foot on the line and lower your back knee behind the front heel while keeping the torso tall.',
     photo: 'https://images.unsplash.com/photo-1434608519344-49d77a124f2a?w=700&q=80&fit=crop',
@@ -89,8 +89,8 @@ const TESTS: Test[] = [
   {
     id: 'rotation',
     label: 'SEATED ROTATION',
-    icon: 'rotation',
-    focus: 'Thoracic Spine · Rib Cage · Shoulder Girdle',
+    Icon: IconRotation,
+    focus: 'Thoracic Spine Â· Rib Cage Â· Shoulder Girdle',
     what: 'Tests thoracic rotation, a key movement quality for athletes and desk workers alike.',
     instruction: 'Sit upright on a chair with feet flat. Cross your arms over your chest and rotate left then right while the hips and feet stay completely still.',
     photo: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700&q=80&fit=crop',
@@ -209,7 +209,7 @@ export default function BatteryPage() {
                 {TESTS.map((item, index) => (
                   <div key={item.id} style={{ background: 'var(--black2)', padding: '40px 16px', textAlign: CA }}>
                     <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, letterSpacing: 3, color: 'var(--silver3)', display: 'block', marginBottom: 12 }}>0{index + 1}</span>
-                    <span style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}><Icon name={item.icon} size={38} color="var(--cyan)" /></span>
+                    <span style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}><item.Icon size={38} color="var(--cyan)" /></span>
                     <p style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: 2, color: 'var(--cyan)', marginBottom: 8 }}>{item.label}</p>
                     <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, letterSpacing: 1, color: 'var(--silver3)', lineHeight: 1.5 }}>{item.focus}</p>
                   </div>
@@ -245,7 +245,7 @@ export default function BatteryPage() {
               <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 15, letterSpacing: 4, color: 'var(--silver3)', marginBottom: 44, textTransform: UC }}>Test {step} of {TESTS.length}</p>
 
               <div style={{ display: 'inline-flex', alignItems: 'center', gap: 16, background: 'rgba(0,180,216,0.12)', border: '1px solid rgba(0,180,216,0.3)', padding: '18px 40px', marginBottom: 44 }}>
-                <Icon name={test.icon} size={36} color="var(--cyan)" />
+                <test.Icon size={36} color="var(--cyan)" />
                 <span style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 22, fontWeight: 700, letterSpacing: 4, color: 'var(--cyan)', textTransform: UC }}>{test.label}</span>
               </div>
 
@@ -278,7 +278,7 @@ export default function BatteryPage() {
                           <p style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 16, fontWeight: 700, color: selected ? 'var(--white)' : 'var(--silver)', letterSpacing: 2, marginBottom: 6 }}>{score.label}</p>
                           <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 18, color: selected ? 'var(--silver2)' : 'var(--silver3)', lineHeight: 1.4 }}>{score.description}</p>
                         </div>
-                        {selected && <span style={{ marginLeft: 'auto', display: 'flex' }}><Icon name="checkin" size={26} color={color} /></span>}
+                        {selected && <span style={{ marginLeft: 'auto', display: 'flex' }}><IconCheckin size={26} color={color} /></span>}
                       </div>
                     )
                   })}
@@ -316,7 +316,7 @@ export default function BatteryPage() {
                   const label = scoreLabel(score, 3)
                   return (
                     <div key={item.id} style={{ background: 'var(--black2)', padding: '44px 20px', textAlign: CA }}>
-                      <span style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}><Icon name={item.icon} size={40} color={color} /></span>
+                      <span style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}><item.Icon size={40} color={color} /></span>
                       <p style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: 2, color: 'var(--silver)', marginBottom: 20, textTransform: UC }}>{item.label}</p>
                       <div style={{ height: 3, background: 'var(--silver4)', marginBottom: 16, position: 'relative' }}>
                         <div style={{ position: 'absolute', top: 0, left: 0, height: '100%', width: `${(score / 3) * 100}%`, background: color, transition: 'width 1.2s ease' }} />
@@ -355,3 +355,4 @@ export default function BatteryPage() {
     </div>
   )
 }
+
