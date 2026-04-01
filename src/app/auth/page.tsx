@@ -84,7 +84,7 @@ export default function AuthPage() {
         }}>
           <div style={{ width: '100%', maxWidth: 440 }}>
             <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 4, color: 'var(--cyan3)', marginBottom: 16, textTransform: 'uppercase' }}>
-              // Account Access
+              {'// Account Access'}
             </div>
             <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 26, fontWeight: 700, letterSpacing: 4, color: 'var(--white)', marginBottom: 40, lineHeight: 1.25 }}>
               SIGN IN TO<br />YOUR PROGRAMME

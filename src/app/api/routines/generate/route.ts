@@ -26,7 +26,56 @@ const SPORTS: Record<string, string> = {
   muaythai:      'Hip flexors, hip rotation, thoracic spine, shoulder, knee, ankle',
 }
 
-const FOAM_ROLL_LIBRARY: Record<string, any[]> = {
+type FoamRollExercise = {
+  name: string
+  area: string
+  notes: string
+}
+
+type RoutineExercise = {
+  videoId: null
+  name: string
+  targetArea: string
+  sets: number
+  reps: number | null
+  holdSeconds: number | null
+  rationale: string
+  study: string
+  isFoamRoll?: boolean
+}
+
+type RoutinePhase = {
+  pillar: 'prep' | 'release' | 'activation' | 'range'
+  phaseDescription: string
+  exercises: RoutineExercise[]
+}
+
+type GeneratedRoutine = {
+  routineTitle: string
+  summary: string
+  difficultyLevel: string
+  totalExercises: number
+  phases: RoutinePhase[]
+  evidenceSummary: string
+  savedId?: number
+}
+
+type GenerateRequest = {
+  userId: string | null
+  mode: 'sport' | 'area'
+  sport: string | null
+  areas: string[] | null
+  duration: number
+  goal: string
+  includeFoamRoll: boolean
+}
+
+type MessageBlock = {
+  type: string
+  text?: string
+}
+
+const FOAM_ROLL_LIBRARY: Record<string, FoamRollExercise[]> = {
   hips: [
     { name: 'IT Band Roll',            area: 'hips',      notes: 'Side lying, roll hip to knee — pause on tender spots 5–10s.' },
     { name: 'Glute / Piriformis Roll', area: 'hips',      notes: 'Figure 4 position on roller — cross leg for deeper pressure.' },
@@ -50,7 +99,7 @@ const FOAM_ROLL_LIBRARY: Record<string, any[]> = {
 
 function selectFoamRollExercises(areas: string[], duration: number) {
   const maxExercises = duration <= 20 ? 2 : duration <= 30 ? 3 : 4
-  const selected: any[] = []
+  const selected: Array<FoamRollExercise & { sets: number; holdSeconds: number; reps: null }> = []
   const seen = new Set<string>()
 
   for (const area of areas) {
@@ -69,21 +118,21 @@ function selectFoamRollExercises(areas: string[], duration: number) {
 
 export async function POST(req: NextRequest) {
   try {
-    const { userId, mode, sport, areas, duration, goal, includeFoamRoll } = await req.json()
+    const { userId, mode, sport, areas, duration, goal, includeFoamRoll } = await req.json() as GenerateRequest
 
     const targetAreas = areas && areas.length > 0 ? areas : ['hips', 'shoulders', 'spine']
     const sportFocus  = sport ? SPORTS[sport] : null
     const areasText   = targetAreas.join(', ')
 
     // Build PREP phase from local library
-    let prepPhase: any = null
+    let prepPhase: RoutinePhase | null = null
     if (includeFoamRoll) {
       const foamRollExercises = selectFoamRollExercises(targetAreas, duration)
       if (foamRollExercises.length > 0) {
         prepPhase = {
           pillar: 'prep',
           phaseDescription: 'Myofascial release to reduce tissue tension and prepare the target joints for loading.',
-          exercises: foamRollExercises.map((ex: any) => ({
+          exercises: foamRollExercises.map((ex) => ({
             videoId:      null,
             name:         ex.name,
             targetArea:   ex.area,
@@ -166,14 +215,14 @@ Respond ONLY in valid JSON (no markdown):
     })
 
     // --- FIXED: robust JSON extraction ---
-    const raw     = message.content.map((b: any) => b.text || '').join('')
+    const raw = (message.content as MessageBlock[]).map((block) => block.text || '').join('')
     const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
     const jsonStart = cleaned.indexOf('{')
     const jsonEnd   = cleaned.lastIndexOf('}')
     if (jsonStart === -1 || jsonEnd === -1) {
       throw new Error(`AI returned non-JSON response: ${cleaned.slice(0, 200)}`)
     }
-    const routine = JSON.parse(cleaned.slice(jsonStart, jsonEnd + 1))
+    const routine = JSON.parse(cleaned.slice(jsonStart, jsonEnd + 1)) as GeneratedRoutine
     // --- END FIX ---
 
     if (prepPhase) {
@@ -201,9 +250,21 @@ Respond ONLY in valid JSON (no markdown):
 
       if (routineError) throw routineError
 
-      const items: any[] = []
-      routine.phases.forEach((phase: any, pi: number) => {
-        phase.exercises.forEach((ex: any, ei: number) => {
+      const items: Array<{
+        routine_id: number
+        video_id: null
+        pillar: string
+        exercise_name: string
+        target_area: string
+        sets: number
+        reps: number | null
+        hold_seconds: number | null
+        rationale: string
+        study_citation: string
+        order_index: number
+      }> = []
+      routine.phases.forEach((phase, pi) => {
+        phase.exercises.forEach((ex, ei) => {
           items.push({
             routine_id:     savedRoutine.id,
             video_id:       null,
@@ -226,8 +287,9 @@ Respond ONLY in valid JSON (no markdown):
 
     return NextResponse.json(routine)
 
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('[generate]', err)
-    return NextResponse.json({ error: err.message }, { status: 500 })
+    const message = err instanceof Error ? err.message : 'Unknown error'
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { User } from '@supabase/supabase-js'
 import Header from '@/components/Header'
@@ -29,11 +29,11 @@ const UC = 'uppercase' as const
 
 const QUICK_ACTIONS: { icon: IconName; title: string; sub: string; badge: string; href: string }[] = [
   { icon: 'duration', title: 'New Routine', sub: 'Build a sport-specific or area-focused mobility session.', badge: 'AI GENERATED', href: '/quiz' },
-  { icon: 'recovery', title: 'Recovery Session', sub: 'Foam roll series for tissue quality and recovery.', badge: '15 · 20 · 30 MIN', href: '/recovery' },
-  { icon: 'screening', title: 'Mobility Screening', sub: '11-question assessment across hips, shoulders, and spine.', badge: '3 MIN · 11 QUESTIONS', href: '/screening' },
-  { icon: 'battery', title: 'Movement Battery', sub: 'Five fundamental movement tests scored 0-3.', badge: '5 TESTS · 10 MIN', href: '/battery' },
+  { icon: 'recovery', title: 'Recovery Session', sub: 'Foam roll series for tissue quality and recovery.', badge: '15 ï¿½ 20 ï¿½ 30 MIN', href: '/recovery' },
+  { icon: 'screening', title: 'Mobility Screening', sub: '11-question assessment across hips, shoulders, and spine.', badge: '3 MIN ï¿½ 11 QUESTIONS', href: '/screening' },
+  { icon: 'battery', title: 'Movement Battery', sub: 'Five fundamental movement tests scored 0-3.', badge: '5 TESTS ï¿½ 10 MIN', href: '/battery' },
   { icon: 'results', title: 'My Results', sub: 'View your mobility scores and track progress over time.', badge: 'SCORE HISTORY', href: '/results' },
-  { icon: 'checkin', title: 'Session Check-in', sub: 'Pre or post session logging for pain, energy, RPE, and feedback.', badge: 'PRE · POST', href: '/session-checkin' },
+  { icon: 'checkin', title: 'Session Check-in', sub: 'Pre or post session logging for pain, energy, RPE, and feedback.', badge: 'PRE ï¿½ POST', href: '/session-checkin' },
   { icon: 'programs', title: 'Programs + Calendar', sub: 'Map your weekly sessions into a rolling 4-week block.', badge: 'WEEKLY VIEW', href: '/programs' },
 ]
 
@@ -46,7 +46,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [isPro, setIsPro] = useState(false)
 
-  async function loadData(userId: string) {
+  const loadData = useCallback(async (userId: string) => {
     try {
       const { data: progress } = await supabase.from('progress').select('*').eq('user_id', userId)
 
@@ -74,7 +74,7 @@ export default function DashboardPage() {
     }
 
     setLoading(false)
-  }
+  }, [supabase])
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -85,7 +85,7 @@ export default function DashboardPage() {
       setUser(session.user)
       void loadData(session.user.id)
     })
-  }, [router, supabase])
+  }, [loadData, router, supabase])
 
   const name = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Athlete'
   const firstName = name.split(' ')[0]
@@ -269,7 +269,7 @@ export default function DashboardPage() {
                   }}
                 >
                   <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 3, color: 'var(--cyan3)', marginBottom: 10, textTransform: UC }}>
-                    {routine.sport ? routine.sport.toUpperCase() : (routine.areas || []).map((area) => area.toUpperCase()).join(' · ')}
+                    {routine.sport ? routine.sport.toUpperCase() : (routine.areas || []).map((area) => area.toUpperCase()).join(' ï¿½ ')}
                   </div>
                   <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 26, fontWeight: 600, color: 'var(--white)', marginBottom: 14, lineHeight: 1.3 }}>
                     {routine.title}

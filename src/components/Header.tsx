@@ -16,7 +16,7 @@ export default function Header() {
       setUser(session?.user ?? null)
     })
     return () => subscription.unsubscribe()
-  }, [])
+  }, [supabase])
 
   async function signOut() {
     await supabase.auth.signOut()
@@ -26,7 +26,6 @@ const fullName = user?.user_metadata?.full_name
 const firstName = fullName
   ? fullName.split(' ')[0]
   : 'Athlete'
-const displayName = firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase()
 const initials = fullName
   ? fullName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
   : user?.email?.slice(0, 2).toUpperCase() || 'MG'

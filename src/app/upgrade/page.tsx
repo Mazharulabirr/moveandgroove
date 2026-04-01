@@ -39,7 +39,7 @@ export default function UpgradePage() {
         <div className="mg-page-shell">
           <div style={{ maxWidth: 980, margin: '0 auto', textAlign: 'center' }}>
             <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: 'var(--cyan)', marginBottom: 16, textTransform: UC }}>
-              // Upgrade
+              {'// Upgrade'}
             </div>
             <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 'clamp(38px,7vw,72px)', fontWeight: 700, letterSpacing: 4, color: 'var(--white)', lineHeight: 1.05, marginBottom: 18 }}>
               MOVE&GROOVE<br />PRO
@@ -67,7 +67,7 @@ export default function UpgradePage() {
 
             <div style={{ background: 'linear-gradient(180deg, rgba(0,180,216,0.08), rgba(8,8,8,0.96))', border: '1px solid rgba(0,180,216,0.18)', padding: '40px 32px' }}>
               <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: 'var(--cyan)', marginBottom: 10, textTransform: UC }}>
-                // Current Status
+                {'// Current Status'}
               </div>
               <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 34, fontWeight: 600, color: 'var(--white)', marginBottom: 14 }}>
                 {isPro ? 'Pro access is active' : 'Billing comes next'}
