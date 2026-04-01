@@ -78,7 +78,7 @@ export default function ProGate({
       <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at top right, rgba(0,180,216,0.14), transparent 42%)', pointerEvents: 'none' }} />
       <div style={{ position: 'relative', zIndex: 1 }}>
         <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: 'var(--cyan)', textTransform: UC, marginBottom: 14 }}>
-          // {title}
+          {'// '}{title}
         </div>
         <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 'clamp(24px,4vw,40px)', fontWeight: 700, letterSpacing: 3, color: 'var(--white)', lineHeight: 1.15, marginBottom: 16 }}>
           UNLOCK<br />MOVE&GROOVE PRO

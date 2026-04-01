@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Header from '@/components/Header'
+import { Icon } from '@/components/Icons'
 import { createClient } from '@/lib/supabase/client'
 
 const UC = 'uppercase' as const
@@ -22,7 +23,7 @@ export default function RecoveryPage() {
     const { data: { session } } = await supabase.auth.getSession()
 
     try {
-      const res = await fetch('/api/routines/generate', {
+      const response = await fetch('/api/routines/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -36,39 +37,50 @@ export default function RecoveryPage() {
         }),
       })
 
-      if (!res.ok) {
-        const text = await res.text()
-        throw new Error(`Server error ${res.status}: ${text}`)
+      if (!response.ok) {
+        const text = await response.text()
+        throw new Error(`Server error ${response.status}: ${text}`)
       }
 
-      const routine = await res.json()
-      if (routine.error) throw new Error(routine.error)
+      const routine = await response.json()
+      if (routine.error) {
+        throw new Error(routine.error)
+      }
 
-      localStorage.setItem('mg_routine', JSON.stringify({
-        routine,
-        mode: 'area',
-        sport: null,
-        areas: ['hips', 'shoulders', 'spine'],
-        duration,
-        goal: 'flexibility',
-        source: 'recovery',
-      }))
+      localStorage.setItem(
+        'mg_routine',
+        JSON.stringify({
+          routine,
+          mode: 'area',
+          sport: null,
+          areas: ['hips', 'shoulders', 'spine'],
+          duration,
+          goal: 'flexibility',
+          source: 'recovery',
+        }),
+      )
 
       router.push('/routine')
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('[recovery.generate]', err)
-      setError(err.message || 'Failed to generate recovery session')
+      setError(err instanceof Error ? err.message : 'Failed to generate recovery session')
       setLoading(false)
     }
   }
 
   return (
     <>
-      <div style={{
-        position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none',
-        backgroundImage: 'url(https://images.unsplash.com/photo-1518611012118-696072aa579a?w=1920&q=80&fit=crop&crop=center)',
-        backgroundSize: 'cover', backgroundPosition: 'center',
-      }}>
+      <div
+        style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 0,
+          pointerEvents: 'none',
+          backgroundImage: 'url(https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=1920&q=80)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        }}
+      >
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom,rgba(0,0,0,0.82) 0%,rgba(0,0,0,0.72) 45%,rgba(0,0,0,0.94) 100%)' }} />
       </div>
 
@@ -79,28 +91,33 @@ export default function RecoveryPage() {
           <div className="mg-split-section" style={{ alignItems: 'flex-end', marginBottom: 42, paddingBottom: 28, borderBottom: '1px solid var(--border)' }}>
             <div>
               <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: 'var(--cyan)', marginBottom: 14, textTransform: UC }}>
-                // Recovery Builder
+                {'// Recovery Builder'}
               </div>
               <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 'clamp(34px,6vw,62px)', fontWeight: 700, letterSpacing: 4, color: 'var(--white)', lineHeight: 1.05, marginBottom: 14 }}>
-                RECOVER<br />AND RESET
+                RECOVER
+                <br />
+                AND RESET
               </div>
               <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 17, color: 'var(--silver2)', lineHeight: 1.75, maxWidth: 620 }}>
-                Build a guided foam roll and release session in one tap. We&apos;ll use the existing generator with full-body focus, flexibility weighting, and prep built in automatically.
+                Build a guided foam roll and release session in one tap. We use the existing routine generator with flexibility focus and foam roll prep already switched on.
               </div>
             </div>
 
             <button className="btn-outline" onClick={() => router.push('/dashboard')}>
-              ‚Üê DASHBOARD
+              DASHBOARD
             </button>
           </div>
 
           <div className="mg-grid-2" style={{ gap: 24, alignItems: 'stretch' }}>
             <section style={{ background: 'var(--black2)', border: '1px solid var(--border)', padding: '36px 34px' }}>
-              <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 18, fontWeight: 700, letterSpacing: 3, color: 'var(--white)', marginBottom: 10, textTransform: UC }}>
-                Choose Duration
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                <Icon name="duration" size={24} color="var(--cyan)" />
+                <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 18, fontWeight: 700, letterSpacing: 3, color: 'var(--white)', textTransform: UC }}>
+                  Choose Duration
+                </div>
               </div>
               <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: 'var(--silver2)', lineHeight: 1.7, marginBottom: 26 }}>
-                Select the time you&apos;ve got and we&apos;ll generate the release flow to fit it.
+                Select the time you have and the release flow will scale to match it.
               </div>
 
               <div className="mg-grid-3" style={{ gap: 1, background: 'var(--border)', border: '1px solid var(--border)', marginBottom: 26 }}>
@@ -130,11 +147,7 @@ export default function RecoveryPage() {
                 })}
               </div>
 
-              {error && (
-                <div className="auth-error" style={{ marginBottom: 18 }}>
-                  {error}
-                </div>
-              )}
+              {error && <div className="auth-error" style={{ marginBottom: 18 }}>{error}</div>}
 
               <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                 <button className="btn-primary" onClick={generateRecoverySession} disabled={loading}>
@@ -147,15 +160,18 @@ export default function RecoveryPage() {
             </section>
 
             <section style={{ background: 'var(--black2)', border: '1px solid var(--border)', padding: '36px 34px' }}>
-              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: 'var(--cyan)', marginBottom: 12, textTransform: UC }}>
-                // Session Blueprint
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                <Icon name="recovery" size={24} color="var(--cyan)" />
+                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: 'var(--cyan)', textTransform: UC }}>
+                  {'// Session Blueprint'}
+                </div>
               </div>
               <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 34, fontWeight: 600, color: 'var(--white)', marginBottom: 18 }}>
                 Foam Roll + Release
               </div>
 
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
-                {['Flexibility goal', 'Prep included', 'Hips ¬∑ Shoulders ¬∑ Spine'].map((tag) => (
+                {['Flexibility goal', 'Prep included', 'Hips ∑ Shoulders ∑ Spine'].map((tag) => (
                   <span key={tag} className="meta-chip">{tag}</span>
                 ))}
               </div>
@@ -163,7 +179,7 @@ export default function RecoveryPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 {[
                   ['01', 'Prep', 'Foam roll work to ease tissue tension before stretching.'],
-                  ['02', 'Release', 'AI-generated holds and mobility drills tuned to your duration.'],
+                  ['02', 'Release', 'AI-generated holds and mobility drills tuned to your chosen duration.'],
                   ['03', 'Flow', 'Balanced volume across the trunk, hips, and shoulders.'],
                 ].map(([index, title, copy]) => (
                   <div key={title} style={{ display: 'grid', gridTemplateColumns: '64px 1fr', gap: 16, padding: '18px 0', borderTop: '1px solid var(--border2)' }}>
