@@ -1,8 +1,40 @@
 'use client'
 import Link from 'next/link'
+import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import Header from '@/components/Header'
+import { createClient } from '@/lib/supabase/client'
 
 export default function HomePage() {
+  const router = useRouter()
+  const supabase = createClient()
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    async function forwardRecoverySession() {
+      const hash = window.location.hash
+      const hashParams = new URLSearchParams(hash.replace(/^#/, ''))
+      const accessToken = hashParams.get('access_token')
+      const refreshToken = hashParams.get('refresh_token')
+
+      if (hashParams.get('type') !== 'recovery' || !accessToken) return
+
+      if (refreshToken) {
+        await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        })
+        router.replace('/auth/reset')
+        return
+      }
+
+      router.replace(`/auth/reset${hash}`)
+    }
+
+    void forwardRecoverySession()
+  }, [router, supabase])
+
   return (
     <>
       <div style={{

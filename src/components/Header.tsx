@@ -54,7 +54,7 @@ const initials = fullName
   fontFamily: "'DM Mono', monospace", fontSize: 9,
   letterSpacing: 3, color: 'var(--silver2)', display: 'block', marginTop: 3,
 }}>
-  TRUSTED BY ELITE ATHLETES · CRAFTED FOR YOU
+  TRUSTED BY ELITE ATHLETES / CRAFTED FOR YOU
 </span>
       </Link>
 

@@ -24,9 +24,9 @@ const SPORTS: { id: string; label: string; icon: IconName }[] = [
 ]
 
 const AREAS: { id: string; label: string; icon: IconName; sub: string }[] = [
-  { id: 'hips', label: 'HIPS', icon: 'hips', sub: 'Hip flexors · Adductors · Glutes · Piriformis' },
-  { id: 'shoulders', label: 'SHOULDERS', icon: 'shoulders', sub: 'Rotator cuff · Capsule · AC joint · Thoracic link' },
-  { id: 'spine', label: 'SPINE', icon: 'spine', sub: 'Cervical · Thoracic · Lumbar · Facet joints' },
+  { id: 'hips', label: 'HIPS', icon: 'hips', sub: 'Hip flexors / Adductors / Glutes / Piriformis' },
+  { id: 'shoulders', label: 'SHOULDERS', icon: 'shoulders', sub: 'Rotator cuff / Capsule / AC joint / Thoracic link' },
+  { id: 'spine', label: 'SPINE', icon: 'spine', sub: 'Cervical / Thoracic / Lumbar / Facet joints' },
 ]
 
 const GOALS: { id: string; label: string; icon: IconName; sub: string }[] = [

@@ -58,11 +58,24 @@ export default function AuthPage() {
 
   async function handleForgotPassword() {
     setError('')
-    if (!siEmail) { setError('Please enter your email address first.'); return }
-    await supabase.auth.resetPasswordForEmail(siEmail, {
+    if (!siEmail) {
+      setError('Please enter your email address first.')
+      return
+    }
+
+    setLoading(true)
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(siEmail, {
       redirectTo: `${window.location.origin}/auth/reset`,
     })
+
+    if (resetError) {
+      setError(resetError.message)
+      setLoading(false)
+      return
+    }
+
     setForgotSent(true)
+    setLoading(false)
   }
 
   return (
@@ -114,13 +127,13 @@ export default function AuthPage() {
                 </div>
                 <div className="form-group">
                   <label className="form-label">Password</label>
-                  <input className="form-input" type="password" placeholder="••••••••"
+                  <input className="form-input" type="password" placeholder="********"
                     value={siPassword} onChange={e => setSiPassword(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && handleSignIn()} />
                 </div>
                 <button className="btn-primary" onClick={handleSignIn} disabled={loading}
                   style={{ width: '100%', marginTop: 12, padding: 18 }}>
-                  {loading ? 'SIGNING IN…' : 'SIGN IN'}
+                  {loading ? 'SIGNING IN...' : 'SIGN IN'}
                 </button>
                 <div style={{ textAlign: 'right', marginTop: 12 }}>
                   <button className="btn-ghost" onClick={handleForgotPassword}
@@ -131,7 +144,7 @@ export default function AuthPage() {
                 {error && <div className="auth-error">{error}</div>}
                 {forgotSent && (
                   <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: 'var(--cyan)', marginTop: 12, padding: '10px 14px', borderLeft: '2px solid var(--cyan)', background: 'rgba(0,180,216,0.06)' }}>
-                    Reset link sent — check your email.
+                    Reset link sent - check your email.
                   </div>
                 )}
               </div>
@@ -156,7 +169,7 @@ export default function AuthPage() {
                 </div>
                 <button className="btn-primary" onClick={handleSignUp} disabled={loading}
                   style={{ width: '100%', marginTop: 12, padding: 18 }}>
-                  {loading ? 'CREATING…' : 'CREATE ACCOUNT'}
+                  {loading ? 'CREATING...' : 'CREATE ACCOUNT'}
                 </button>
                 {error && <div className="auth-error">{error}</div>}
               </div>

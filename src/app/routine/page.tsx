@@ -114,7 +114,7 @@ function ExerciseTimer({ sets, holdSeconds }: { sets: number; holdSeconds: numbe
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 8 }}>
         <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 10, letterSpacing: 2, color: 'var(--cyan)', padding: '8px 16px', border: '1px solid var(--cyan3)', borderRadius: 20 }}>
-          COMPLETE · ALL {sets} SETS DONE
+          COMPLETE / ALL {sets} SETS DONE
         </div>
         <button onClick={reset} style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 8, letterSpacing: 2, color: 'var(--silver3)', background: 'transparent', border: '1px solid var(--silver4)', padding: '6px 14px', borderRadius: 20, cursor: 'pointer' }}>
           REPEAT
@@ -194,7 +194,7 @@ export default function RoutinePage() {
   }, [routine, router])
 
   const sportLabel = storedMeta?.sport ? storedMeta.sport.toUpperCase() : null
-  const areasLabel = storedMeta?.areas && storedMeta.areas.length > 0 ? storedMeta.areas.map((area) => area.toUpperCase()).join(' · ') : 'FULL BODY'
+  const areasLabel = storedMeta?.areas && storedMeta.areas.length > 0 ? storedMeta.areas.map((area) => area.toUpperCase()).join(' / ') : 'FULL BODY'
   const builderHref = storedMeta?.source === 'recovery' ? '/recovery' : '/quiz'
   const builderLabel = storedMeta?.source === 'recovery' ? 'REGENERATE RECOVERY' : 'GENERATE NEW ROUTINE'
 
@@ -230,7 +230,7 @@ export default function RoutinePage() {
           <div className="mg-split-section" style={{ alignItems: 'flex-start', marginBottom: 48, paddingBottom: 32, borderBottom: '1px solid var(--border)', gap: 24 }}>
             <div>
               <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 4, color: 'var(--cyan)', marginBottom: 12, textTransform: 'uppercase' }}>
-                {'// MOVE&GROOVE · '}{new Date().toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long' }).toUpperCase()}
+                {'// MOVE&GROOVE / '}{new Date().toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long' }).toUpperCase()}
               </div>
               <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 'clamp(30px,4vw,48px)', fontWeight: 600, color: 'var(--white)', lineHeight: 1.2, marginBottom: 16 }}>
                 {routine.routineTitle}
@@ -282,7 +282,7 @@ export default function RoutinePage() {
 
                       <div style={{ padding: '24px 28px', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 8 }}>
                         <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 3, color: 'var(--silver4)', textTransform: 'uppercase' }}>
-                          {String(exerciseIndex + 1).padStart(2, '0')} · {phaseStyle.label}
+                          {String(exerciseIndex + 1).padStart(2, '0')} / {phaseStyle.label}
                         </div>
                         <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 18, fontWeight: 700, color: 'var(--white)', lineHeight: 1.3, letterSpacing: 2 }}>
                           {exercise.name}
@@ -297,11 +297,11 @@ export default function RoutinePage() {
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 12, background: 'var(--black3)', border: '1px solid var(--border)', padding: '10px 20px', borderRadius: 30, fontFamily: "'Syncopate',sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: 2, color: 'var(--white)', alignSelf: 'flex-start', marginTop: 4 }}>
                           {exercise.holdSeconds ? (
                             <>
-                              {exercise.sets} SETS <span style={{ color: 'var(--cyan)', fontSize: 14 }}>×</span> <span style={{ color: 'var(--silver3)', fontSize: 9, letterSpacing: 3 }}>{exercise.holdSeconds}s EACH</span>
+                              {exercise.sets} SETS <span style={{ color: 'var(--cyan)', fontSize: 14 }}>Ã—</span> <span style={{ color: 'var(--silver3)', fontSize: 9, letterSpacing: 3 }}>{exercise.holdSeconds}s EACH</span>
                             </>
                           ) : (
                             <>
-                              {exercise.sets} SETS <span style={{ color: 'var(--cyan)', fontSize: 14 }}>×</span> <span style={{ color: 'var(--silver3)', fontSize: 9, letterSpacing: 3 }}>{exercise.reps} REPS</span>
+                              {exercise.sets} SETS <span style={{ color: 'var(--cyan)', fontSize: 14 }}>Ã—</span> <span style={{ color: 'var(--silver3)', fontSize: 9, letterSpacing: 3 }}>{exercise.reps} REPS</span>
                             </>
                           )}
                         </div>
