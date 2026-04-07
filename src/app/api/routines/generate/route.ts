@@ -2,7 +2,22 @@ import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@supabase/supabase-js'
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
+function readRequiredEnv(name: string) {
+  const raw = process.env[name]
+
+  if (!raw) {
+    throw new Error(`Missing required environment variable: ${name}`)
+  }
+
+  return raw
+    .trim()
+    .replace(/^['"]+|['"]+$/g, '')
+    .replace(/[\r\n]+/g, '')
+}
+
+function createAnthropicClient() {
+  return new Anthropic({ apiKey: readRequiredEnv('ANTHROPIC_API_KEY') })
+}
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -118,6 +133,7 @@ function selectFoamRollExercises(areas: string[], duration: number) {
 
 export async function POST(req: NextRequest) {
   try {
+    const anthropic = createAnthropicClient()
     const { userId, mode, sport, areas, duration, goal, includeFoamRoll } = await req.json() as GenerateRequest
 
     const targetAreas = areas && areas.length > 0 ? areas : ['hips', 'shoulders', 'spine']
