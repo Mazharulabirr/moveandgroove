@@ -19,12 +19,48 @@ function ResetPasswordContent() {
   const [loading, setLoading] = useState(false)
   const [ready, setReady] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [debugInfo, setDebugInfo] = useState<Record<string, string | boolean | null>>({})
 
   useEffect(() => {
     let mounted = true
     const code = searchParams.get('code')
+    const tokenHash = searchParams.get('token_hash')
+    const typeParam = searchParams.get('type')
 
     async function initRecoverySession() {
+      if (typeof window !== 'undefined') {
+        const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+        setDebugInfo({
+          code: code ?? null,
+          tokenHash: tokenHash ?? null,
+          typeParam: typeParam ?? null,
+          hashType: hashParams.get('type') ?? null,
+          hasHashAccessToken: Boolean(hashParams.get('access_token')),
+          hasHashRefreshToken: Boolean(hashParams.get('refresh_token')),
+          hashFragmentPresent: Boolean(window.location.hash),
+        })
+      }
+
+      if (tokenHash && typeParam === 'recovery') {
+        const { error: verifyError } = await supabase.auth.verifyOtp({
+          token_hash: tokenHash,
+          type: 'recovery',
+        })
+
+        if (!mounted) return
+
+        if (verifyError) {
+          setReady(false)
+          setStatus('This reset link could not be verified. Please request a new password reset email.')
+          setError(verifyError.message)
+          return
+        }
+
+        setReady(true)
+        setStatus('Enter a new password for your account.')
+        return
+      }
+
       if (code) {
         const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
 
@@ -83,6 +119,7 @@ function ResetPasswordContent() {
             if (!mounted) return
 
             if (session) {
+              setDebugInfo((current) => ({ ...current, hasSession: true }))
               setReady(true)
               setStatus('Enter a new password for your account.')
               return
@@ -98,6 +135,8 @@ function ResetPasswordContent() {
       const { data: { session } } = await supabase.auth.getSession()
 
       if (!mounted) return
+
+      setDebugInfo((current) => ({ ...current, hasSession: Boolean(session) }))
 
       if (session) {
         setReady(true)
@@ -200,6 +239,16 @@ function ResetPasswordContent() {
             <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 16, lineHeight: 1.7, color: 'var(--silver2)', marginBottom: 36 }}>
               {status}
             </div>
+
+            {!ready && Object.keys(debugInfo).length > 0 && (
+              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, color: 'var(--silver3)', marginBottom: 24, padding: '12px 14px', border: '1px solid var(--border)', background: 'rgba(255,255,255,0.03)', lineHeight: 1.8 }}>
+                {Object.entries(debugInfo).map(([key, value]) => (
+                  <div key={key}>
+                    {key}: {String(value)}
+                  </div>
+                ))}
+              </div>
+            )}
 
             <div className="form-group">
               <label className="form-label">New Password</label>

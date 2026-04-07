@@ -13,24 +13,45 @@ export default function AuthPage() {
   const [tab, setTab]               = useState<Tab>('signin')
   const [loading, setLoading]       = useState(false)
   const [error, setError]           = useState('')
+  const [info, setInfo]             = useState('')
   const [forgotSent, setForgotSent] = useState(false)
+  const [confirmSent, setConfirmSent] = useState(false)
+  const [pendingConfirmEmail, setPendingConfirmEmail] = useState('')
 
   const [siEmail, setSiEmail]       = useState('')
   const [siPassword, setSiPassword] = useState('')
+  const [showSiPassword, setShowSiPassword] = useState(false)
 
   const [suName, setSuName]         = useState('')
   const [suEmail, setSuEmail]       = useState('')
   const [suPassword, setSuPassword] = useState('')
+  const [showSuPassword, setShowSuPassword] = useState(false)
 
   async function handleSignIn() {
-    setError(''); setLoading(true)
+    setError('')
+    setInfo('')
+    setConfirmSent(false)
+    setLoading(true)
     const { error } = await supabase.auth.signInWithPassword({ email: siEmail, password: siPassword })
-    if (error) { setError(error.message); setLoading(false); return }
+    if (error) {
+      const lower = error.message.toLowerCase()
+      if (lower.includes('email not confirmed')) {
+        setPendingConfirmEmail(siEmail)
+        setError('Your email is not confirmed yet. Check your inbox for the confirmation email, or resend it below.')
+      } else {
+        setError(error.message)
+      }
+      setLoading(false)
+      return
+    }
     router.push('/dashboard')
   }
 
   async function handleSignUp() {
-    setError(''); setLoading(true)
+    setError('')
+    setInfo('')
+    setConfirmSent(false)
+    setLoading(true)
     const { data, error } = await supabase.auth.signUp({
       email: suEmail,
       password: suPassword,
@@ -46,18 +67,57 @@ export default function AuthPage() {
     if (data.user) {
       const { error: profileError } = await supabase
         .from('profiles')
-        .upsert([{ id: data.user.id, is_pro: false }], { onConflict: 'id' })
+        .upsert([{ id: data.user.id, is_pro: false }] as never, { onConflict: 'id' })
 
       if (profileError) {
         console.warn('[auth.handleSignUp] profile upsert skipped', profileError.message)
       }
     }
 
+    if (!data.session) {
+      setPendingConfirmEmail(suEmail)
+      setTab('signin')
+      setInfo('Account created. Please confirm your email before signing in.')
+      setLoading(false)
+      return
+    }
+
     router.push('/dashboard')
+  }
+
+  async function handleResendConfirmation() {
+    setError('')
+    setInfo('')
+
+    const email = pendingConfirmEmail || siEmail || suEmail
+
+    if (!email) {
+      setError('Enter your email address first so we know where to resend the confirmation link.')
+      return
+    }
+
+    setLoading(true)
+    const { error: resendError } = await supabase.auth.resend({
+      type: 'signup',
+      email,
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth`,
+      },
+    })
+
+    if (resendError) {
+      setError(resendError.message)
+      setLoading(false)
+      return
+    }
+
+    setConfirmSent(true)
+    setLoading(false)
   }
 
   async function handleForgotPassword() {
     setError('')
+    setInfo('')
     if (!siEmail) {
       setError('Please enter your email address first.')
       return
@@ -105,7 +165,7 @@ export default function AuthPage() {
 
             <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', marginBottom: 36 }}>
               {(['signin', 'signup'] as Tab[]).map(t => (
-                <button key={t} onClick={() => { setTab(t); setError(''); setForgotSent(false) }} style={{
+                <button key={t} onClick={() => { setTab(t); setError(''); setInfo(''); setForgotSent(false); setConfirmSent(false) }} style={{
                   fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 3, textTransform: 'uppercase',
                   padding: '12px 24px 12px 0', color: tab === t ? 'var(--white)' : 'var(--silver3)',
                   background: 'none', border: 'none', cursor: 'pointer',
@@ -127,9 +187,20 @@ export default function AuthPage() {
                 </div>
                 <div className="form-group">
                   <label className="form-label">Password</label>
-                  <input className="form-input" type="password" placeholder="********"
-                    value={siPassword} onChange={e => setSiPassword(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && handleSignIn()} />
+                  <div style={{ position: 'relative' }}>
+                    <input className="form-input" type={showSiPassword ? 'text' : 'password'} placeholder="********"
+                      value={siPassword} onChange={e => setSiPassword(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && handleSignIn()}
+                      style={{ paddingRight: 100 }} />
+                    <button
+                      type="button"
+                      className="btn-ghost"
+                      onClick={() => setShowSiPassword((value) => !value)}
+                      style={{ position: 'absolute', top: '50%', right: 10, transform: 'translateY(-50%)', fontSize: 9, letterSpacing: 2, color: 'var(--cyan3)' }}
+                    >
+                      {showSiPassword ? 'HIDE' : 'SHOW'}
+                    </button>
+                  </div>
                 </div>
                 <button className="btn-primary" onClick={handleSignIn} disabled={loading}
                   style={{ width: '100%', marginTop: 12, padding: 18 }}>
@@ -145,6 +216,23 @@ export default function AuthPage() {
                 {forgotSent && (
                   <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: 'var(--cyan)', marginTop: 12, padding: '10px 14px', borderLeft: '2px solid var(--cyan)', background: 'rgba(0,180,216,0.06)' }}>
                     Reset link sent - check your email.
+                  </div>
+                )}
+                {info && (
+                  <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: 'var(--cyan)', marginTop: 12, padding: '10px 14px', borderLeft: '2px solid var(--cyan)', background: 'rgba(0,180,216,0.06)' }}>
+                    {info}
+                  </div>
+                )}
+                {(error.toLowerCase().includes('not confirmed') || pendingConfirmEmail) && (
+                  <div style={{ marginTop: 12 }}>
+                    <button className="btn-outline" onClick={handleResendConfirmation} disabled={loading} style={{ width: '100%' }}>
+                      {loading ? 'SENDING...' : 'RESEND CONFIRMATION EMAIL'}
+                    </button>
+                  </div>
+                )}
+                {confirmSent && (
+                  <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: 'var(--cyan)', marginTop: 12, padding: '10px 14px', borderLeft: '2px solid var(--cyan)', background: 'rgba(0,180,216,0.06)' }}>
+                    Confirmation email sent - check your inbox.
                   </div>
                 )}
               </div>
@@ -164,14 +252,30 @@ export default function AuthPage() {
                 </div>
                 <div className="form-group">
                   <label className="form-label">Password</label>
-                  <input className="form-input" type="password" placeholder="Minimum 6 characters"
-                    value={suPassword} onChange={e => setSuPassword(e.target.value)} />
+                  <div style={{ position: 'relative' }}>
+                    <input className="form-input" type={showSuPassword ? 'text' : 'password'} placeholder="Minimum 6 characters"
+                      value={suPassword} onChange={e => setSuPassword(e.target.value)}
+                      style={{ paddingRight: 100 }} />
+                    <button
+                      type="button"
+                      className="btn-ghost"
+                      onClick={() => setShowSuPassword((value) => !value)}
+                      style={{ position: 'absolute', top: '50%', right: 10, transform: 'translateY(-50%)', fontSize: 9, letterSpacing: 2, color: 'var(--cyan3)' }}
+                    >
+                      {showSuPassword ? 'HIDE' : 'SHOW'}
+                    </button>
+                  </div>
                 </div>
                 <button className="btn-primary" onClick={handleSignUp} disabled={loading}
                   style={{ width: '100%', marginTop: 12, padding: 18 }}>
                   {loading ? 'CREATING...' : 'CREATE ACCOUNT'}
                 </button>
                 {error && <div className="auth-error">{error}</div>}
+                {info && (
+                  <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: 'var(--cyan)', marginTop: 12, padding: '10px 14px', borderLeft: '2px solid var(--cyan)', background: 'rgba(0,180,216,0.06)' }}>
+                    {info}
+                  </div>
+                )}
               </div>
             )}
           </div>
