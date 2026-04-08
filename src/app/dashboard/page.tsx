@@ -64,6 +64,18 @@ const QUICK_ACTIONS = [
   { Icon: IconRecovery, title: 'Recovery Session', sub: 'Run a recovery-focused session when you need extra reset work.', badge: '15-30 MIN', href: '/recovery' },
 ]
 
+const BASIC_PATH = [
+  'Mobility screening baseline',
+  'Choose sport or body-area focus',
+  'Build daily routine from screening data',
+]
+
+const PREMIUM_PATH = [
+  'Mobility screening baseline',
+  'Movement battery assessment',
+  'Programs, calendar, and daily routine flow',
+]
+
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })
 }
@@ -206,6 +218,15 @@ export default function DashboardPage() {
   const latestBatteryDate = getAssessmentDate(latestBattery)
   const canRetakeScreening = !latestScreeningDate || addDays(latestScreeningDate, 30) <= new Date()
   const nextScreeningDate = latestScreeningDate ? addDays(latestScreeningDate, 30) : null
+  const membershipLabel = effectiveIsPro ? 'FULL / PREMIUM' : 'BASIC'
+  const membershipTone = effectiveIsPro ? '#dac394' : 'var(--cyan)'
+  const membershipSummary = effectiveIsPro
+    ? 'Premium adds the movement battery and planning layer after the shared screening baseline.'
+    : 'Basic keeps the onboarding lighter and routes straight from screening into sport or body-area routines.'
+  const journeySteps = effectiveIsPro ? PREMIUM_PATH : BASIC_PATH
+  const visibleQuickActions = effectiveIsPro
+    ? QUICK_ACTIONS
+    : QUICK_ACTIONS.filter((action) => action.href !== '/programs')
 
   let stageLabel = 'Start with your mobility baseline'
   let stageTitle = 'MOBILITY SCREENING'
@@ -358,6 +379,36 @@ export default function DashboardPage() {
             </div>
 
             <div style={{ display: 'grid', gap: 1, background: 'rgba(255,255,255,0.08)', border: '1px solid var(--border)' }}>
+              <div style={{ background: effectiveIsPro ? 'linear-gradient(180deg, rgba(218,195,148,0.14) 0%, rgba(8,10,14,0.96) 100%)' : 'linear-gradient(180deg, rgba(0,180,216,0.14) 0%, rgba(8,10,14,0.96) 100%)', padding: '26px 24px' }}>
+                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: membershipTone, marginBottom: 10, textTransform: UC }}>
+                  {'// Account Tier'}
+                </div>
+                <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 22, fontWeight: 700, letterSpacing: 2, color: membershipTone, marginBottom: 10 }}>
+                  {membershipLabel}
+                </div>
+                <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 14, color: 'var(--silver2)', lineHeight: 1.7 }}>
+                  {membershipSummary}
+                </div>
+              </div>
+
+              <div style={{ background: 'rgba(8,10,14,0.95)', padding: '24px' }}>
+                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: 'var(--silver3)', marginBottom: 12, textTransform: UC }}>
+                  {'// Your Path'}
+                </div>
+                <div style={{ display: 'grid', gap: 10 }}>
+                  {journeySteps.map((step, index) => (
+                    <div key={step} style={{ display: 'grid', gridTemplateColumns: '26px minmax(0,1fr)', gap: 12, alignItems: 'start' }}>
+                      <div style={{ width: 26, height: 26, borderRadius: 999, border: `1px solid ${membershipTone}`, color: membershipTone, display: 'grid', placeItems: 'center', fontFamily: "'DM Mono',monospace", fontSize: 11 }}>
+                        {index + 1}
+                      </div>
+                      <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 14, color: 'var(--silver2)', lineHeight: 1.6 }}>
+                        {step}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               {[
                 { val: stats.totalSessions, label: 'Total Sessions' },
                 { val: stats.totalMinutes, label: 'Minutes Moved' },
@@ -494,7 +545,7 @@ export default function DashboardPage() {
               marginBottom: 48,
             }}
           >
-            {QUICK_ACTIONS.map((action) => (
+            {visibleQuickActions.map((action) => (
               <div
                 key={action.title}
                 onClick={() => router.push(action.href)}
