@@ -15,15 +15,6 @@ function readRequiredEnv(name: string) {
     .replace(/[\r\n]+/g, '')
 }
 
-function summarizeSecret(value: string) {
-  return {
-    length: value.length,
-    prefix: value.slice(0, 12),
-    hasWhitespace: /\s/.test(value),
-    startsWithSkAnt: value.startsWith('sk-ant-'),
-  }
-}
-
 function createAnthropicClient() {
   return new Anthropic({ apiKey: readRequiredEnv('ANTHROPIC_API_KEY') })
 }
@@ -313,21 +304,7 @@ Respond ONLY in valid JSON (no markdown):
     return NextResponse.json(routine)
 
   } catch (err: unknown) {
-    let anthropicKeySummary: ReturnType<typeof summarizeSecret> | null = null
-
-    try {
-      anthropicKeySummary = summarizeSecret(readRequiredEnv('ANTHROPIC_API_KEY'))
-    } catch {
-      anthropicKeySummary = null
-    }
-
-    console.error('[generate]', {
-      error: err,
-      anthropicKeySummary,
-      vercelEnv: process.env.VERCEL_ENV || null,
-      nodeEnv: process.env.NODE_ENV || null,
-    })
-
+    console.error('[generate]', err)
     const message = err instanceof Error ? err.message : 'Unknown error'
     return NextResponse.json({ error: message }, { status: 500 })
   }
