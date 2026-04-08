@@ -260,7 +260,8 @@ function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-function addDays(dateStr: string, days: number) {
+function addDays(dateStr: string | null, days: number) {
+  if (!dateStr) return null
   const date = new Date(dateStr)
   date.setDate(date.getDate() + days)
   return date
@@ -288,8 +289,9 @@ export default function ScreeningPage() {
   const regionColor = question ? REGION_COLORS[question.region] : 'var(--cyan)'
   const isGeneral = question && question.photo === null
   const latestScreeningDate = getScreeningDate(latestScreening)
-  const screeningLocked = Boolean(latestScreeningDate) && addDays(latestScreeningDate, 30) > new Date()
-  const nextEligibleDate = latestScreeningDate ? addDays(latestScreeningDate, 30) : null
+  const screeningEligibilityDate = addDays(latestScreeningDate, 30)
+  const screeningLocked = screeningEligibilityDate !== null && screeningEligibilityDate > new Date()
+  const nextEligibleDate = screeningEligibilityDate
 
   useEffect(() => {
     async function loadEligibility() {
@@ -408,7 +410,7 @@ export default function ScreeningPage() {
               </p>
               <div style={{ border: '1px solid rgba(0,180,216,0.16)', background: 'rgba(8,10,14,0.94)', padding: '28px 32px', marginBottom: 42, maxWidth: 720 }}>
                 <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, letterSpacing: 4, color: 'var(--cyan)', marginBottom: 12, textTransform: UC }}>Next available</div>
-                <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 24, fontWeight: 700, letterSpacing: 3, color: 'var(--white)' }}>{formatDate(nextEligibleDate.toISOString())}</div>
+                <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 24, fontWeight: 700, letterSpacing: 3, color: 'var(--white)' }}>{formatDate(nextEligibleDate!.toISOString())}</div>
               </div>
               <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
                 <button className="btn-primary" onClick={() => router.push('/results')}>VIEW MY SCORES</button>
