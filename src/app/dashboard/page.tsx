@@ -5,13 +5,11 @@ import { useRouter } from 'next/navigation'
 import type { User } from '@supabase/supabase-js'
 import Header from '@/components/Header'
 import {
-  IconBattery,
   IconCheckin,
   IconPrograms,
   IconRecovery,
   IconResults,
   IconRoutine,
-  IconScreening,
 } from '@/components/Icons'
 import { createClient } from '@/lib/supabase/client'
 import { getIsPro } from '@/lib/profiles'
@@ -33,17 +31,101 @@ interface Routine {
   created_at: string
 }
 
+interface ScreeningResult {
+  id: string
+  overall_score: number
+  hip_score: number
+  shoulder_score: number
+  spine_score: number
+  created_at?: string | null
+  completed_at?: string | null
+}
+
+interface BatteryResult {
+  id: string
+  total_score: number
+  max_score: number
+  assessed_at?: string | null
+  created_at?: string | null
+}
+
 const UC = 'uppercase' as const
+const GOLD_TEXT = {
+  backgroundImage: 'linear-gradient(135deg, #f4efe3 0%, #c9b48b 30%, #fff7d8 48%, #8d7449 72%, #efe1b7 100%)',
+  WebkitBackgroundClip: 'text',
+  color: 'transparent',
+} as const
 
 const QUICK_ACTIONS = [
-  { Icon: IconRoutine, title: 'New Routine', sub: 'Build a sport-specific or area-focused mobility session.', badge: 'AI GENERATED', href: '/quiz' },
-  { Icon: IconRecovery, title: 'Recovery Session', sub: 'Foam roll series for tissue quality and recovery.', badge: '15 ï¿½ 20 ï¿½ 30 MIN', href: '/recovery' },
-  { Icon: IconScreening, title: 'Mobility Screening', sub: '11-question assessment across hips, shoulders, and spine.', badge: '3 MIN ï¿½ 11 QUESTIONS', href: '/screening' },
-  { Icon: IconBattery, title: 'Movement Battery', sub: 'Five fundamental movement tests scored 0-3.', badge: '5 TESTS ï¿½ 10 MIN', href: '/battery' },
-  { Icon: IconResults, title: 'My Results', sub: 'View your mobility scores and track progress over time.', badge: 'SCORE HISTORY', href: '/results' },
-  { Icon: IconCheckin, title: 'Session Check-in', sub: 'Pre or post session logging for pain, energy, RPE, and feedback.', badge: 'PRE ï¿½ POST', href: '/session-checkin' },
-  { Icon: IconPrograms, title: 'Programs + Calendar', sub: 'Map your weekly sessions into a rolling 4-week block.', badge: 'WEEKLY VIEW', href: '/programs' },
+  { Icon: IconRoutine, title: 'Daily Routine', sub: 'Jump straight into a guided daily mobility session.', badge: 'AI GENERATED', href: '/quiz' },
+  { Icon: IconPrograms, title: 'Programs + Calendar', sub: 'Review your weekly flow and session rhythm.', badge: 'PLAN AHEAD', href: '/programs' },
+  { Icon: IconResults, title: 'Score History', sub: 'See how your mobility scores are trending over time.', badge: 'PROFILE DATA', href: '/results' },
+  { Icon: IconCheckin, title: 'Session Check-in', sub: 'Log readiness before training or feedback after training.', badge: 'PRE + POST', href: '/session-checkin' },
+  { Icon: IconRecovery, title: 'Recovery Session', sub: 'Run a recovery-focused session when you need extra reset work.', badge: '15-30 MIN', href: '/recovery' },
 ]
+
+function formatDate(dateStr: string) {
+  return new Date(dateStr).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+function addDays(dateStr: string, days: number) {
+  const date = new Date(dateStr)
+  date.setDate(date.getDate() + days)
+  return date
+}
+
+function getAssessmentDate(entry: { assessed_at?: string | null; created_at?: string | null } | null) {
+  return entry?.assessed_at || entry?.created_at || null
+}
+
+function calcScreeningScoresFromResponses(responses: Record<string, number> | null | undefined) {
+  const safe = responses || {}
+  const regions = {
+    hips: ['hip_flexion', 'hip_rotation', 'hip_stiffness'],
+    shoulders: ['shoulder_overhead', 'shoulder_rotation', 'shoulder_stability'],
+    spine: ['thoracic_rotation', 'lumbar_flexion', 'spine_pain'],
+  } as const
+
+  const scoreFor = (keys: readonly string[]) => {
+    const raw = keys.reduce((sum, key) => sum + (safe[key] ?? 0), 0)
+    return Math.round((raw / (keys.length * 3)) * 100)
+  }
+
+  const hip = scoreFor(regions.hips)
+  const shoulder = scoreFor(regions.shoulders)
+  const spine = scoreFor(regions.spine)
+
+  return {
+    hip_score: hip,
+    shoulder_score: shoulder,
+    spine_score: spine,
+    overall_score: Math.round((hip + shoulder + spine) / 3),
+  }
+}
+
+function getPreviewModeFromLocation() {
+  if (typeof window === 'undefined') {
+    return null
+  }
+
+  const preview = new URLSearchParams(window.location.search).get('preview')
+  return preview === 'basic' || preview === 'pro' ? preview : null
+}
+
+function scoreColor(score: number) {
+  if (score >= 80) return '#00b4d8'
+  if (score >= 60) return '#4ac8e8'
+  if (score >= 40) return '#e8a94a'
+  return '#e74c3c'
+}
+
+function applyHoverState(element: HTMLDivElement, hovered: boolean) {
+  element.style.background = hovered
+    ? 'linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(18,20,24,0.96) 100%)'
+    : 'linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(10,12,16,0.98) 100%)'
+  element.style.transform = hovered ? 'translateY(-4px)' : 'translateY(0)'
+  element.style.boxShadow = hovered ? '0 20px 40px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.08)' : 'inset 0 1px 0 rgba(255,255,255,0.04)'
+}
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -51,12 +133,25 @@ export default function DashboardPage() {
   const [user, setUser] = useState<User | null>(null)
   const [stats, setStats] = useState<Stats>({ totalSessions: 0, totalMinutes: 0, thisWeek: 0 })
   const [routines, setRoutines] = useState<Routine[]>([])
+  const [latestScreening, setLatestScreening] = useState<ScreeningResult | null>(null)
+  const [latestBattery, setLatestBattery] = useState<BatteryResult | null>(null)
   const [loading, setLoading] = useState(true)
   const [isPro, setIsPro] = useState(false)
+  const [previewMode, setPreviewMode] = useState<'basic' | 'pro' | null>(() => getPreviewModeFromLocation())
 
   const loadData = useCallback(async (userId: string) => {
     try {
-      const { data: progress } = await supabase.from('progress').select('*').eq('user_id', userId)
+      const [
+        { data: progress },
+        { data: savedRoutines },
+        { data: screening },
+        { data: battery },
+      ] = await Promise.all([
+        supabase.from('progress').select('*').eq('user_id', userId),
+        supabase.from('routines').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
+        supabase.from('screening_questionnaires').select('*').eq('user_id', userId).order('completed_at', { ascending: false }).limit(1).maybeSingle(),
+        supabase.from('test_results').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+      ])
 
       if (progress) {
         const weekAgo = new Date()
@@ -66,16 +161,22 @@ export default function DashboardPage() {
         setStats({ totalSessions: progress.length, totalMinutes, thisWeek })
       }
 
-      const { data: savedRoutines } = await supabase
-        .from('routines')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false })
-
       if (savedRoutines) {
         setRoutines(savedRoutines)
       }
 
+      if (screening) {
+        const scores = calcScreeningScoresFromResponses(screening.responses as Record<string, number> | undefined)
+        setLatestScreening({
+          id: screening.id,
+          ...scores,
+          created_at: screening.created_at || null,
+          completed_at: screening.completed_at || null,
+        })
+      } else {
+        setLatestScreening(null)
+      }
+      setLatestBattery(battery || null)
       setIsPro(await getIsPro(supabase as never, userId))
     } catch (error) {
       console.error(error)
@@ -98,6 +199,57 @@ export default function DashboardPage() {
   const name = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Athlete'
   const firstName = name.split(' ')[0]
   const firstNameCap = firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase()
+  const effectiveIsPro = previewMode === 'pro' ? true : previewMode === 'basic' ? false : isPro
+  const hasScreening = Boolean(latestScreening)
+  const hasBattery = Boolean(latestBattery)
+  const latestScreeningDate = latestScreening?.completed_at || latestScreening?.created_at || null
+  const latestBatteryDate = getAssessmentDate(latestBattery)
+  const canRetakeScreening = !latestScreeningDate || addDays(latestScreeningDate, 30) <= new Date()
+  const nextScreeningDate = latestScreeningDate ? addDays(latestScreeningDate, 30) : null
+
+  let stageLabel = 'Start with your mobility baseline'
+  let stageTitle = 'MOBILITY SCREENING'
+  let stageBody = 'Every athlete begins with the same mobility screen so the app can capture a baseline and point you toward the right next step.'
+  let primaryAction = { label: hasScreening && canRetakeScreening ? 'RETAKE SCREENING' : 'START SCREENING', href: '/screening' }
+  let secondaryAction = { label: 'WHY THIS FIRST?', href: '/results' }
+
+  if (hasScreening && !effectiveIsPro) {
+    stageLabel = 'Basic path unlocked'
+    stageTitle = 'CHOOSE YOUR FOCUS'
+    stageBody = 'Your screening is saved to your profile. Next, choose either sport-specific guidance or a body-area focus to build your next routine.'
+    primaryAction = { label: 'CHOOSE SPORT OR BODY AREA', href: '/quiz' }
+    secondaryAction = { label: 'VIEW MOBILITY SCORES', href: '/results' }
+  }
+
+  if (hasScreening && effectiveIsPro && !hasBattery) {
+    stageLabel = 'Premium path unlocked'
+    stageTitle = 'MOVEMENT BATTERY NEXT'
+    stageBody = 'Premium members continue straight into the 5-test movement battery so both mobility and movement quality can guide the next training block.'
+    primaryAction = { label: 'START MOVEMENT BATTERY', href: '/battery' }
+    secondaryAction = { label: 'VIEW MOBILITY SCORES', href: '/results' }
+  }
+
+  if (hasScreening && effectiveIsPro && hasBattery && routines.length === 0) {
+    stageLabel = 'Assessments complete'
+    stageTitle = 'BUILD YOUR PLAN'
+    stageBody = 'Your screening and battery are both saved. Now choose a daily routine or move into your program and calendar view.'
+    primaryAction = { label: 'BUILD DAILY ROUTINE', href: '/quiz' }
+    secondaryAction = { label: 'OPEN PROGRAMS + CALENDAR', href: '/programs' }
+  }
+
+  if (hasScreening && ((effectiveIsPro && hasBattery) || !effectiveIsPro) && routines.length > 0) {
+    stageLabel = 'Keep momentum going'
+    stageTitle = 'CONTINUE YOUR TRAINING FLOW'
+    stageBody = 'Your latest scores are saved, your routines are on file, and you can jump back into today\'s session or review your profile history.'
+    primaryAction = { label: 'OPEN TODAY\'S ROUTINE FLOW', href: '/quiz' }
+    secondaryAction = { label: 'VIEW PROFILE HISTORY', href: '/results' }
+  }
+
+  function setPreview(nextMode: 'basic' | 'pro' | null) {
+    const target = nextMode ? `/dashboard?preview=${nextMode}` : '/dashboard'
+    setPreviewMode(nextMode)
+    router.replace(target)
+  }
 
   if (loading) {
     return (
@@ -129,53 +281,178 @@ export default function DashboardPage() {
           opacity: 1,
         }}
       >
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom,rgba(0,0,0,0.85) 0%,rgba(0,0,0,0.75) 40%,rgba(0,0,0,0.92) 100%)' }} />
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom,rgba(0,0,0,0.88) 0%,rgba(0,0,0,0.74) 42%,rgba(0,0,0,0.94) 100%)' }} />
       </div>
 
       <Header />
 
       <main style={{ position: 'relative', zIndex: 2, paddingTop: 64 }}>
         <div className="mg-page-shell">
-          <div
-            className="mg-split-section"
-            style={{ alignItems: 'flex-end', marginBottom: 56, paddingBottom: 32, borderBottom: '1px solid var(--border)', gap: 24 }}
-          >
-            <div>
-              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 13, letterSpacing: 4, color: 'var(--cyan)', marginBottom: 12 }}>
-                {'// Welcome Back'}
+          <div style={{ marginBottom: 52 }}>
+            <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, letterSpacing: 4, color: 'var(--cyan)', marginBottom: 14, textTransform: UC }}>
+              {'// Guided Dashboard'}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 20, flexWrap: 'wrap' }}>
+              <div>
+                <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 'clamp(34px,6vw,58px)', fontWeight: 700, letterSpacing: 4, color: 'var(--white)', lineHeight: 1.05, marginBottom: 10 }}>
+                  WELCOME BACK
+                  <br />
+                  <span style={GOLD_TEXT}>{firstNameCap}</span>
+                </div>
+                <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 18, color: 'var(--silver2)', lineHeight: 1.75, maxWidth: 760 }}>
+                  Instead of throwing every tool at you at once, this dashboard now points you to the single smartest next step in your training journey.
+                </div>
               </div>
-              <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 'clamp(32px,5vw,56px)', fontWeight: 700, letterSpacing: 4, color: 'var(--white)', lineHeight: 1.1 }}>
-                WELCOME
-                <br />
-                <span style={{ color: 'var(--cyan)' }}>{firstNameCap}</span>
+              <button className="btn-outline" onClick={() => router.push('/results')}>
+                PROFILE SCORES
+              </button>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 20 }}>
+              <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 3, color: 'var(--silver3)', textTransform: UC }}>
+                Dashboard Preview
+              </span>
+              <button className="btn-outline" onClick={() => setPreview('basic')} style={{ opacity: previewMode === 'basic' ? 1 : 0.72 }}>
+                BASIC
+              </button>
+              <button className="btn-outline" onClick={() => setPreview('pro')} style={{ opacity: previewMode === 'pro' ? 1 : 0.72 }}>
+                FULL / PREMIUM
+              </button>
+              <button className="btn-outline" onClick={() => setPreview(null)} style={{ opacity: previewMode === null ? 1 : 0.72 }}>
+                REAL ACCOUNT
+              </button>
+              <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 14, color: previewMode ? 'var(--silver2)' : 'var(--silver3)' }}>
+                {previewMode ? `Previewing the ${previewMode === 'pro' ? 'Full / Premium' : 'Basic'} dashboard.` : 'Showing your actual subscription state.'}
+              </span>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.3fr) minmax(320px,0.9fr)', gap: 18, marginBottom: 28 }}>
+            <div style={{ background: 'linear-gradient(145deg, rgba(255,255,255,0.06) 0%, rgba(10,12,16,0.98) 55%)', border: '1px solid rgba(201,180,139,0.2)', padding: '34px 32px', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.08)' }}>
+              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: 'var(--cyan)', marginBottom: 12, textTransform: UC }}>
+                {stageLabel}
+              </div>
+              <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 'clamp(26px,4vw,40px)', fontWeight: 700, letterSpacing: 3, lineHeight: 1.15, marginBottom: 14, ...GOLD_TEXT }}>
+                {stageTitle}
+              </div>
+              <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 18, color: 'var(--silver2)', lineHeight: 1.8, marginBottom: 22, maxWidth: 720 }}>
+                {stageBody}
+              </div>
+
+              {latestScreening && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 22 }}>
+                  <span className="meta-chip">Mobility {latestScreening.overall_score}%</span>
+                  {latestScreeningDate && <span className="meta-chip">Saved {formatDate(latestScreeningDate)}</span>}
+                  {!canRetakeScreening && nextScreeningDate && <span className="meta-chip">Next screen {formatDate(nextScreeningDate.toISOString())}</span>}
+                  {latestBattery && <span className="meta-chip">Battery {latestBattery.total_score}/{latestBattery.max_score}</span>}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                <button className="btn-primary" onClick={() => router.push(primaryAction.href)}>
+                  {primaryAction.label}
+                </button>
+                <button className="btn-outline" onClick={() => router.push(secondaryAction.href)}>
+                  {secondaryAction.label}
+                </button>
               </div>
             </div>
-            <button className="btn-primary" onClick={() => router.push('/quiz')}>
-              NEW ROUTINE
-            </button>
+
+            <div style={{ display: 'grid', gap: 1, background: 'rgba(255,255,255,0.08)', border: '1px solid var(--border)' }}>
+              {[
+                { val: stats.totalSessions, label: 'Total Sessions' },
+                { val: stats.totalMinutes, label: 'Minutes Moved' },
+                { val: stats.thisWeek, label: 'Sessions This Week' },
+              ].map((item) => (
+                <div key={item.label} style={{ background: 'rgba(8,10,14,0.95)', padding: '28px 24px' }}>
+                  <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 44, fontWeight: 700, letterSpacing: 2, color: 'var(--white)', lineHeight: 1, marginBottom: 8 }}>
+                    {item.val}
+                  </div>
+                  <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, letterSpacing: 3, color: 'var(--cyan)', textTransform: UC }}>
+                    {item.label}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
 
-          <div className="mg-grid-3" style={{ gap: 1, background: 'var(--border)', marginBottom: 56, border: '1px solid var(--border)' }}>
-            {[
-              { val: stats.totalSessions, label: 'Total Sessions' },
-              { val: stats.totalMinutes, label: 'Minutes Moved' },
-              { val: stats.thisWeek, label: 'Sessions This Week' },
-            ].map((item) => (
-              <div key={item.label} style={{ background: 'var(--black2)', padding: '36px 28px' }}>
-                <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 56, fontWeight: 700, letterSpacing: 2, color: 'var(--white)', lineHeight: 1, marginBottom: 8 }}>
-                  {item.val}
+          <div className="mg-grid-2" style={{ gap: 18, marginBottom: 28 }}>
+            <div style={{ background: 'rgba(8,10,14,0.96)', border: '1px solid var(--border)', padding: '28px 28px 24px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
+                <div>
+                  <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: 'var(--cyan)', marginBottom: 10, textTransform: UC }}>
+                    {'// Mobility Profile'}
+                  </div>
+                  <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 18, fontWeight: 700, letterSpacing: 2, color: 'var(--white)' }}>
+                    SCREENING STATUS
+                  </div>
                 </div>
-                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 13, letterSpacing: 3, color: 'var(--cyan)', textTransform: UC }}>
-                  {item.label}
-                </div>
+                <button className="btn-outline" onClick={() => router.push('/results')}>
+                  PREVIOUS SCORES
+                </button>
               </div>
-            ))}
+
+              {latestScreening ? (
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,minmax(0,1fr))', gap: 10, marginBottom: 18 }}>
+                    {[
+                      { label: 'Overall', value: latestScreening.overall_score },
+                      { label: 'Hips', value: latestScreening.hip_score },
+                      { label: 'Shoulders', value: latestScreening.shoulder_score },
+                      { label: 'Spine', value: latestScreening.spine_score },
+                    ].map((score) => (
+                      <div key={score.label} style={{ border: '1px solid rgba(255,255,255,0.08)', padding: '18px 14px', background: 'rgba(255,255,255,0.02)' }}>
+                        <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 28, fontWeight: 700, color: scoreColor(score.value), lineHeight: 1, marginBottom: 8 }}>{score.value}</div>
+                        <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 2, color: 'var(--silver3)', textTransform: UC }}>{score.label}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: 'var(--silver2)', lineHeight: 1.75 }}>
+                    Last saved on <span style={{ color: 'var(--white)' }}>{latestScreeningDate ? formatDate(latestScreeningDate) : 'your latest check'}</span>. {canRetakeScreening ? 'You can complete a new screening now.' : `Your next screening unlocks on ${formatDate(nextScreeningDate!.toISOString())}.`}
+                  </div>
+                </>
+              ) : (
+                <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 16, color: 'var(--silver2)', lineHeight: 1.8 }}>
+                  No mobility screening saved yet. Every user starts here so the app can personalize what comes next.
+                </div>
+              )}
+            </div>
+
+            <div style={{ background: 'rgba(8,10,14,0.96)', border: '1px solid var(--border)', padding: '28px 28px 24px' }}>
+              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: 'var(--cyan)', marginBottom: 10, textTransform: UC }}>
+                {'// Movement Quality'}
+              </div>
+              <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 18, fontWeight: 700, letterSpacing: 2, color: 'var(--white)', marginBottom: 18 }}>
+                BATTERY STATUS
+              </div>
+
+              {latestBattery ? (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 12 }}>
+                    <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 54, fontWeight: 700, color: scoreColor(Math.round((latestBattery.total_score / latestBattery.max_score) * 100)), lineHeight: 1 }}>
+                      {latestBattery.total_score}
+                    </div>
+                    <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, letterSpacing: 3, color: 'var(--silver3)', textTransform: UC }}>
+                      / {latestBattery.max_score}
+                    </div>
+                  </div>
+                  <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: 'var(--silver2)', lineHeight: 1.75 }}>
+                    Saved on <span style={{ color: 'var(--white)' }}>{latestBatteryDate ? formatDate(latestBatteryDate) : 'your latest test'}</span>. Premium members use this score alongside screening data to steer the next block.
+                  </div>
+                </>
+              ) : (
+                <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 16, color: 'var(--silver2)', lineHeight: 1.8 }}>
+                  {effectiveIsPro
+                    ? 'You have Premium access, so your next step after screening is the movement battery.'
+                    : 'Movement battery is reserved for the Premium path after the shared mobility screening.'}
+                </div>
+              )}
+            </div>
           </div>
 
-          {!isPro && (
+          {!effectiveIsPro && (
             <div
               style={{
-                background: 'linear-gradient(180deg, rgba(0,180,216,0.06) 0%, var(--black2) 100%)',
+                background: 'linear-gradient(180deg, rgba(0,180,216,0.08) 0%, rgba(10,12,16,0.98) 100%)',
                 border: '1px solid rgba(0,180,216,0.18)',
                 padding: '26px 28px',
                 marginBottom: 32,
@@ -184,13 +461,13 @@ export default function DashboardPage() {
               <div className="mg-split-section" style={{ alignItems: 'center' }}>
                 <div>
                   <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: 'var(--cyan)', textTransform: UC, marginBottom: 10 }}>
-                    {'// Pro Access'}
+                    {'// Premium Journey'}
                   </div>
                   <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 18, fontWeight: 700, letterSpacing: 2, color: 'var(--white)', marginBottom: 8 }}>
-                    UNLOCK PROGRAMS + HISTORY
+                    UNLOCK BATTERY + PROGRAMS
                   </div>
                   <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: 'var(--silver2)', lineHeight: 1.7 }}>
-                    Upgrade to access the weekly calendar, four-week blocks, and extended score history.
+                    Premium continues from screening into the movement battery, then into programs and calendar planning.
                   </div>
                 </div>
                 <button className="btn-primary" onClick={() => router.push('/upgrade')}>
@@ -200,13 +477,20 @@ export default function DashboardPage() {
             </div>
           )}
 
+          <div style={{ marginBottom: 18 }}>
+            <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: 'var(--cyan)', marginBottom: 10, textTransform: UC }}>
+              {'// Quick Tools'}
+            </div>
+            <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 18, fontWeight: 700, letterSpacing: 2, color: 'var(--white)' }}>
+              EVERYTHING ELSE, ONCE YOU KNOW YOUR NEXT STEP
+            </div>
+          </div>
+
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))',
-              gap: 1,
-              background: 'var(--border)',
-              border: '1px solid var(--border)',
+              gridTemplateColumns: 'repeat(auto-fit,minmax(250px,1fr))',
+              gap: 14,
               marginBottom: 48,
             }}
           >
@@ -214,21 +498,24 @@ export default function DashboardPage() {
               <div
                 key={action.title}
                 onClick={() => router.push(action.href)}
-                style={{ background: 'var(--black2)', padding: '32px 28px', cursor: 'pointer', transition: 'background 0.2s' }}
-                onMouseEnter={(event) => {
-                  event.currentTarget.style.background = 'var(--black3)'
+                style={{
+                  background: 'linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(10,12,16,0.98) 100%)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  padding: '28px 24px',
+                  cursor: 'pointer',
+                  transition: 'transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease',
+                  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04)',
                 }}
-                onMouseLeave={(event) => {
-                  event.currentTarget.style.background = 'var(--black2)'
-                }}
+                onMouseEnter={(event) => applyHoverState(event.currentTarget, true)}
+                onMouseLeave={(event) => applyHoverState(event.currentTarget, false)}
               >
                 <span style={{ display: 'flex', marginBottom: 12 }}>
                   <action.Icon size={28} color="var(--cyan)" />
                 </span>
-                <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 15, fontWeight: 700, letterSpacing: 3, color: 'var(--white)', marginBottom: 8, textTransform: UC }}>
+                <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 14, fontWeight: 700, letterSpacing: 3, color: 'var(--white)', marginBottom: 8, textTransform: UC }}>
                   {action.title}
                 </div>
-                <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: 'var(--silver2)', lineHeight: 1.6 }}>
+                <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: 'var(--silver2)', lineHeight: 1.7 }}>
                   {action.sub}
                 </div>
                 <span
@@ -236,13 +523,14 @@ export default function DashboardPage() {
                     fontFamily: "'DM Mono',monospace",
                     fontSize: 9,
                     letterSpacing: 2,
-                    color: 'var(--cyan)',
-                    background: 'rgba(0,180,216,0.1)',
-                    border: '1px solid rgba(0,180,216,0.2)',
-                    padding: '3px 10px',
+                    color: '#dac394',
+                    background: 'rgba(201,180,139,0.08)',
+                    border: '1px solid rgba(201,180,139,0.22)',
+                    padding: '4px 10px',
                     borderRadius: 20,
                     display: 'inline-block',
-                    marginTop: 10,
+                    marginTop: 12,
+                    textTransform: UC,
                   }}
                 >
                   {action.badge}
@@ -251,8 +539,13 @@ export default function DashboardPage() {
             ))}
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, gap: 12, flexWrap: 'wrap' }}>
             <div className="section-title">Saved Routines</div>
+            {routines.length > 0 && (
+              <button className="btn-outline" onClick={() => router.push('/programs')}>
+                OPEN CALENDAR
+              </button>
+            )}
           </div>
 
           {routines.length === 0 ? (
@@ -260,24 +553,28 @@ export default function DashboardPage() {
               <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
                 <IconRoutine size={34} color="var(--silver4)" />
               </div>
-              <div className="empty-state-text">No saved routines yet.<br />Generate your first to begin.</div>
+              <div className="empty-state-text">No saved routines yet.<br />Follow the guided step above and your first plan will appear here.</div>
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(300px,1fr))', gap: 1, background: 'var(--border)', border: '1px solid var(--border)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(300px,1fr))', gap: 14 }}>
               {routines.map((routine) => (
                 <div
                   key={routine.id}
                   onClick={() => router.push(`/routine/${routine.id}`)}
-                  style={{ background: 'var(--black2)', padding: 28, cursor: 'pointer', transition: 'background 0.2s', position: 'relative' }}
-                  onMouseEnter={(event) => {
-                    event.currentTarget.style.background = 'var(--black3)'
+                  style={{
+                    background: 'linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(10,12,16,0.98) 100%)',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    padding: 28,
+                    cursor: 'pointer',
+                    transition: 'transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease',
+                    position: 'relative',
+                    boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04)',
                   }}
-                  onMouseLeave={(event) => {
-                    event.currentTarget.style.background = 'var(--black2)'
-                  }}
+                  onMouseEnter={(event) => applyHoverState(event.currentTarget, true)}
+                  onMouseLeave={(event) => applyHoverState(event.currentTarget, false)}
                 >
                   <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 3, color: 'var(--cyan3)', marginBottom: 10, textTransform: UC }}>
-                    {routine.sport ? routine.sport.toUpperCase() : (routine.areas || []).map((area) => area.toUpperCase()).join(' ï¿½ ')}
+                    {routine.sport ? routine.sport.toUpperCase() : (routine.areas || []).map((area) => area.toUpperCase()).join(' / ')}
                   </div>
                   <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 26, fontWeight: 600, color: 'var(--white)', marginBottom: 14, lineHeight: 1.3 }}>
                     {routine.title}
@@ -288,10 +585,7 @@ export default function DashboardPage() {
                     {routine.goal && <span className="meta-chip">{routine.goal}</span>}
                   </div>
                   <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: 'var(--silver4)', letterSpacing: 1 }}>
-                    {new Date(routine.created_at).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}
-                  </div>
-                  <div style={{ position: 'absolute', right: 24, top: '50%', transform: 'translateY(-50%)', color: 'var(--silver4)', fontSize: 20 }}>
-                    ?
+                    {formatDate(routine.created_at)}
                   </div>
                 </div>
               ))}
@@ -302,4 +596,3 @@ export default function DashboardPage() {
     </>
   )
 }
-

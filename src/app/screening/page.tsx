@@ -1,10 +1,11 @@
 ﻿'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Header from '@/components/Header'
 import { IconCheckin, IconGeneral, IconHips, IconShoulders, IconSpine } from '@/components/Icons'
 import { createClient } from '@/lib/supabase/client'
+import { getIsPro } from '@/lib/profiles'
 
 type Option = { id: string; label: string; value: number }
 type Region = 'hips' | 'shoulders' | 'spine' | 'general'
@@ -21,6 +22,12 @@ type Question = {
   options: Option[]
 }
 type Scores = Record<string, { raw: number; max: number; pct: number }>
+type LatestScreening = {
+  assessed_at?: string | null
+  created_at?: string | null
+  completed_at?: string | null
+  responses?: Record<string, number> | null
+} | null
 
 const UC = 'uppercase' as const
 const CA = 'center' as const
@@ -249,6 +256,20 @@ const REGION_COLORS: Record<Region, string> = {
   general: '#8e9aa8',
 }
 
+function formatDate(dateStr: string) {
+  return new Date(dateStr).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+function addDays(dateStr: string, days: number) {
+  const date = new Date(dateStr)
+  date.setDate(date.getDate() + days)
+  return date
+}
+
+function getScreeningDate(entry: LatestScreening) {
+  return entry?.completed_at || entry?.assessed_at || entry?.created_at || null
+}
+
 export default function ScreeningPage() {
   const router = useRouter()
   const supabase = createClient()
@@ -257,11 +278,41 @@ export default function ScreeningPage() {
   const [saving, setSaving] = useState(false)
   const [done, setDone] = useState(false)
   const [scores, setScores] = useState<Scores | null>(null)
+  const [isPro, setIsPro] = useState(false)
+  const [latestScreening, setLatestScreening] = useState<LatestScreening>(null)
+  const [eligibilityChecked, setEligibilityChecked] = useState(false)
+  const [saveError, setSaveError] = useState('')
 
   const question = QUESTIONS[step - 1]
   const progress = step === 0 ? 0 : Math.round((step / TOTAL) * 100)
   const regionColor = question ? REGION_COLORS[question.region] : 'var(--cyan)'
   const isGeneral = question && question.photo === null
+  const latestScreeningDate = getScreeningDate(latestScreening)
+  const screeningLocked = Boolean(latestScreeningDate) && addDays(latestScreeningDate, 30) > new Date()
+  const nextEligibleDate = latestScreeningDate ? addDays(latestScreeningDate, 30) : null
+
+  useEffect(() => {
+    async function loadEligibility() {
+      const { data: { session } } = await supabase.auth.getSession()
+      const uid = session?.user?.id
+
+      if (!uid) {
+        setEligibilityChecked(true)
+        return
+      }
+
+      const [{ data: latest }, pro] = await Promise.all([
+        supabase.from('screening_questionnaires').select('*').eq('user_id', uid).order('completed_at', { ascending: false }).limit(1).maybeSingle(),
+        getIsPro(supabase as never, uid),
+      ])
+
+      setLatestScreening(latest || null)
+      setIsPro(pro)
+      setEligibilityChecked(true)
+    }
+
+    void loadEligibility()
+  }, [supabase])
 
   function pick(questionId: string, value: number) {
     setAnswers((prev) => ({ ...prev, [questionId]: value }))
@@ -285,6 +336,7 @@ export default function ScreeningPage() {
 
   async function finish() {
     setSaving(true)
+    setSaveError('')
     const nextScores = calcScores(answers)
     setScores(nextScores)
 
@@ -292,35 +344,45 @@ export default function ScreeningPage() {
       const { data: { session } } = await supabase.auth.getSession()
       const uid = session?.user?.id
       if (uid) {
+        const questionnairePayload = {
+          user_id: uid,
+          responses: answers,
+          completed_at: new Date().toISOString(),
+        }
+
         const { data: questionnaire, error } = await supabase
           .from('screening_questionnaires')
-          .insert([{ user_id: uid, responses: answers, completed_at: new Date().toISOString() }])
+          .insert([questionnairePayload])
           .select()
           .single()
 
         if (error) {
-          throw error
+          console.warn('[screening.questionnaire]', error)
         }
 
-        await supabase.from('screening_results').insert([
-          {
-            user_id: uid,
-            questionnaire_id: questionnaire.id,
-            hip_score: nextScores.hips.pct,
-            shoulder_score: nextScores.shoulders.pct,
-            spine_score: nextScores.spine.pct,
-            overall_score: nextScores.overall.pct,
-            raw_scores: nextScores,
-            assessed_at: new Date().toISOString(),
-          },
-        ])
+        const screeningInsert = questionnaire?.id
+          ? { user_id: uid, questionnaire_id: questionnaire.id, overall_score: nextScores.overall.pct }
+          : { user_id: uid, overall_score: nextScores.overall.pct }
+
+        const { error: screeningError } = await supabase.from('screening_results').insert([screeningInsert])
+
+        if (screeningError) {
+          console.warn('[screening.results]', screeningError)
+        }
       }
+
+      setDone(true)
     } catch (error) {
-      console.error('[screening]', error)
+      const message =
+        typeof error === 'object' && error !== null && 'message' in error && typeof error.message === 'string'
+          ? error.message
+          : 'Could not save your screening yet. Please try again.'
+
+      console.error('[screening]', { error, message })
+      setSaveError(message)
     }
 
     setSaving(false)
-    setDone(true)
   }
 
   return (
@@ -333,7 +395,29 @@ export default function ScreeningPage() {
 
       <div style={{ position: 'relative', zIndex: 2, paddingTop: 80 }}>
         <div style={{ maxWidth: 1600, margin: '0 auto', padding: '60px 100px' }}>
-          {step === 0 && (
+          {step === 0 && eligibilityChecked && screeningLocked && latestScreening && nextEligibleDate && (
+            <div style={{ animation: 'fadeUp 0.5s ease forwards' }}>
+              <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 15, letterSpacing: 6, color: 'var(--cyan)', marginBottom: 32, textTransform: UC }}>Mobility Screening</p>
+              <p style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 72, fontWeight: 700, letterSpacing: 2, color: 'var(--white)', lineHeight: 1.05, marginBottom: 28 }}>
+                SCREENING
+                <br />
+                ALREADY SAVED
+              </p>
+              <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 24, lineHeight: 1.7, color: 'var(--silver2)', marginBottom: 42, maxWidth: 760 }}>
+                Your most recent mobility screening was saved on {formatDate(latestScreeningDate!)}. To keep the profile meaningful, you can retake it once every 30 days.
+              </p>
+              <div style={{ border: '1px solid rgba(0,180,216,0.16)', background: 'rgba(8,10,14,0.94)', padding: '28px 32px', marginBottom: 42, maxWidth: 720 }}>
+                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, letterSpacing: 4, color: 'var(--cyan)', marginBottom: 12, textTransform: UC }}>Next available</div>
+                <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 24, fontWeight: 700, letterSpacing: 3, color: 'var(--white)' }}>{formatDate(nextEligibleDate.toISOString())}</div>
+              </div>
+              <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+                <button className="btn-primary" onClick={() => router.push('/results')}>VIEW MY SCORES</button>
+                <button className="btn-outline" onClick={() => router.push('/dashboard')}>DASHBOARD</button>
+              </div>
+            </div>
+          )}
+
+          {step === 0 && eligibilityChecked && !screeningLocked && (
             <div style={{ animation: 'fadeUp 0.5s ease forwards' }}>
               <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 15, letterSpacing: 6, color: 'var(--cyan)', marginBottom: 32, textTransform: UC }}>Mobility Screening</p>
               <p style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 80, fontWeight: 700, letterSpacing: 2, color: 'var(--white)', lineHeight: 1.05, marginBottom: 28 }}>
@@ -341,9 +425,14 @@ export default function ScreeningPage() {
                 <br />
                 YOUR BODY
               </p>
-              <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 24, lineHeight: 1.7, color: 'var(--silver2)', marginBottom: 64, maxWidth: 700 }}>
-                11 questions across hips, shoulders, and spine. Takes 3 minutes and gives you a regional mobility score with personalised recommendations.
+              <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 24, lineHeight: 1.7, color: 'var(--silver2)', marginBottom: 32, maxWidth: 760 }}>
+                11 questions across hips, shoulders, and spine. This is the first step for every member because it creates the baseline score that drives what comes next.
               </p>
+              {latestScreening && nextEligibleDate && (
+                <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 17, lineHeight: 1.75, color: 'var(--silver3)', marginBottom: 44, maxWidth: 760 }}>
+                  Your last screening was on {formatDate(latestScreeningDate!)}. Since the 30-day window has passed, you can update your profile again now.
+                </p>
+              )}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 2, background: 'var(--border)', border: '1px solid var(--border)', marginBottom: 64 }}>
                 {[
                   { Icon: IconHips, label: 'Hips', color: REGION_COLORS.hips },
@@ -357,9 +446,10 @@ export default function ScreeningPage() {
                   </div>
                 ))}
               </div>
-              <div style={{ display: 'flex', gap: 16 }}>
+              <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
                 <button className="btn-outline" onClick={() => router.push('/dashboard')}>BACK</button>
-                <button className="btn-primary" onClick={() => setStep(1)}>BEGIN SCREENING</button>
+                {latestScreening && <button className="btn-outline" onClick={() => router.push('/results')}>PREVIOUS SCORES</button>}
+                <button className="btn-primary" onClick={() => setStep(1)}>{latestScreening ? 'UPDATE SCREENING' : 'BEGIN SCREENING'}</button>
               </div>
             </div>
           )}
@@ -454,6 +544,11 @@ export default function ScreeningPage() {
                   {step === TOTAL ? (saving ? 'SAVING...' : 'SEE MY RESULTS') : 'CONTINUE'}
                 </button>
               </div>
+              {saveError && (
+                <div style={{ marginTop: 18, borderLeft: '3px solid #e74c3c', background: 'rgba(231,76,60,0.08)', padding: '14px 16px', fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: '#ffd7d2', lineHeight: 1.6 }}>
+                  {saveError}
+                </div>
+              )}
             </div>
           )}
 
@@ -512,7 +607,8 @@ export default function ScreeningPage() {
               })()}
 
               <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-                <button className="btn-primary" onClick={() => router.push('/quiz')}>BUILD MY ROUTINE</button>
+                <button className="btn-primary" onClick={() => router.push(isPro ? '/battery' : '/quiz')}>{isPro ? 'CONTINUE TO BATTERY' : 'CHOOSE SPORT OR BODY AREA'}</button>
+                <button className="btn-outline" onClick={() => router.push('/results')}>VIEW SAVED SCORES</button>
                 <button className="btn-outline" onClick={() => router.push('/dashboard')}>DASHBOARD</button>
               </div>
             </div>
@@ -522,4 +618,3 @@ export default function ScreeningPage() {
     </div>
   )
 }
-

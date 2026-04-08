@@ -1,10 +1,11 @@
 ﻿'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Header from '@/components/Header'
 import { IconCheckin, IconHinge, IconLunge, IconPress, IconRotation, IconSquat } from '@/components/Icons'
 import { createClient } from '@/lib/supabase/client'
+import { getIsPro } from '@/lib/profiles'
 
 const UC = 'uppercase' as const
 const CA = 'center' as const
@@ -132,6 +133,18 @@ export default function BatteryPage() {
   const [step, setStep] = useState(0)
   const [scores, setScores] = useState<BatteryScores>({})
   const [saving, setSaving] = useState(false)
+  const [isPro, setIsPro] = useState(false)
+
+  useEffect(() => {
+    async function loadSubscription() {
+      const { data: { session } } = await supabase.auth.getSession()
+      const uid = session?.user?.id
+      if (!uid) return
+      setIsPro(await getIsPro(supabase as never, uid))
+    }
+
+    void loadSubscription()
+  }, [supabase])
 
   const test = TESTS[step - 1]
   const progress = step === 0 ? 0 : Math.round((step / TESTS.length) * 100)
@@ -170,7 +183,6 @@ export default function BatteryPage() {
             scores,
             total_score: totalScore(scores),
             max_score: TESTS.length * 3,
-            assessed_at: new Date().toISOString(),
           },
         ])
       }
@@ -201,8 +213,11 @@ export default function BatteryPage() {
                 <br />
                 TESTS
               </p>
-              <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 24, lineHeight: 1.7, color: 'var(--silver2)', marginBottom: 64, maxWidth: 700 }}>
-                Five fundamental movement patterns scored 0-3. Takes about 10 minutes and identifies your weakest patterns for the next training block.
+              <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 24, lineHeight: 1.7, color: 'var(--silver2)', marginBottom: 28, maxWidth: 780 }}>
+                Five fundamental movement patterns scored 0-3. Premium members complete this right after the mobility screening so both scores can shape the next block.
+              </p>
+              <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 16, lineHeight: 1.75, color: 'var(--silver3)', marginBottom: 64, maxWidth: 780 }}>
+                After this battery you can jump into a daily routine or head into programs and calendar planning.
               </p>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 2, background: 'var(--border)', border: '1px solid var(--border)', marginBottom: 64 }}>
@@ -344,7 +359,9 @@ export default function BatteryPage() {
               })()}
 
               <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-                <button className="btn-primary" onClick={() => router.push('/quiz')}>BUILD MY ROUTINE</button>
+                <button className="btn-primary" onClick={() => router.push(isPro ? '/programs' : '/quiz')}>{isPro ? 'OPEN PROGRAMS + CALENDAR' : 'BUILD MY ROUTINE'}</button>
+                {isPro && <button className="btn-outline" onClick={() => router.push('/quiz')}>BUILD DAILY ROUTINE</button>}
+                <button className="btn-outline" onClick={() => router.push('/results')}>VIEW SAVED SCORES</button>
                 <button className="btn-outline" onClick={() => router.push('/dashboard')}>DASHBOARD</button>
                 <button className="btn-outline" onClick={() => { setStep(0); setScores({}) }}>RETEST</button>
               </div>
@@ -355,4 +372,3 @@ export default function BatteryPage() {
     </div>
   )
 }
-

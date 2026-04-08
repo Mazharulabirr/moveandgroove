@@ -1,670 +1,482 @@
-# Move & Groove v2 — Developer Documentation
+﻿# Move & Groove v2 - Developer Documentation
 
-> **Last updated:** April 2026  
-> **Repo:** https://github.com/marcomastrorocco/move-and-groove-v2  
-> **Stack:** Next.js 15 · TypeScript · Supabase · Anthropic Claude API · Tailwind (minimal) · Vercel (target)
-
----
-
-## Table of Contents
-
-1. [Project Overview](#1-project-overview)
-2. [Tech Stack](#2-tech-stack)
-3. [Architecture](#3-architecture)
-4. [Directory Structure](#4-directory-structure)
-5. [Database Schema](#5-database-schema)
-6. [Pages & Routes](#6-pages--routes)
-7. [API Routes](#7-api-routes)
-8. [Core Logic](#8-core-logic)
-9. [Design System](#9-design-system)
-10. [Environment Variables](#10-environment-variables)
-11. [Running Locally](#11-running-locally)
-12. [Deployment](#12-deployment)
-13. [What Is Done](#13-what-is-done)
-14. [Roadmap — What Is Left](#14-roadmap--what-is-left)
+> Last updated: April 8, 2026
+> Repo: https://github.com/marcomastrorocco/move-and-groove-v2
+> Branch: `main`
+> Status: working MVP with live routine generation, restored auth flow, guided dashboard onboarding, and local screening schema compatibility fixes
 
 ---
 
 ## 1. Project Overview
 
-Move & Groove is a joint mobility web application built for athletes. It generates evidence-based mobility routines powered by Claude AI, tracks mobility scores over time through a screening questionnaire and movement battery, and provides daily readiness and session check-in tools.
+Move & Groove is a Next.js mobility app for athletes. The product currently combines:
 
-**Core value proposition:**
-- AI-generated mobility routines personalised to sport and body area
-- Mobility screening (11 questions) → regional scores (hips, shoulders, spine)
-- Movement battery (5 tests, FMS-style 0–3 scoring)
-- Daily readiness check-in → session recommendation
-- Pre/post session logging
-- Score history and progress tracking over time
+- AI-generated mobility routines
+- mobility screening
+- movement battery testing
+- readiness and session check-ins
+- saved routines and results history
+- recovery sessions
+- basic programs/calendar views
+- subscription-gated flows for Basic vs Premium
+
+The UI direction is dark, editorial, and sport-focused, using inline styles, strong typography, and a shared custom SVG icon system.
 
 ---
 
-## 2. Tech Stack
+## 2. Current Product Status
+
+### Working now
+
+- Email auth flow is usable again
+- Sign-in works
+- Dashboard loads
+- Password visibility toggle exists on auth page
+- Resend confirmation support exists on auth page
+- Password reset flow was stabilized enough to get back into the app
+- Live Anthropic routine generation works again on Vercel
+- Mobility screening runs locally against the current Supabase schema
+- Movement battery page works locally
+- Results page works using questionnaire-derived screening history
+- Guided dashboard flow now exists
+- Local dashboard preview supports Basic vs Full/Premium views
+
+### Implemented recently in this batch
+
+- Guided first-user dashboard instead of a wall of options
+- Shared first step for all users: mobility screening
+- Screening retake window messaging for once every 30 days
+- Basic path guidance after screening
+- Premium path guidance after screening into movement battery
+- Previous mobility score access from dashboard/results
+- Metallic headline treatment and stronger hover states on dashboard cards
+- Screening save flow hardened for mismatched Supabase schema
+- Screening/result reads shifted to `screening_questionnaires` as the source of truth for mobility region scores
+- Dashboard preview mode via querystring for Basic vs Premium comparison
+
+### Still incomplete / future work
+
+- 4 / 8 / 12 week program setup flow
+- true random daily routine mode as a productized option
+- real scheduled workout calendar persistence
+- 30-minute email reminders before workouts
+- deeper readiness pain logic that asks *where* the problem is
+- automatic session-end follow-up that influences next-day recovery or modifications
+- fully normalized and documented Supabase schema for screening summary tables
+
+---
+
+## 3. Tech Stack
 
 | Layer | Technology |
 |---|---|
-| Framework | Next.js 15 (App Router) |
+| Framework | Next.js 16.2.1 App Router |
 | Language | TypeScript |
-| Auth + DB | Supabase (PostgreSQL + Auth) |
-| AI | Anthropic Claude API (claude-sonnet-4) |
-| Styling | Inline styles + CSS variables in globals.css |
-| Fonts | Syncopate · DM Mono · DM Sans · Cormorant Garamond (Google Fonts) |
-| Hosting (target) | Vercel |
-| Version Control | GitHub |
+| UI | React 19 |
+| Styling | Inline styles + `globals.css` tokens/utilities |
+| Auth + DB | Supabase |
+| AI | Anthropic SDK |
+| Hosting | Vercel |
+| Local dev | `next dev` / Turbopack |
+| Linting | ESLint 9 |
 
 ---
 
-## 3. Architecture
+## 4. High-Level Architecture
 
-```
-Browser (Next.js App Router)
-        │
-        ├── Pages (src/app/**/page.tsx)
-        │       │
-        │       ├── Auth → Supabase Auth
-        │       ├── Quiz → API Route → Claude API → Supabase
-        │       ├── Screening → Supabase (screening_results)
-        │       ├── Battery → Supabase (test_results)
-        │       ├── Readiness → Supabase (readiness_logs)
-        │       ├── Session Check-in → Supabase (readiness_logs)
-        │       └── Results → Supabase (read all tables)
-        │
-        └── API Routes (src/app/api/**)
-                │
-                └── /api/routines/generate
-                        │
-                        ├── Receives: userId, mode, sport, areas, duration, goal, includeFoamRoll
-                        ├── Builds PREP phase locally (foam roll library)
-                        ├── Calls Claude API → generates RELEASE + ACTIVATION + RANGE phases
-                        ├── Parses JSON response
-                        ├── Saves routine + items to Supabase
-                        └── Returns full routine object
-```
+```text
+Browser
+  -> Next.js App Router pages
+    -> Supabase browser client for auth + user data
+    -> API routes for server-side generation
 
-### Data Flow — Routine Generation
+Core flows
+  Auth
+    -> Supabase Auth
+    -> profiles.is_pro check
 
-```
-Quiz Page
-  → POST /api/routines/generate
-    → Build foam roll PREP phase (local library)
-    → Build prompt with user profile
-    → Call claude-sonnet-4
-    → Parse JSON response
-    → Save to routines + routine_items tables
-    → Return to client
-  → Store in localStorage (mg_routine)
-  → Redirect to /routine
+  Quiz / Recovery
+    -> POST /api/routines/generate
+    -> Anthropic
+    -> save routines + routine_items
+
+  Screening
+    -> calculate region scores client-side
+    -> save raw questionnaire responses to screening_questionnaires
+    -> optionally save minimal summary row to screening_results
+    -> dashboard/results derive mobility profile from questionnaire responses
+
+  Battery
+    -> score tests client-side
+    -> save test_results
+
+  Programs / Session start
+    -> readiness questions
+    -> save readiness_logs
+    -> route to quiz
 ```
 
-### Scoring Architecture
+Important current note:
 
-```
-Screening Questionnaire (11 questions)
-  → calcScores() → regional pct scores (hips, shoulders, spine)
-  → overall pct score
-  → Save to screening_results
-
-Movement Battery (5 tests, 0-3 each)
-  → totalScore() → x/15
-  → Save to test_results
-
-Readiness Check-in (5 questions, 1-4 each)
-  → readinessScore() → 0-100
-  → readinessLabel() → recommendation
-  → Save to readiness_logs
-
-Results Page
-  → Pull latest from all tables
-  → Display score history
-  → Calculate priority recommendations
-```
+- The app originally assumed a richer `screening_results` schema with columns like `assessed_at`, `raw_scores`, and region scores.
+- The real Supabase schema in this project does not currently match those assumptions.
+- The current code now treats `screening_questionnaires` as the reliable source for screening history and derives the score summary from stored responses.
 
 ---
 
-## 4. Directory Structure
+## 5. Directory Structure
 
-```
+```text
 move-and-groove-v2/
-├── src/
-│   ├── app/
-│   │   ├── layout.tsx                    # Root layout
-│   │   ├── page.tsx                      # Home page (/)
-│   │   ├── globals.css                   # Design tokens + global styles
-│   │   │
-│   │   ├── auth/
-│   │   │   └── page.tsx                  # Sign in / Sign up / Forgot password
-│   │   │
-│   │   ├── dashboard/
-│   │   │   └── page.tsx                  # Dashboard with stats + quick actions
-│   │   │
-│   │   ├── quiz/
-│   │   │   └── page.tsx                  # 5-step routine builder quiz
-│   │   │
-│   │   ├── routine/
-│   │   │   └── page.tsx                  # Routine display with timers
-│   │   │
-│   │   ├── screening/
-│   │   │   └── page.tsx                  # 11-question mobility screening
-│   │   │
-│   │   ├── battery/
-│   │   │   └── page.tsx                  # 5-test movement battery (FMS-style)
-│   │   │
-│   │   ├── results/
-│   │   │   └── page.tsx                  # Score history + priority recommendations
-│   │   │
-│   │   ├── readiness/
-│   │   │   └── page.tsx                  # Daily readiness check-in (5 questions)
-│   │   │
-│   │   ├── session-checkin/
-│   │   │   └── page.tsx                  # Pre/post session check-in
-│   │   │
-│   │   └── api/
-│   │       └── routines/
-│   │           └── generate/
-│   │               └── route.ts          # AI routine generation endpoint
-│   │
-│   ├── components/
-│   │   └── Header.tsx                    # Global navigation header
-│   │
-│   └── lib/
-│       └── supabase/
-│           └── client.ts                 # Supabase browser client
-│
-├── public/                               # Static assets
-├── .env.local                            # Environment variables (not committed)
-├── next.config.ts                        # Next.js config
-├── tsconfig.json                         # TypeScript config
-└── package.json
+|-- DEVELOPER_DOCS.md
+|-- DEVELOPER_DOCS.rtf
+|-- package.json
+|-- next.config.ts
+|-- tsconfig.json
+|-- src/
+|   |-- app/
+|   |   |-- page.tsx
+|   |   |-- auth/
+|   |   |   |-- page.tsx
+|   |   |   `-- reset/page.tsx
+|   |   |-- dashboard/page.tsx
+|   |   |-- quiz/page.tsx
+|   |   |-- routine/page.tsx
+|   |   |-- screening/page.tsx
+|   |   |-- battery/page.tsx
+|   |   |-- results/page.tsx
+|   |   |-- readiness/page.tsx
+|   |   |-- session-checkin/page.tsx
+|   |   |-- recovery/page.tsx
+|   |   |-- programs/page.tsx
+|   |   |-- upgrade/page.tsx
+|   |   `-- api/
+|   |       |-- progress/route.ts
+|   |       `-- routines/
+|   |           |-- generate/route.ts
+|   |           `-- [id]/route.ts
+|   |-- components/
+|   |   |-- Header.tsx
+|   |   |-- Icons.tsx
+|   |   `-- ProGate.tsx
+|   `-- lib/
+|       |-- profiles.ts
+|       |-- readiness.ts
+|       `-- supabase/client.ts
+`-- public/
 ```
 
 ---
 
-## 5. Database Schema
+## 6. Main Routes and Current Purpose
 
-### Supabase Tables
-
-#### `routines`
-Stores AI-generated routine metadata.
-
-| Column | Type | Description |
+| Route | Purpose | Current status |
 |---|---|---|
-| id | int8 | Primary key |
-| user_id | uuid | Foreign key → auth.users |
-| title | text | Routine title |
-| sport | text | Sport slug (golf, afl, etc.) |
-| areas | text[] | Target areas array |
-| goal | text | flexibility / strength / balanced / performance |
-| duration_minutes | int | Session duration |
-| difficulty | text | Beginner / Intermediate / Advanced |
-| summary | text | 2-sentence overview |
-| evidence_summary | text | Research summary |
-| created_at | timestamptz | Auto |
-
-#### `routine_items`
-Individual exercises within a routine.
-
-| Column | Type | Description |
-|---|---|---|
-| id | int8 | Primary key |
-| routine_id | int8 | Foreign key → routines |
-| video_id | text | Google Drive video ID (future) |
-| pillar | text | prep / release / activation / range |
-| exercise_name | text | Exercise name |
-| target_area | text | Body area |
-| sets | int | Number of sets |
-| reps | int | Reps (nullable) |
-| hold_seconds | int | Hold duration (nullable) |
-| rationale | text | Why this exercise |
-| study_citation | text | Peer-reviewed reference |
-| order_index | int | Display order |
-
-#### `screening_questionnaires`
-Raw responses from the mobility screening.
-
-| Column | Type | Description |
-|---|---|---|
-| id | uuid | Primary key |
-| user_id | uuid | Foreign key → auth.users |
-| responses | jsonb | All question answers |
-| completed_at | timestamptz | When completed |
-
-#### `screening_results`
-Calculated scores from screening.
-
-| Column | Type | Description |
-|---|---|---|
-| id | uuid | Primary key |
-| user_id | uuid | Foreign key → auth.users |
-| questionnaire_id | uuid | Foreign key → screening_questionnaires |
-| hip_score | int | 0-100 |
-| shoulder_score | int | 0-100 |
-| spine_score | int | 0-100 |
-| overall_score | int | 0-100 |
-| raw_scores | jsonb | Full score breakdown |
-| assessed_at | timestamptz | When assessed |
-
-#### `test_results`
-Movement battery results.
-
-| Column | Type | Description |
-|---|---|---|
-| id | uuid | Primary key |
-| user_id | uuid | Foreign key → auth.users |
-| scores | jsonb | Per-test scores (0-3 each) |
-| total_score | int | Sum of all test scores |
-| max_score | int | Always 15 (5 tests × 3) |
-| assessed_at | timestamptz | When assessed |
-
-#### `readiness_logs`
-Daily readiness and session check-in logs.
-
-| Column | Type | Description |
-|---|---|---|
-| id | uuid | Primary key |
-| user_id | uuid | Foreign key → auth.users |
-| responses | jsonb | All question answers |
-| readiness_score | int | 0-100 (readiness only) |
-| checkin_type | text | null / pre / post |
-| checked_at | timestamptz | When logged |
-
----
-
-## 6. Pages & Routes
-
-| Route | File | Description | Status |
-|---|---|---|---|
-| `/` | `app/page.tsx` | Home / landing page | ✅ Done |
-| `/auth` | `app/auth/page.tsx` | Sign in, sign up, forgot password | ✅ Done |
-| `/dashboard` | `app/dashboard/page.tsx` | Main dashboard with stats and quick actions | ✅ Done |
-| `/quiz` | `app/quiz/page.tsx` | 5-step routine builder | ✅ Done |
-| `/routine` | `app/routine/page.tsx` | Routine display with exercise timers | ✅ Done |
-| `/screening` | `app/screening/page.tsx` | 11-question mobility assessment | ✅ Done |
-| `/battery` | `app/battery/page.tsx` | 5-test movement battery | ✅ Done |
-| `/results` | `app/results/page.tsx` | Score history and priority recommendations | ✅ Done |
-| `/readiness` | `app/readiness/page.tsx` | Daily readiness check-in | ✅ Done |
-| `/session-checkin` | `app/session-checkin/page.tsx` | Pre/post session check-in | ✅ Done |
-| `/recovery` | `app/recovery/page.tsx` | Recovery session page | ⬜ To build |
-| `/programs` | `app/programs/page.tsx` | Programs + Calendar view | ⬜ To build |
+| `/` | landing page and auth recovery handoff | built |
+| `/auth` | sign in, sign up, resend confirmation, forgot password | working |
+| `/auth/reset` | reset password after email recovery | working well enough for local use |
+| `/dashboard` | guided user hub and next-step logic | recently refactored |
+| `/quiz` | routine builder | working |
+| `/routine` | generated routine viewer | working |
+| `/screening` | mobility screening | working locally after schema compatibility fixes |
+| `/battery` | movement battery | working |
+| `/results` | screening and battery history view | now derives screening history from questionnaires |
+| `/readiness` | standalone readiness page | present |
+| `/session-checkin` | pre / post session check-in | present |
+| `/recovery` | recovery session flow | working |
+| `/programs` | basic weekly calendar / block view | present but not fully productized |
+| `/upgrade` | upgrade / Pro upsell | working |
 
 ---
 
 ## 7. API Routes
 
 ### `POST /api/routines/generate`
+File: `src/app/api/routines/generate/route.ts`
 
-Generates an AI-powered mobility routine using Claude.
+Responsibilities:
 
-**Request body:**
-```json
-{
-  "userId": "uuid or null",
-  "mode": "sport | area",
-  "sport": "golf | afl | rugby | ...",
-  "areas": ["hips", "shoulders", "spine"],
-  "duration": 20,
-  "goal": "flexibility | strength | balanced | performance",
-  "includeFoamRoll": true
-}
-```
+- accepts quiz/recovery inputs
+- builds the Anthropic prompt
+- calls Anthropic
+- parses structured output
+- saves routines and routine items to Supabase
+- returns routine payload to the client
 
-**Response:**
-```json
-{
-  "routineTitle": "string",
-  "summary": "string",
-  "difficultyLevel": "Beginner | Intermediate | Advanced",
-  "totalExercises": 8,
-  "phases": [
-    {
-      "pillar": "prep | release | activation | range",
-      "phaseDescription": "string",
-      "exercises": [
-        {
-          "name": "string",
-          "targetArea": "string",
-          "sets": 2,
-          "reps": null,
-          "holdSeconds": 60,
-          "rationale": "string",
-          "study": "Author et al. (Year). Title. Journal."
-        }
-      ]
-    }
-  ],
-  "evidenceSummary": "string",
-  "savedId": 123
-}
-```
+Recent stability work:
 
-**Phase structure:**
-- `PREP` — Foam roll (built locally from library, not AI)
-- `RELEASE` — Stretches, PNF, passive holds (AI generated)
-- `ACTIVATION` — Isometrics, CARs, eccentric loading (AI generated)
-- `RANGE` — PAILS & RAILS, end-range strength (AI generated)
+- Anthropic key usage is sanitized before client creation
+- live Vercel generation has been verified working again
+- temporary diagnostics used during the key-fix process were already removed
 
-**Pillar weighting by goal:**
+### Placeholder routes
 
-| Goal | Release | Activation | Range |
-|---|---|---|---|
-| flexibility | 50% | 25% | 25% |
-| strength | 25% | 50% | 25% |
-| balanced | 33% | 33% | 33% |
-| performance | 25% | 25% | 50% |
+- `src/app/api/progress/route.ts`
+- `src/app/api/routines/[id]/route.ts`
+
+These still exist only as placeholder `501`-style modules / stubs and are not real product endpoints yet.
 
 ---
 
-## 8. Core Logic
+## 8. Current Supabase Tables the App Depends On
 
-### Scoring Engine
+### Auth / profile
 
-**Screening scores** (`src/app/screening/page.tsx`):
-```ts
-// Each region has 3 questions, max score = 9
-// Score is expressed as a percentage 0-100
-pct = Math.round((raw / max) * 100)
+- `profiles`
+  - `id`
+  - `is_pro`
+  - `created_at`
 
-// Score labels
->= 80 → EXCELLENT (#00b4d8)
->= 60 → GOOD      (#4ac8e8)
->= 40 → FAIR      (#e8a94a)
-<  40 → NEEDS WORK (#e74c3c)
-```
+### Routines
 
-**Battery scores** (`src/app/battery/page.tsx`):
-```ts
-// 5 tests, each scored 0-3
-// Total max = 15
-// Each test colour-coded: 3=cyan, 2=light cyan, 1=amber, 0=red
-```
+- `routines`
+- `routine_items`
 
-**Readiness scores** (`src/app/readiness/page.tsx`):
-```ts
-// 5 questions, each scored 1-4
-// Max = 20, expressed as 0-100
-score = Math.round((total / max) * 100)
+### Assessments / logs
 
->= 80 → READY TO PERFORM → push intensity
->= 60 → GOOD TO GO → stick to plan
->= 40 → MODIFIED SESSION → lighter work
-<  40 → REST OR RECOVER → skip or walk
-```
+- `screening_questionnaires`
+- `screening_results`
+- `test_results`
+- `readiness_logs`
+- `progress`
 
-### Foam Roll Library
+### Planning / future-facing tables seen in earlier project notes
 
-Hardcoded in `route.ts`. Organised by area: `hips`, `shoulders`, `spine`. Each entry has name, area, and coaching notes. Selected based on target areas and session duration:
+- `programmes`
+- `programme_sessions`
+- `videos`
 
-- ≤ 20 min → max 2 exercises
-- ≤ 30 min → max 3 exercises
-- > 30 min → max 4 exercises
+Important schema caveat:
 
-### Sports Library
-
-14 sports mapped to their key biomechanical demands:
-`golf, afl, rugby, soccer, wrestling, weightlifting, cricket, tennis, basketball, volleyball, netball, bjj, kickboxing, muaythai`
+- The existing codebase was originally written as if `screening_results` contained richer summary columns.
+- Actual runtime testing showed missing columns such as:
+  - `assessed_at`
+  - `raw_scores`
+  - `spine_score`
+- The current implementation now avoids relying on those missing columns for the user-facing mobility history.
 
 ---
 
-## 9. Design System
+## 9. Current Business Logic
 
-### CSS Variables (`globals.css`)
+### Mobility screening
 
-```css
---black:   #000000
---black2:  #080808
---black3:  #101010
---black4:  #181818
---white:   #ffffff
---silver:  #c8cdd4
---silver2: #8e9aa8
---silver3: #5a6470
---silver4: #2e3840
---cyan:    #00b4d8
---cyan2:   #4ac8e8
---cyan3:   #007a95
---border:  rgba(200,205,212,0.12)
---border2: rgba(200,205,212,0.06)
-```
+- 11 questions across general activity/pain plus hips, shoulders, and spine
+- screening percentages are calculated client-side
+- raw responses are stored in `screening_questionnaires`
+- the dashboard/results derive region scores from those stored answers
+- user is intended to retake only once every 30 days
 
-### Typography
+### Subscription pathing
 
-| Font | Usage |
-|---|---|
-| Syncopate 700 | Headings, labels, navigation |
-| DM Mono | Metadata, tags, counters, monospace labels |
-| DM Sans | Body text, instructions, descriptions |
-| Cormorant Garamond | Routine titles, editorial content |
+Current intended UX:
 
-### Button Classes
+- All users start with mobility screening
+- Basic users then go to sport-specific or body-part routine choice
+- Premium users go from screening to movement battery
+- After premium battery, users move into daily routine or programs/calendar flow
 
-```css
-.btn-primary   /* White background, black text — main CTA */
-.btn-outline   /* Transparent, silver border — secondary */
-.btn-ghost     /* No border, subtle — tertiary */
-```
+### Readiness / session logic
 
-### Shared UI Patterns
+Current state:
 
-- **Score cards**: Big number + label + colour bar
-- **Question cards**: Two-column layout (instruction + options)
-- **Progress bar**: Gradient cyan bar, 3px height
-- **Region badge**: Coloured pill with icon + label
-- **Priority callout**: Left border accent + description
+- readiness exists and can be saved before a session
+- session check-in exists pre and post session
+- however, pain handling is still too shallow for real intelligent workout modification
 
----
+Known product gap:
 
-## 10. Environment Variables
+- If a user reports pain, the app still does not ask *where* the pain is
+- This means AI cannot safely or accurately adapt the workout around the painful region yet
 
-Create `.env.local` in the project root:
+### Programs
 
-```env
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-SUPABASE_SERVICE_KEY=your_supabase_service_role_key
-ANTHROPIC_API_KEY=your_anthropic_api_key
-```
+Current state:
 
-> ⚠️ Never commit `.env.local` to GitHub. It is in `.gitignore`.
+- programs page derives a weekly calendar and block summary from routine history
+- it is not yet a true scheduled programming engine
+
+Not built yet:
+
+- plan length selection (`4 / 8 / 12 weeks`)
+- scheduled workout persistence
+- reminder orchestration
+- auto-populated calendar from a selected plan
 
 ---
 
-## 11. Running Locally
+## 10. Dashboard Refactor Summary
 
-```bash
-# Clone the repo
-git clone https://github.com/marcomastrorocco/move-and-groove-v2.git
-cd move-and-groove-v2
+The dashboard was recently changed substantially.
 
-# Install dependencies
-npm install
+### Before
 
-# Add environment variables
-cp .env.example .env.local
-# Edit .env.local with your keys
+- users landed on a broad grid of options immediately
+- it was unclear where to start
 
-# Run dev server
-npm run dev
+### Now
 
-# Open in browser
-http://localhost:3000
-```
+The dashboard decides the best next step from:
 
----
+- whether screening exists
+- whether battery exists
+- whether the user is Basic or Premium
+- whether routines already exist
 
-## 12. Deployment
+It now emphasizes:
 
-### Target: Vercel
+- one guided hero action
+- saved mobility score access
+- battery status
+- cleaner progression language
+- stronger hover styling
+- metallic headline styling
 
-1. Go to [vercel.com](https://vercel.com) and sign in
-2. Click **New Project** → Import from GitHub
-3. Select `move-and-groove-v2`
-4. Add environment variables in Vercel dashboard:
-   - `NEXT_PUBLIC_SUPABASE_URL`
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-   - `SUPABASE_SERVICE_KEY`
-   - `ANTHROPIC_API_KEY`
-5. Click **Deploy**
+### Preview mode
 
-Vercel auto-deploys on every push to `main`.
+The dashboard now supports local preview switching via query string:
+
+- `?preview=basic`
+- `?preview=pro`
+
+This is currently a local UI preview aid and does not change real subscription state.
 
 ---
 
-## 13. What Is Done
+## 11. Auth / Deployment Status
 
-### Infrastructure ✅
-- [x] Next.js 15 app with App Router
-- [x] Supabase project + 6 database tables
-- [x] Anthropic Claude API integration
-- [x] Supabase Auth (email + Google SSO)
-- [x] GitHub repo with version control
+### Auth
 
-### Backend ✅
-- [x] Scoring engine v2 (configurable weights)
-- [x] Types file (ScoringWeights, GoalWeights, RegionalScore)
-- [x] Readiness engine (calcReadiness)
-- [x] API route `/api/routines/generate` with robust JSON parsing
-- [x] Foam roll library (hips, shoulders, spine)
-- [x] Sports library (14 sports)
-- [x] PREP → RELEASE → ACTIVATION → RANGE phase structure
+Currently true:
 
-### Pages ✅
-- [x] Home page (`/`)
-- [x] Auth page — sign in, sign up, forgot password (`/auth`)
-- [x] Dashboard with stats + 7 quick action cards (`/dashboard`)
-- [x] Quiz — 5-step routine builder with sport/area/duration/goal/foam roll (`/quiz`)
-- [x] Routine display — phase breakdown with exercise timers (`/routine`)
-- [x] Screening questionnaire — 11 questions, regional scoring, Supabase save (`/screening`)
-- [x] Movement battery — 5 tests, 0-3 FMS scoring, Supabase save (`/battery`)
-- [x] Results page — score history, breakdowns, priority recommendations (`/results`)
-- [x] Daily readiness check-in — 5 questions, readiness score, recommendation (`/readiness`)
-- [x] Session check-in — pre/post session, RPE, completion logging (`/session-checkin`)
+- sign-in works
+- dashboard access works
+- password visibility toggles exist
+- resend confirmation flow exists
+- reset flow was stabilized enough to get back into the app
 
-### Components ✅
-- [x] Header with navigation and auth state
+### Anthropic / deployment
 
----
+Currently true:
 
-## 14. Roadmap — What Is Left
+- Vercel production was failing with `401 invalid x-api-key`
+- the route was hardened to sanitize env input
+- the issue was narrowed down and resolved
+- live routine generation now works again
 
-### High Priority — Core Features
+### Local development
 
-#### Recovery Session Page (`/recovery`)
-A lighter version of the routine display, pre-set to foam roll + release work. No quiz needed — user picks duration and it generates a recovery-focused routine automatically.
+Current local dev URL when the correct repo is running:
 
-**Files to create:**
-- `src/app/recovery/page.tsx`
+- `http://localhost:3001`
 
-**Dependencies:** existing `/api/routines/generate` endpoint
+Reason:
+
+- another process is occupying port `3000`
+
+Useful local URLs right now:
+
+- `http://localhost:3001/dashboard`
+- `http://localhost:3001/dashboard?preview=basic`
+- `http://localhost:3001/dashboard?preview=pro`
+- `http://localhost:3001/screening`
 
 ---
 
-#### Programs + Calendar Page (`/programs`)
-Shows the user's training block structure, scheduled sessions, and progression over time.
+## 12. Current Known Issues / Next Priorities
 
-**Features:**
-- Weekly calendar view
-- Block structure (e.g. 4-week blocks)
-- Session history
-- Next session recommendation
+### Highest-priority product issue
 
-**Files to create:**
-- `src/app/programs/page.tsx`
+Improve pre-session readiness depth.
 
-**Dependencies:** `routines` table, new `programs` or `blocks` table TBD
+Reason:
 
----
+- current pain question is too generic
+- if pain is reported, the app still does not know which region is affected
+- workout modification cannot be smart without area-specific context
 
-### Medium Priority
+What should be added next:
 
-#### Subscription Gate (Free vs Pro)
-Limit free users to a certain number of generated routines per month. Pro unlocks unlimited routines, score history, and programs.
+- conditional pain follow-up questions
+- painful area selection
+- severity and type of pain
+- whether the user wants lighter work / avoidance / recovery-only
+- pass this structured context into generation
 
-**Implementation:**
-- Add `is_pro` boolean to Supabase user profile table
-- Wrap gated components in `<ProGate>` component
-- Add upgrade prompt/modal
-- Integrate Stripe (future)
+### Calendar / programming work still needed
 
-**Files to create/modify:**
-- `src/components/ProGate.tsx`
-- `src/app/upgrade/page.tsx`
-- `src/app/dashboard/page.tsx` — add upgrade prompt
+1. Add a real plan setup flow
+   - 4 weeks
+   - 8 weeks
+   - 12 weeks
+   - random daily routine
 
----
+2. Add a schedule data model
+   - scheduled workouts
+   - date/time
+   - reminder state
+   - completion state
 
-#### Block Review + Next Block Recommendation
-End-of-block summary screen showing progress across the block, with a recommendation for the next block based on scoring.
+3. Build calendar population logic
+   - create workout instances from selected plan
+   - persist them
+   - display them consistently
 
-**Files to create:**
-- `src/app/block-review/page.tsx`
+4. Add email reminder system
+   - 30-minute reminder
+   - job/scheduler
+   - delivery tracking
 
----
+5. Link readiness and post-session feedback to actual scheduled workouts
 
-#### Google Drive API for Videos
-Replace static Unsplash photos and YouTube search links with actual exercise demonstration videos hosted on Google Drive.
+### Technical cleanup still needed
 
-**Implementation:**
-- Service account authentication
-- Store Drive file IDs in `routine_items.video_id`
-- Fetch signed URLs on demand
-- Embed via iframe or video player component
-
-**Files to modify:**
-- `src/app/api/routines/generate/route.ts`
-- `src/app/routine/page.tsx`
-- `src/lib/drive.ts` (new)
+- formalize the Supabase schema documentation against the real project schema
+- decide whether `screening_results` should remain minimal or be rebuilt to include region summaries properly
+- implement real versions of placeholder API routes if needed
 
 ---
 
-### Lower Priority
+## 13. Recent Commits Before This Current Uncommitted Batch
 
-#### Mobile Responsiveness
-Currently desktop-optimised. Before Vercel deploy, add proper mobile breakpoints.
+Already committed before the current local work:
 
-**Approach:**
-- Replace fixed pixel values with `clamp()` in all pages
-- Add CSS media queries in `globals.css`
-- Stack two-column layouts on mobile
-- Reduce font sizes and padding on small screens
+- `9583b1c` `chore: remove temporary anthropic diagnostics`
+- `0441859` `fix: clean UTF-8 encoding in generate route`
+- `edaa1bb` `chore: add safe anthropic env diagnostics`
+- `5811d43` `fix: sanitize anthropic env usage in generator route`
+- `a4bc650` `fix: restore auth access and stabilize supabase client`
+- `28c1faf` `fix: stabilize auth reset flow and build validation`
 
-**Files to modify:** all `page.tsx` files + `globals.css`
+Current local batch still needed to commit at the moment this doc was updated:
 
----
-
-#### Deploy to Vercel
-Connect GitHub repo to Vercel, add environment variables, deploy.
-
-**Estimated time:** 10–15 minutes
+- guided dashboard onboarding refactor
+- screening schema compatibility fixes
+- results/dashboard sourcing mobility history from questionnaires
+- dashboard subscription preview mode
 
 ---
 
-### Future / Post-MVP
+## 14. Practical Handoff Notes
 
-| Feature | Description |
-|---|---|
-| Stripe integration | Payment processing for Pro subscriptions |
-| Push notifications | Daily check-in reminders |
-| Coach dashboard | View and manage athlete scores |
-| PDF export | Export routine as printable PDF |
-| Apple Health / Garmin sync | Import sleep and HRV data for readiness |
-| Native mobile app | React Native version |
+If a new developer or Claude continues from here, the most important truths are:
 
----
-
-## Quick Reference — Git Workflow
-
-```bash
-# Save all changes to GitHub
-git add .
-git commit -m "feat: description of what you built"
-git push
-
-# Check what has changed
-git status
-
-# See commit history
-git log --oneline
-```
+1. The app is usable again.
+2. Auth is working.
+3. Live routine generation is working.
+4. The dashboard has been refactored into a guided onboarding-first experience.
+5. Screening data should currently be treated as questionnaire-driven, not dependent on a rich `screening_results` schema.
+6. The next best product improvement is the deeper pre-session pain/readiness flow.
+7. The next major systems feature after that is true program scheduling/calendar/reminders.
 
 ---
 
-*Document generated April 2026. Update after each major feature is completed.*
+## 15. Suggested Next Build Order
+
+1. Commit and push the current local dashboard/screening/results batch
+2. Improve pre-session readiness with conditional pain detail
+3. Define the real schedule/program schema
+4. Build 4/8/12-week plan setup flow
+5. Persist scheduled workouts and render them in calendar
+6. Add reminder emails
+7. Revisit subscription-specific polish around Basic vs Premium experience

@@ -27,7 +27,8 @@ type ScreeningResult = {
   hip_score: number
   shoulder_score: number
   spine_score: number
-  assessed_at: string
+  created_at?: string | null
+  completed_at?: string | null
 }
 
 type BatteryResult = {
@@ -35,7 +36,8 @@ type BatteryResult = {
   total_score: number
   max_score: number
   scores: Record<string, number>
-  assessed_at: string
+  assessed_at?: string | null
+  created_at?: string | null
 }
 
 function scoreColor(pct: number) {
@@ -54,6 +56,39 @@ function scoreLabel(pct: number) {
 
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+function getAssessmentDate(entry: { assessed_at?: string | null; created_at?: string | null }) {
+  return entry.assessed_at || entry.created_at || new Date().toISOString()
+}
+
+function calcScreeningScoresFromResponses(responses: Record<string, number> | null | undefined) {
+  const safe = responses || {}
+  const groups = {
+    hips: ['hip_flexion', 'hip_rotation', 'hip_stiffness'],
+    shoulders: ['shoulder_overhead', 'shoulder_rotation', 'shoulder_stability'],
+    spine: ['thoracic_rotation', 'lumbar_flexion', 'spine_pain'],
+  } as const
+
+  const scoreFor = (keys: readonly string[]) => {
+    const raw = keys.reduce((sum, key) => sum + (safe[key] ?? 0), 0)
+    return Math.round((raw / (keys.length * 3)) * 100)
+  }
+
+  const hip_score = scoreFor(groups.hips)
+  const shoulder_score = scoreFor(groups.shoulders)
+  const spine_score = scoreFor(groups.spine)
+
+  return {
+    hip_score,
+    shoulder_score,
+    spine_score,
+    overall_score: Math.round((hip_score + shoulder_score + spine_score) / 3),
+  }
+}
+
+function getScreeningDate(entry: ScreeningResult) {
+  return entry.completed_at || entry.created_at || new Date().toISOString()
 }
 
 const BATTERY_LABELS: Record<string, string> = {
@@ -89,11 +124,18 @@ export default function ResultsPage() {
       const uid = session.user.id
 
       const [{ data: screening }, { data: battery }] = await Promise.all([
-        supabase.from('screening_results').select('*').eq('user_id', uid).order('assessed_at', { ascending: false }).limit(10),
-        supabase.from('test_results').select('*').eq('user_id', uid).order('assessed_at', { ascending: false }).limit(10),
+        supabase.from('screening_questionnaires').select('*').eq('user_id', uid).order('completed_at', { ascending: false }).limit(10),
+        supabase.from('test_results').select('*').eq('user_id', uid).order('created_at', { ascending: false }).limit(10),
       ])
 
-      setScreeningHistory(screening || [])
+      setScreeningHistory(
+        (screening || []).map((item: { id: string; responses?: Record<string, number>; created_at?: string | null; completed_at?: string | null }) => ({
+          id: item.id,
+          ...calcScreeningScoresFromResponses(item.responses),
+          created_at: item.created_at || null,
+          completed_at: item.completed_at || null,
+        }))
+      )
       setBatteryHistory(battery || [])
       setLoading(false)
     }
@@ -190,7 +232,7 @@ export default function ResultsPage() {
                     <p style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 120, fontWeight: 700, color: scoreColor(latestScreening.overall_score), lineHeight: 1, letterSpacing: 4 }}>{latestScreening.overall_score}</p>
                     <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 14, letterSpacing: 5, color: 'var(--silver2)', marginTop: 12 }}>OVERALL SCORE</p>
                     <p style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 14, fontWeight: 700, letterSpacing: 4, color: scoreColor(latestScreening.overall_score), marginTop: 14 }}>{scoreLabel(latestScreening.overall_score)}</p>
-                    <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, letterSpacing: 2, color: 'var(--silver4)', marginTop: 16 }}>{formatDate(latestScreening.assessed_at)}</p>
+                    <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, letterSpacing: 2, color: 'var(--silver4)', marginTop: 16 }}>{formatDate(getScreeningDate(latestScreening))}</p>
                   </div>
                 )}
 
@@ -200,7 +242,7 @@ export default function ResultsPage() {
                     <p style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 120, fontWeight: 700, color: scoreColor((latestBattery.total_score / latestBattery.max_score) * 100), lineHeight: 1, letterSpacing: 4 }}>{latestBattery.total_score}</p>
                     <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 14, letterSpacing: 5, color: 'var(--silver2)', marginTop: 12 }}>OUT OF {latestBattery.max_score}</p>
                     <p style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 14, fontWeight: 700, letterSpacing: 4, color: scoreColor((latestBattery.total_score / latestBattery.max_score) * 100), marginTop: 14 }}>{scoreLabel((latestBattery.total_score / latestBattery.max_score) * 100)}</p>
-                    <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, letterSpacing: 2, color: 'var(--silver4)', marginTop: 16 }}>{formatDate(latestBattery.assessed_at)}</p>
+                    <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, letterSpacing: 2, color: 'var(--silver4)', marginTop: 16 }}>{formatDate(getAssessmentDate(latestBattery))}</p>
                   </div>
                 )}
               </div>
@@ -279,7 +321,7 @@ export default function ResultsPage() {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                           {screeningHistory.map((item, index) => (
                             <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
-                              <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, letterSpacing: 2, color: 'var(--silver3)', minWidth: 100 }}>{formatDate(item.assessed_at)}</p>
+                              <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, letterSpacing: 2, color: 'var(--silver3)', minWidth: 100 }}>{formatDate(getScreeningDate(item))}</p>
                               <div style={{ flex: 1, height: 3, background: 'var(--silver4)', position: 'relative' }}>
                                 <div style={{ position: 'absolute', top: 0, left: 0, height: '100%', width: `${item.overall_score}%`, background: scoreColor(item.overall_score) }} />
                               </div>
@@ -299,7 +341,7 @@ export default function ResultsPage() {
                             const pct = Math.round((item.total_score / item.max_score) * 100)
                             return (
                               <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
-                                <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, letterSpacing: 2, color: 'var(--silver3)', minWidth: 100 }}>{formatDate(item.assessed_at)}</p>
+                                <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, letterSpacing: 2, color: 'var(--silver3)', minWidth: 100 }}>{formatDate(getAssessmentDate(item))}</p>
                                 <div style={{ flex: 1, height: 3, background: 'var(--silver4)', position: 'relative' }}>
                                   <div style={{ position: 'absolute', top: 0, left: 0, height: '100%', width: `${pct}%`, background: scoreColor(pct) }} />
                                 </div>
