@@ -49,9 +49,15 @@ interface BatteryResult {
   created_at?: string | null
 }
 
+type StageAction = {
+  label: string
+  href: string
+  mode: 'modal' | 'route'
+}
+
 const UC = 'uppercase' as const
-const GOLD_TEXT = {
-  backgroundImage: 'linear-gradient(135deg, #f4efe3 0%, #c9b48b 30%, #fff7d8 48%, #8d7449 72%, #efe1b7 100%)',
+const METALLIC_TEXT = {
+  backgroundImage: 'linear-gradient(135deg, #f8fbff 0%, #d8e4ea 24%, #8be7ff 48%, #b9c7cf 74%, #ffffff 100%)',
   WebkitBackgroundClip: 'text',
   color: 'transparent',
 } as const
@@ -150,6 +156,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [isPro, setIsPro] = useState(false)
   const [previewMode, setPreviewMode] = useState<'basic' | 'pro' | null>(() => getPreviewModeFromLocation())
+  const [showWhyFirst, setShowWhyFirst] = useState(false)
 
   const loadData = useCallback(async (userId: string) => {
     try {
@@ -219,51 +226,57 @@ export default function DashboardPage() {
   const canRetakeScreening = !latestScreeningDate || addDays(latestScreeningDate, 30) <= new Date()
   const nextScreeningDate = latestScreeningDate ? addDays(latestScreeningDate, 30) : null
   const membershipLabel = effectiveIsPro ? 'FULL / PREMIUM' : 'BASIC'
-  const membershipTone = effectiveIsPro ? '#dac394' : 'var(--cyan)'
+  const membershipTone = effectiveIsPro ? 'var(--silver2)' : 'var(--cyan)'
   const membershipSummary = effectiveIsPro
     ? 'Premium adds the movement battery and planning layer after the shared screening baseline.'
     : 'Basic keeps the onboarding lighter and routes straight from screening into sport or body-area routines.'
   const journeySteps = effectiveIsPro ? PREMIUM_PATH : BASIC_PATH
   const visibleQuickActions = effectiveIsPro
-    ? QUICK_ACTIONS
-    : QUICK_ACTIONS.filter((action) => action.href !== '/programs')
+    ? QUICK_ACTIONS.filter((action) => ['/quiz', '/programs', '/session-checkin'].includes(action.href))
+    : QUICK_ACTIONS.filter((action) => ['/quiz', '/results', '/session-checkin'].includes(action.href))
+  const latestRoutine = routines[0] || null
 
   let stageLabel = 'Start with your mobility baseline'
   let stageTitle = 'MOBILITY SCREENING'
   let stageBody = 'Every athlete begins with the same mobility screen so the app can capture a baseline and point you toward the right next step.'
+  let stageStatement: string | null = 'SCREEN, BENCHMARK, IMPROVE'
   let primaryAction = { label: hasScreening && canRetakeScreening ? 'RETAKE SCREENING' : 'START SCREENING', href: '/screening' }
-  let secondaryAction = { label: 'WHY THIS FIRST?', href: '/results' }
+  let secondaryAction: StageAction = { label: 'WHY THIS FIRST?', href: '/results', mode: 'modal' }
 
   if (hasScreening && !effectiveIsPro) {
     stageLabel = 'Basic path unlocked'
     stageTitle = 'CHOOSE YOUR FOCUS'
     stageBody = 'Your screening is saved to your profile. Next, choose either sport-specific guidance or a body-area focus to build your next routine.'
+    stageStatement = null
     primaryAction = { label: 'CHOOSE SPORT OR BODY AREA', href: '/quiz' }
-    secondaryAction = { label: 'VIEW MOBILITY SCORES', href: '/results' }
+    secondaryAction = { label: 'VIEW MOBILITY SCORES', href: '/results', mode: 'route' as const }
   }
 
   if (hasScreening && effectiveIsPro && !hasBattery) {
     stageLabel = 'Premium path unlocked'
     stageTitle = 'MOVEMENT BATTERY NEXT'
     stageBody = 'Premium members continue straight into the 5-test movement battery so both mobility and movement quality can guide the next training block.'
+    stageStatement = null
     primaryAction = { label: 'START MOVEMENT BATTERY', href: '/battery' }
-    secondaryAction = { label: 'VIEW MOBILITY SCORES', href: '/results' }
+    secondaryAction = { label: 'VIEW MOBILITY SCORES', href: '/results', mode: 'route' as const }
   }
 
   if (hasScreening && effectiveIsPro && hasBattery && routines.length === 0) {
     stageLabel = 'Assessments complete'
     stageTitle = 'BUILD YOUR PLAN'
     stageBody = 'Your screening and battery are both saved. Now choose a daily routine or move into your program and calendar view.'
+    stageStatement = null
     primaryAction = { label: 'BUILD DAILY ROUTINE', href: '/quiz' }
-    secondaryAction = { label: 'OPEN PROGRAMS + CALENDAR', href: '/programs' }
+    secondaryAction = { label: 'OPEN PROGRAMS + CALENDAR', href: '/programs', mode: 'route' as const }
   }
 
   if (hasScreening && ((effectiveIsPro && hasBattery) || !effectiveIsPro) && routines.length > 0) {
     stageLabel = 'Keep momentum going'
     stageTitle = 'CONTINUE YOUR TRAINING FLOW'
     stageBody = 'Your latest scores are saved, your routines are on file, and you can jump back into today\'s session or review your profile history.'
+    stageStatement = null
     primaryAction = { label: 'OPEN TODAY\'S ROUTINE FLOW', href: '/quiz' }
-    secondaryAction = { label: 'VIEW PROFILE HISTORY', href: '/results' }
+    secondaryAction = { label: 'VIEW PROFILE HISTORY', href: '/results', mode: 'route' as const }
   }
 
   function setPreview(nextMode: 'basic' | 'pro' | null) {
@@ -318,10 +331,7 @@ export default function DashboardPage() {
                 <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 'clamp(34px,6vw,58px)', fontWeight: 700, letterSpacing: 4, color: 'var(--white)', lineHeight: 1.05, marginBottom: 10 }}>
                   WELCOME BACK
                   <br />
-                  <span style={GOLD_TEXT}>{firstNameCap}</span>
-                </div>
-                <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 18, color: 'var(--silver2)', lineHeight: 1.75, maxWidth: 760 }}>
-                  Instead of throwing every tool at you at once, this dashboard now points you to the single smartest next step in your training journey.
+                  <span style={METALLIC_TEXT}>{firstNameCap}</span>
                 </div>
               </div>
               <button className="btn-outline" onClick={() => router.push('/results')}>
@@ -347,20 +357,25 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.3fr) minmax(320px,0.9fr)', gap: 18, marginBottom: 28 }}>
-            <div style={{ background: 'linear-gradient(145deg, rgba(255,255,255,0.06) 0%, rgba(10,12,16,0.98) 55%)', border: '1px solid rgba(201,180,139,0.2)', padding: '34px 32px', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.08)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.3fr) minmax(320px,0.9fr)', gap: 18, marginBottom: 28, alignItems: 'start' }}>
+            <div style={{ background: 'linear-gradient(145deg, rgba(255,255,255,0.06) 0%, rgba(10,12,16,0.98) 55%)', border: '1px solid rgba(139,231,255,0.18)', padding: '28px 30px', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.08)', alignSelf: 'start' }}>
               <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: 'var(--cyan)', marginBottom: 12, textTransform: UC }}>
                 {stageLabel}
               </div>
-              <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 'clamp(26px,4vw,40px)', fontWeight: 700, letterSpacing: 3, lineHeight: 1.15, marginBottom: 14, ...GOLD_TEXT }}>
+              <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 'clamp(26px,4vw,40px)', fontWeight: 700, letterSpacing: 3, lineHeight: 1.15, marginBottom: 14, ...METALLIC_TEXT }}>
                 {stageTitle}
               </div>
-              <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 18, color: 'var(--silver2)', lineHeight: 1.8, marginBottom: 22, maxWidth: 720 }}>
+              {stageStatement && (
+                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, letterSpacing: 5, color: 'var(--cyan)', marginBottom: 16, textTransform: UC }}>
+                  {stageStatement}
+                </div>
+              )}
+              <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 18, color: 'var(--silver2)', lineHeight: 1.8, marginBottom: 18, maxWidth: 720 }}>
                 {stageBody}
               </div>
 
               {latestScreening && (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 22 }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 18 }}>
                   <span className="meta-chip">Mobility {latestScreening.overall_score}%</span>
                   {latestScreeningDate && <span className="meta-chip">Saved {formatDate(latestScreeningDate)}</span>}
                   {!canRetakeScreening && nextScreeningDate && <span className="meta-chip">Next screen {formatDate(nextScreeningDate.toISOString())}</span>}
@@ -372,14 +387,37 @@ export default function DashboardPage() {
                 <button className="btn-primary" onClick={() => router.push(primaryAction.href)}>
                   {primaryAction.label}
                 </button>
-                <button className="btn-outline" onClick={() => router.push(secondaryAction.href)}>
+                <button
+                  className="btn-outline"
+                  onClick={() => {
+                    if (secondaryAction.mode === 'modal') {
+                      setShowWhyFirst((current) => !current)
+                      return
+                    }
+                    router.push(secondaryAction.href)
+                  }}
+                >
                   {secondaryAction.label}
                 </button>
               </div>
+              {secondaryAction.mode === 'modal' && showWhyFirst && (
+                <div style={{ marginTop: 16, maxWidth: 620, border: '1px solid rgba(139,231,255,0.18)', background: 'linear-gradient(180deg, rgba(0,180,216,0.08) 0%, rgba(8,10,14,0.96) 100%)', padding: '18px 20px' }}>
+                  <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: 'var(--cyan)', marginBottom: 10, textTransform: UC }}>
+                    Why Screening Comes First
+                  </div>
+                  <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: 'var(--silver2)', lineHeight: 1.75 }}>
+                    Screening shows where you move well and where you are restricted.
+                    <br />
+                    It gives us a benchmark before we build any routine or program.
+                    <br />
+                    That means your next step is based on your body, not a generic template.
+                  </div>
+                </div>
+              )}
             </div>
 
             <div style={{ display: 'grid', gap: 1, background: 'rgba(255,255,255,0.08)', border: '1px solid var(--border)' }}>
-              <div style={{ background: effectiveIsPro ? 'linear-gradient(180deg, rgba(218,195,148,0.14) 0%, rgba(8,10,14,0.96) 100%)' : 'linear-gradient(180deg, rgba(0,180,216,0.14) 0%, rgba(8,10,14,0.96) 100%)', padding: '26px 24px' }}>
+              <div style={{ background: effectiveIsPro ? 'linear-gradient(180deg, rgba(216,228,234,0.14) 0%, rgba(8,10,14,0.96) 100%)' : 'linear-gradient(180deg, rgba(0,180,216,0.14) 0%, rgba(8,10,14,0.96) 100%)', padding: '26px 24px' }}>
                 <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: membershipTone, marginBottom: 10, textTransform: UC }}>
                   {'// Account Tier'}
                 </div>
@@ -460,6 +498,33 @@ export default function DashboardPage() {
                   <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: 'var(--silver2)', lineHeight: 1.75 }}>
                     Last saved on <span style={{ color: 'var(--white)' }}>{latestScreeningDate ? formatDate(latestScreeningDate) : 'your latest check'}</span>. {canRetakeScreening ? 'You can complete a new screening now.' : `Your next screening unlocks on ${formatDate(nextScreeningDate!.toISOString())}.`}
                   </div>
+                  <div style={{ marginTop: 18, paddingTop: 18, borderTop: '1px solid var(--border2)' }}>
+                    <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: 'var(--silver3)', marginBottom: 10, textTransform: UC }}>
+                      {'// Routine Library'}
+                    </div>
+                    {latestRoutine ? (
+                      <>
+                        <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 15, fontWeight: 700, letterSpacing: 2, color: 'var(--white)', marginBottom: 8 }}>
+                          {routines.length} SAVED {routines.length === 1 ? 'ROUTINE' : 'ROUTINES'}
+                        </div>
+                        <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: 'var(--silver2)', lineHeight: 1.7, marginBottom: 14 }}>
+                          Latest: <span style={{ color: 'var(--white)' }}>{latestRoutine.title}</span> on {formatDate(latestRoutine.created_at)}.
+                        </div>
+                        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                          <button className="btn-outline" onClick={() => router.push('/programs')}>
+                            OPEN LIBRARY
+                          </button>
+                          <button className="btn-outline" onClick={() => router.push(`/routine/${latestRoutine.id}`)}>
+                            LAST ROUTINE
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: 'var(--silver2)', lineHeight: 1.7 }}>
+                        No routines saved yet. Generate one when you want to keep it in your library.
+                      </div>
+                    )}
+                  </div>
                 </>
               ) : (
                 <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 16, color: 'var(--silver2)', lineHeight: 1.8 }}>
@@ -533,7 +598,7 @@ export default function DashboardPage() {
               {'// Quick Tools'}
             </div>
             <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 18, fontWeight: 700, letterSpacing: 2, color: 'var(--white)' }}>
-              EVERYTHING ELSE, ONCE YOU KNOW YOUR NEXT STEP
+              ONLY THE ESSENTIALS
             </div>
           </div>
 
@@ -574,9 +639,9 @@ export default function DashboardPage() {
                     fontFamily: "'DM Mono',monospace",
                     fontSize: 9,
                     letterSpacing: 2,
-                    color: '#dac394',
-                    background: 'rgba(201,180,139,0.08)',
-                    border: '1px solid rgba(201,180,139,0.22)',
+                    color: 'var(--silver2)',
+                    background: 'rgba(216,228,234,0.08)',
+                    border: '1px solid rgba(216,228,234,0.18)',
                     padding: '4px 10px',
                     borderRadius: 20,
                     display: 'inline-block',
@@ -589,59 +654,6 @@ export default function DashboardPage() {
               </div>
             ))}
           </div>
-
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, gap: 12, flexWrap: 'wrap' }}>
-            <div className="section-title">Saved Routines</div>
-            {routines.length > 0 && (
-              <button className="btn-outline" onClick={() => router.push('/programs')}>
-                OPEN CALENDAR
-              </button>
-            )}
-          </div>
-
-          {routines.length === 0 ? (
-            <div className="empty-state">
-              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
-                <IconRoutine size={34} color="var(--silver4)" />
-              </div>
-              <div className="empty-state-text">No saved routines yet.<br />Follow the guided step above and your first plan will appear here.</div>
-            </div>
-          ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(300px,1fr))', gap: 14 }}>
-              {routines.map((routine) => (
-                <div
-                  key={routine.id}
-                  onClick={() => router.push(`/routine/${routine.id}`)}
-                  style={{
-                    background: 'linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(10,12,16,0.98) 100%)',
-                    border: '1px solid rgba(255,255,255,0.08)',
-                    padding: 28,
-                    cursor: 'pointer',
-                    transition: 'transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease',
-                    position: 'relative',
-                    boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04)',
-                  }}
-                  onMouseEnter={(event) => applyHoverState(event.currentTarget, true)}
-                  onMouseLeave={(event) => applyHoverState(event.currentTarget, false)}
-                >
-                  <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 3, color: 'var(--cyan3)', marginBottom: 10, textTransform: UC }}>
-                    {routine.sport ? routine.sport.toUpperCase() : (routine.areas || []).map((area) => area.toUpperCase()).join(' / ')}
-                  </div>
-                  <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 26, fontWeight: 600, color: 'var(--white)', marginBottom: 14, lineHeight: 1.3 }}>
-                    {routine.title}
-                  </div>
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
-                    <span className="meta-chip">{routine.duration_minutes} min</span>
-                    {routine.difficulty && <span className="meta-chip">{routine.difficulty}</span>}
-                    {routine.goal && <span className="meta-chip">{routine.goal}</span>}
-                  </div>
-                  <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: 'var(--silver4)', letterSpacing: 1 }}>
-                    {formatDate(routine.created_at)}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
       </main>
     </>

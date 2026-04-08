@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Header from '@/components/Header'
+import { createClient } from '@/lib/supabase/client'
 
 type Exercise = {
   videoId: number | null
@@ -173,6 +174,7 @@ function ExerciseTimer({ sets, holdSeconds }: { sets: number; holdSeconds: numbe
 
 export default function RoutinePage() {
   const router = useRouter()
+  const supabase = createClient()
   const [storedMeta] = useState<RoutineMeta | null>(() => {
     if (typeof window === 'undefined') return null
     const stored = localStorage.getItem('mg_routine')
@@ -186,6 +188,9 @@ export default function RoutinePage() {
   })
 
   const routine = storedMeta?.routine ?? null
+  const [savedId, setSavedId] = useState<number | null>(() => storedMeta?.routine?.savedId ?? null)
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
 
   useEffect(() => {
     if (!routine) {
@@ -197,11 +202,66 @@ export default function RoutinePage() {
   const areasLabel = storedMeta?.areas && storedMeta.areas.length > 0 ? storedMeta.areas.map((area) => area.toUpperCase()).join(' / ') : 'FULL BODY'
   const builderHref = storedMeta?.source === 'recovery' ? '/recovery' : '/quiz'
   const builderLabel = storedMeta?.source === 'recovery' ? 'REGENERATE RECOVERY' : 'GENERATE NEW ROUTINE'
+  const isSaved = savedId !== null
 
   const studies = useMemo(
     () => (routine ? [...new Set(routine.phases.flatMap((phase) => phase.exercises).map((exercise) => exercise.study).filter(Boolean))] : []),
     [routine],
   )
+
+  async function saveRoutine() {
+    if (!storedMeta?.routine || isSaved || saving) {
+      return
+    }
+
+    setSaving(true)
+    setSaveError('')
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const userId = session?.user?.id
+
+      if (!userId) {
+        throw new Error('Sign in to save routines to your library.')
+      }
+
+      const response = await fetch('/api/routines/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId,
+          routine: storedMeta.routine,
+          sport: storedMeta.sport || null,
+          areas: storedMeta.areas || [],
+          duration: storedMeta.duration,
+          goal: storedMeta.goal || null,
+        }),
+      })
+
+      const payload = await response.json()
+
+      if (!response.ok) {
+        throw new Error(payload.error || `Server error ${response.status}`)
+      }
+
+      setSavedId(payload.savedId)
+
+      const nextMeta = {
+        ...storedMeta,
+        routine: {
+          ...storedMeta.routine,
+          savedId: payload.savedId,
+        },
+      }
+
+      localStorage.setItem('mg_routine', JSON.stringify(nextMeta))
+    } catch (err: unknown) {
+      console.error('[routine.save]', err)
+      setSaveError(err instanceof Error ? err.message : 'Could not save routine')
+    } finally {
+      setSaving(false)
+    }
+  }
 
   if (!routine) {
     return (
@@ -246,6 +306,34 @@ export default function RoutinePage() {
               </div>
               <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 16, color: 'var(--silver2)', lineHeight: 1.7, maxWidth: 560 }}>
                 {routine.summary}
+              </div>
+              <div style={{ marginTop: 22, maxWidth: 620, border: '1px solid rgba(139,231,255,0.18)', background: 'linear-gradient(180deg, rgba(0,180,216,0.08) 0%, rgba(8,10,14,0.96) 100%)', padding: '18px 20px' }}>
+                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: 'var(--cyan)', marginBottom: 10, textTransform: 'uppercase' }}>
+                  {'// Routine Library'}
+                </div>
+                <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 12, fontWeight: 700, letterSpacing: 3, color: 'var(--white)', marginBottom: 10, textTransform: 'uppercase' }}>
+                  {isSaved ? 'ROUTINE SAVED' : 'DO YOU WANT TO SAVE THIS ROUTINE?'}
+                </div>
+                <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: 'var(--silver2)', lineHeight: 1.75, marginBottom: saveError ? 10 : 0 }}>
+                  {isSaved
+                    ? 'This routine is now in your library and can be reopened later from your profile or programs view.'
+                    : 'Save only the routines you want to keep. If not, this stays as a one-time session and your dashboard stays clean.'}
+                </div>
+                {saveError && (
+                  <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 14, color: '#ff8f8f', lineHeight: 1.6, marginTop: 10 }}>
+                    {saveError}
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 14 }}>
+                  {!isSaved && (
+                    <button className="btn-primary" onClick={saveRoutine} disabled={saving}>
+                      {saving ? 'SAVING...' : 'SAVE TO LIBRARY'}
+                    </button>
+                  )}
+                  <button className="btn-outline" onClick={() => router.push('/dashboard')}>
+                    {isSaved ? 'BACK TO DASHBOARD' : 'NOT NOW'}
+                  </button>
+                </div>
               </div>
             </div>
             <div style={{ display: 'flex', gap: 10, flexShrink: 0, flexWrap: 'wrap' }}>

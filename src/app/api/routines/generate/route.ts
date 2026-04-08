@@ -1,6 +1,5 @@
 ﻿import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
-import { createClient } from '@supabase/supabase-js'
 
 function readRequiredEnv(name: string) {
   const raw = process.env[name]
@@ -18,11 +17,6 @@ function readRequiredEnv(name: string) {
 function createAnthropicClient() {
   return new Anthropic({ apiKey: readRequiredEnv('ANTHROPIC_API_KEY') })
 }
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
 
 const SPORTS: Record<string, string> = {
   golf:          'Hip rotation, thoracic spine mobility, shoulder turn, lateral flexion',
@@ -72,7 +66,6 @@ type GeneratedRoutine = {
   totalExercises: number
   phases: RoutinePhase[]
   evidenceSummary: string
-  savedId?: number
 }
 
 type GenerateRequest = {
@@ -244,61 +237,6 @@ Respond ONLY in valid JSON (no markdown):
     if (prepPhase) {
       routine.phases.unshift(prepPhase)
       routine.totalExercises += prepPhase.exercises.length
-    }
-
-    // Save to DB if user is logged in
-    if (userId) {
-      const { data: savedRoutine, error: routineError } = await supabase
-        .from('routines')
-        .insert([{
-          user_id:          userId,
-          title:            routine.routineTitle,
-          sport:            sport || null,
-          areas:            targetAreas,
-          goal,
-          duration_minutes: duration,
-          difficulty:       routine.difficultyLevel,
-          summary:          routine.summary,
-          evidence_summary: routine.evidenceSummary,
-        }])
-        .select()
-        .single()
-
-      if (routineError) throw routineError
-
-      const items: Array<{
-        routine_id: number
-        video_id: null
-        pillar: string
-        exercise_name: string
-        target_area: string
-        sets: number
-        reps: number | null
-        hold_seconds: number | null
-        rationale: string
-        study_citation: string
-        order_index: number
-      }> = []
-      routine.phases.forEach((phase, pi) => {
-        phase.exercises.forEach((ex, ei) => {
-          items.push({
-            routine_id:     savedRoutine.id,
-            video_id:       null,
-            pillar:         phase.pillar,
-            exercise_name:  ex.name,
-            target_area:    ex.targetArea,
-            sets:           ex.sets,
-            reps:           ex.reps || null,
-            hold_seconds:   ex.holdSeconds || null,
-            rationale:      ex.rationale,
-            study_citation: ex.study,
-            order_index:    pi * 10 + ei,
-          })
-        })
-      })
-
-      await supabase.from('routine_items').insert(items)
-      routine.savedId = savedRoutine.id
     }
 
     return NextResponse.json(routine)
