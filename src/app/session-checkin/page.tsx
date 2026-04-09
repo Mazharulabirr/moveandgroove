@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Header from '@/components/Header'
-import { IconBattery, IconCheckin, IconCheckbox, IconEnergy, IconFocus, IconPain, IconReadiness } from '@/components/Icons'
+import { IconBattery, IconCheckin, IconCheckbox, IconFocus, IconMotivation, IconPain, IconReadiness, IconSleep, IconSoreness } from '@/components/Icons'
 import { createClient } from '@/lib/supabase/client'
 
 const UC = 'uppercase' as const
@@ -19,30 +19,44 @@ type Question = {
 
 const PRE_QUESTIONS: Question[] = [
   {
-    id: 'pain',
-    text: 'ANY PAIN OR DISCOMFORT TODAY?',
-    sub: 'This helps flag whether the session should stay clean and low-risk.',
-    Icon: IconPain,
+    id: 'sleep',
+    text: 'HOW DID YOU SLEEP?',
+    sub: 'Sleep quality shapes recovery, stiffness, and how much quality work you can handle.',
+    Icon: IconSleep,
     options: [
-      { value: 4, label: 'None' },
-      { value: 3, label: 'Mild' },
-      { value: 2, label: 'Moderate' },
-      { value: 1, label: 'Significant' },
+      { value: 4, label: 'Great - fully rested' },
+      { value: 3, label: 'Good - slept well enough' },
+      { value: 2, label: 'Average - not ideal' },
+      { value: 1, label: 'Poor - feel under-recovered' },
     ],
   },
   {
-    id: 'energy',
-    text: 'HOW IS YOUR ENERGY RIGHT NOW?',
-    sub: 'A quick check on how much quality work you can handle today.',
-    Icon: IconEnergy,
+    id: 'soreness',
+    text: 'HOW SORE DO YOU FEEL?',
+    sub: 'Flags whether today should stay light, modified, or away from sensitive areas.',
+    Icon: IconSoreness,
     options: [
-      { value: 4, label: 'High' },
-      { value: 3, label: 'Good' },
-      { value: 2, label: 'Low' },
-      { value: 1, label: 'Very Low' },
+      { value: 4, label: 'Fresh - no real soreness' },
+      { value: 3, label: 'Mild - a little tight' },
+      { value: 2, label: 'Moderate - definitely sore' },
+      { value: 1, label: 'High - movement feels limited' },
+    ],
+  },
+  {
+    id: 'mood',
+    text: 'WHAT IS YOUR MOOD LIKE?',
+    sub: 'A quick mood check helps us judge how much load and complexity makes sense today.',
+    Icon: IconMotivation,
+    options: [
+      { value: 4, label: 'Focused - ready to train' },
+      { value: 3, label: 'Fine - steady and okay' },
+      { value: 2, label: 'Flat - hard to get going' },
+      { value: 1, label: 'Off - not in a great headspace' },
     ],
   },
 ]
+
+const SORENESS_AREAS = ['Neck', 'Shoulders', 'Upper back', 'Lower back', 'Hips', 'Knees', 'Ankles'] as const
 
 const POST_QUESTIONS: Question[] = [
   {
@@ -101,6 +115,9 @@ export default function SessionCheckinPage() {
   const [type, setType] = useState<CheckinType | null>(null)
   const [step, setStep] = useState(0)
   const [answers, setAnswers] = useState<Record<string, number>>({})
+  const [sorenessAreas, setSorenessAreas] = useState<string[]>([])
+  const [sorenessSeverity, setSorenessSeverity] = useState(0)
+  const [sorenessNotes, setSorenessNotes] = useState('')
   const [saving, setSaving] = useState(false)
   const [done, setDone] = useState(false)
 
@@ -112,6 +129,10 @@ export default function SessionCheckinPage() {
 
   function pick(questionId: string, value: number) {
     setAnswers((prev) => ({ ...prev, [questionId]: value }))
+  }
+
+  function toggleSorenessArea(area: string) {
+    setSorenessAreas((prev) => (prev.includes(area) ? prev.filter((item) => item !== area) : [...prev, area]))
   }
 
   function next() {
@@ -127,6 +148,9 @@ export default function SessionCheckinPage() {
       setType(null)
       setStep(0)
       setAnswers({})
+      setSorenessAreas([])
+      setSorenessSeverity(0)
+      setSorenessNotes('')
       return
     }
     setStep((current) => current - 1)
@@ -138,10 +162,20 @@ export default function SessionCheckinPage() {
       const { data: { session } } = await supabase.auth.getSession()
       const uid = session?.user?.id
       if (uid) {
+        const responses =
+          type === 'pre'
+            ? {
+              ...answers,
+              sorenessAreas,
+              sorenessSeverity,
+              sorenessNotes: sorenessNotes.trim() || null,
+            }
+            : answers
+
         await supabase.from('readiness_logs').insert([
           {
             user_id: uid,
-            responses: answers,
+            responses,
             checkin_type: type,
             checked_at: new Date().toISOString(),
           },
@@ -158,6 +192,9 @@ export default function SessionCheckinPage() {
     setType(null)
     setStep(0)
     setAnswers({})
+    setSorenessAreas([])
+    setSorenessSeverity(0)
+    setSorenessNotes('')
     setDone(false)
   }
 
@@ -180,11 +217,11 @@ export default function SessionCheckinPage() {
                 SESSION?
               </p>
               <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 22, lineHeight: 1.7, color: 'var(--silver2)', marginBottom: 56, maxWidth: 620 }}>
-                Check in before your session to flag pain and energy, or after to log how the session landed.
+                Check in before your session to capture sleep, soreness, and mood, or after to log how the session landed.
               </p>
               <div className="mg-grid-2" style={{ gap: 2, background: 'var(--border)', border: '1px solid var(--border)', marginBottom: 56 }}>
                 {[
-                  { id: 'pre' as CheckinType, Icon: IconReadiness, label: 'PRE-SESSION', sub: 'Pain and energy check before you start.', questions: 2 },
+                  { id: 'pre' as CheckinType, Icon: IconReadiness, label: 'PRE-SESSION', sub: 'Sleep, soreness, and mood before you start.', questions: 3 },
                   { id: 'post' as CheckinType, Icon: IconCheckin, label: 'POST-SESSION', sub: 'Completion, effort, feel, and next focus.', questions: 4 },
                 ].map((item) => (
                   <div key={item.id} onClick={() => { setType(item.id); setStep(1) }} style={{ background: 'var(--black2)', padding: '56px 40px', cursor: 'pointer', transition: 'background 0.2s' }}>
@@ -226,6 +263,88 @@ export default function SessionCheckinPage() {
                 })}
               </div>
 
+              {type === 'pre' && question.id === 'soreness' && (
+                <div style={{ background: 'rgba(8,10,14,0.92)', border: '1px solid var(--border)', padding: '28px 28px 24px', marginBottom: 48 }}>
+                  <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, letterSpacing: 4, color: 'var(--cyan)', marginBottom: 18, textTransform: UC }}>
+                    Soreness Details
+                  </div>
+
+                  <div style={{ marginBottom: 24 }}>
+                    <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 14, fontWeight: 700, letterSpacing: 2, color: 'var(--white)', marginBottom: 14 }}>
+                      WHERE DOES IT HURT?
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+                      {SORENESS_AREAS.map((area) => {
+                        const selected = sorenessAreas.includes(area)
+                        return (
+                          <button
+                            key={area}
+                            type="button"
+                            onClick={() => toggleSorenessArea(area)}
+                            style={{
+                              fontFamily: "'DM Mono',monospace",
+                              fontSize: 11,
+                              letterSpacing: 2,
+                              color: selected ? 'var(--white)' : 'var(--silver2)',
+                              background: selected ? 'rgba(0,180,216,0.16)' : 'rgba(255,255,255,0.03)',
+                              border: selected ? '1px solid var(--cyan)' : '1px solid var(--border)',
+                              padding: '10px 14px',
+                              cursor: 'pointer',
+                              textTransform: UC,
+                            }}
+                          >
+                            {area}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  <div style={{ marginBottom: 24 }}>
+                    <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 14, fontWeight: 700, letterSpacing: 2, color: 'var(--white)', marginBottom: 10 }}>
+                      HOW MUCH? {sorenessSeverity}/10
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="10"
+                      step="1"
+                      value={sorenessSeverity}
+                      onChange={(event) => setSorenessSeverity(parseInt(event.target.value, 10))}
+                      style={{ width: '100%', accentColor }}
+                    />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10, fontFamily: "'DM Mono',monospace", fontSize: 10, color: 'var(--silver4)' }}>
+                      <span>0</span>
+                      <span>5</span>
+                      <span>10</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 14, fontWeight: 700, letterSpacing: 2, color: 'var(--white)', marginBottom: 10 }}>
+                      NOTES
+                    </div>
+                    <textarea
+                      value={sorenessNotes}
+                      onChange={(event) => setSorenessNotes(event.target.value)}
+                      placeholder="Optional note, e.g. left hip pinch, lower back tight on bending..."
+                      rows={3}
+                      style={{
+                        width: '100%',
+                        background: 'var(--black2)',
+                        color: 'var(--silver2)',
+                        border: '1px solid var(--border)',
+                        padding: '14px 16px',
+                        fontFamily: "'DM Sans',sans-serif",
+                        fontSize: 16,
+                        lineHeight: 1.6,
+                        resize: 'vertical',
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+
               <div style={{ display: 'flex', gap: 16 }}>
                 <button className="btn-outline" onClick={back}>BACK</button>
                 <button className="btn-primary" disabled={answers[question.id] === undefined} onClick={next}>
@@ -250,7 +369,7 @@ export default function SessionCheckinPage() {
                 </p>
                 <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 22, color: 'var(--silver2)', lineHeight: 1.7 }}>
                   {type === 'pre'
-                    ? 'Your pre-session check-in is logged. Head into your routine and keep the day honest.'
+                    ? 'Your pre-session check-in is logged. Use that sleep, soreness, and mood snapshot to keep today honest.'
                     : 'Great work today. Your post-session feedback has been saved for future planning.'}
                 </p>
               </div>
