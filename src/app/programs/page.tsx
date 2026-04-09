@@ -29,6 +29,17 @@ type CalendarDay = {
   isToday: boolean
 }
 
+type ProgramLength = 4 | 8 | 12
+
+type PlannedWeek = {
+  week: number
+  label: string
+  sessions: number
+  focus: string
+  targetMinutes: number
+  emphasis: string
+}
+
 function startOfWeek(input: Date) {
   const date = new Date(input)
   const day = date.getDay()
@@ -104,6 +115,53 @@ function buildBlockSummary(routines: RoutineRow[]) {
   })
 }
 
+function buildProgramWeeks(routines: RoutineRow[], length: ProgramLength) {
+  const goals = Array.from(new Set(routines.map((routine) => routine.goal || 'balanced')))
+  const focusPool = goals.length > 0 ? goals : ['balanced', 'flexibility', 'strength']
+  const averageMinutes = routines.length > 0
+    ? Math.round(routines.reduce((sum, routine) => sum + routine.duration_minutes, 0) / routines.length)
+    : 24
+
+  return Array.from({ length }, (_, index) => {
+    const phaseCutoffOne = Math.ceil(length / 3)
+    const phaseCutoffTwo = Math.ceil((length * 2) / 3)
+    const label = index + 1 <= phaseCutoffOne
+      ? 'FOUNDATION'
+      : index + 1 <= phaseCutoffTwo
+        ? 'BUILD'
+        : 'PERFORM'
+    const deloadWeek = (index + 1) % 4 === 0
+    const sessions = deloadWeek ? 2 : 3
+    const targetMinutes = deloadWeek ? Math.max(20, averageMinutes - 5) : averageMinutes + (label === 'PERFORM' ? 5 : 0)
+    const focus = focusPool[index % focusPool.length]
+    const emphasis = deloadWeek
+      ? 'Lighter reload week to absorb the previous work.'
+      : label === 'FOUNDATION'
+        ? 'Build quality, control, and repeatable positions.'
+        : label === 'BUILD'
+          ? 'Increase consistency and layer in more challenging sessions.'
+          : 'Convert gains into sharper weekly execution.'
+
+    return {
+      week: index + 1,
+      label,
+      sessions,
+      focus,
+      targetMinutes,
+      emphasis,
+    } satisfies PlannedWeek
+  })
+}
+
+function readSavedProgramLength() {
+  if (typeof window === 'undefined') {
+    return 8 as ProgramLength
+  }
+
+  const stored = window.localStorage.getItem('mg_program_length')
+  return stored === '4' || stored === '8' || stored === '12' ? Number(stored) as ProgramLength : 8
+}
+
 const READINESS_ICONS = {
   sleep: IconSleep,
   soreness: IconSoreness,
@@ -120,6 +178,7 @@ export default function ProgramsPage() {
   const [showReadiness, setShowReadiness] = useState(false)
   const [answers, setAnswers] = useState<Record<string, number>>({})
   const [saving, setSaving] = useState(false)
+  const [programLength, setProgramLength] = useState<ProgramLength>(() => readSavedProgramLength())
 
   useEffect(() => {
     async function loadPrograms() {
@@ -142,6 +201,10 @@ export default function ProgramsPage() {
 
     void loadPrograms()
   }, [router, supabase])
+
+  useEffect(() => {
+    window.localStorage.setItem('mg_program_length', String(programLength))
+  }, [programLength])
 
   async function startSessionFromPrograms() {
     setSaving(true)
@@ -186,9 +249,11 @@ export default function ProgramsPage() {
 
   const calendar = buildWeekCalendar(routines)
   const blocks = buildBlockSummary(routines)
+  const plannedWeeks = buildProgramWeeks(routines, programLength)
   const completedThisWeek = calendar.reduce((sum, day) => sum + day.completed.length, 0)
   const nextPlanned = calendar.find((day) => day.planned.length > 0)
   const readyToStart = READINESS_QUESTIONS.every((question) => answers[question.id] !== undefined)
+  const planHeadline = `${programLength}-WEEK PLAN`
 
   return (
     <>
@@ -207,12 +272,13 @@ export default function ProgramsPage() {
                 AND CALENDAR
               </div>
               <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 17, color: 'var(--silver2)', lineHeight: 1.75, maxWidth: 680 }}>
-                Weekly planning built from your recent routine history, with readiness captured before you launch into the next session.
+                Premium lets you choose between a one-off workout for today or a structured 4, 8, or 12 week block built from your recent routine history and assessment profile.
               </div>
             </div>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               <button className="btn-outline" onClick={() => router.push('/dashboard')}>DASHBOARD</button>
-              <button className="btn-primary" onClick={() => setShowReadiness(true)}>START SESSION</button>
+              <button className="btn-outline" onClick={() => router.push('/quiz')}>RANDOM WORKOUT</button>
+              <button className="btn-primary" onClick={() => setShowReadiness(true)}>START PLANNED SESSION</button>
             </div>
           </div>
 
@@ -227,6 +293,51 @@ export default function ProgramsPage() {
               </div>
             ) : (
               <>
+                <section style={{ marginBottom: 28 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))', gap: 14 }}>
+                    <div style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(8,10,14,0.98) 100%)', border: '1px solid rgba(255,255,255,0.08)', padding: '24px 22px' }}>
+                      <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: 'var(--silver2)', marginBottom: 10, textTransform: UC }}>{'// Choice One'}</div>
+                      <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 16, fontWeight: 700, letterSpacing: 2, color: 'var(--white)', marginBottom: 8 }}>RANDOM WORKOUT</div>
+                      <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: 'var(--silver2)', lineHeight: 1.7, marginBottom: 16 }}>
+                        Best when you just want a smart session right now without committing to a longer block.
+                      </div>
+                      <button className="btn-outline" onClick={() => router.push('/quiz')}>OPEN BUILDER</button>
+                    </div>
+
+                    <div style={{ background: 'linear-gradient(180deg, rgba(0,180,216,0.08) 0%, rgba(8,10,14,0.98) 100%)', border: '1px solid rgba(0,180,216,0.18)', padding: '24px 22px' }}>
+                      <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: 'var(--cyan)', marginBottom: 10, textTransform: UC }}>{'// Choice Two'}</div>
+                      <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 16, fontWeight: 700, letterSpacing: 2, color: 'var(--white)', marginBottom: 8 }}>PLANNED BLOCK</div>
+                      <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: 'var(--silver2)', lineHeight: 1.7, marginBottom: 16 }}>
+                        Choose your block length, review the weekly structure, then launch each planned session through readiness.
+                      </div>
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        {([4, 8, 12] as ProgramLength[]).map((length) => {
+                          const selected = programLength === length
+                          return (
+                            <button
+                              key={length}
+                              onClick={() => setProgramLength(length)}
+                              style={{
+                                fontFamily: "'Syncopate',sans-serif",
+                                fontSize: 10,
+                                fontWeight: 700,
+                                letterSpacing: 2,
+                                padding: '10px 14px',
+                                border: selected ? '1px solid rgba(0,180,216,0.34)' : '1px solid rgba(255,255,255,0.1)',
+                                background: selected ? 'rgba(0,180,216,0.1)' : 'rgba(255,255,255,0.03)',
+                                color: selected ? 'var(--white)' : 'var(--silver2)',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              {length} WEEKS
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
                 <div className="mg-grid-3" style={{ gap: 1, background: 'var(--border)', border: '1px solid var(--border)', marginBottom: 28 }}>
                   {[
                     { value: completedThisWeek, label: 'Completed This Week' },
@@ -272,14 +383,43 @@ export default function ProgramsPage() {
                 </section>
 
                 <section style={{ marginBottom: 30 }}>
-                  <div className="section-title" style={{ marginBottom: 18 }}>4-Week Block</div>
+                  <div className="section-title" style={{ marginBottom: 18 }}>{planHeadline}</div>
+                  <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: 'var(--silver2)', lineHeight: 1.75, marginBottom: 18, maxWidth: 760 }}>
+                    This is your structured premium lane. The block adapts its rhythm from your saved routine history now, and it can later become true scheduled calendar persistence once we wire the backend for full program storage.
+                  </div>
+                  <div className="mg-grid-4" style={{ gap: 1, background: 'var(--border)', border: '1px solid var(--border)' }}>
+                    {plannedWeeks.map((week) => (
+                      <div key={week.week} style={{ background: 'var(--black2)', padding: '28px 24px' }}>
+                        <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 3, color: 'var(--cyan)', textTransform: UC, marginBottom: 12 }}>
+                          Week {week.week} / {week.label}
+                        </div>
+                        <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 18, fontWeight: 700, letterSpacing: 2, color: 'var(--white)', marginBottom: 10 }}>
+                          {week.sessions} SESSIONS
+                        </div>
+                        <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: 'var(--silver2)', lineHeight: 1.65, marginBottom: 10 }}>
+                          Focus: <span style={{ color: 'var(--white)', textTransform: UC }}>{week.focus}</span>
+                        </div>
+                        <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 14, color: 'var(--silver3)', lineHeight: 1.65, marginBottom: 16 }}>
+                          {week.emphasis}
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                          <span className="meta-chip">{week.targetMinutes} MIN TARGET</span>
+                          <span className="meta-chip">{week.label}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+
+                <section style={{ marginBottom: 30 }}>
+                  <div className="section-title" style={{ marginBottom: 18 }}>Recent 4-Week Trend</div>
                   <div className="mg-grid-4" style={{ gap: 1, background: 'var(--border)', border: '1px solid var(--border)' }}>
                     {blocks.map((block) => (
                       <div key={block.week} style={{ background: 'var(--black2)', padding: '28px 24px' }}>
-                        <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 3, color: 'var(--cyan)', textTransform: UC, marginBottom: 12 }}>Week {block.week}</div>
+                        <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 3, color: 'var(--silver2)', textTransform: UC, marginBottom: 12 }}>Week {block.week}</div>
                         <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 18, fontWeight: 700, letterSpacing: 2, color: 'var(--white)', marginBottom: 10 }}>{block.sessions} SESSIONS</div>
                         <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: 'var(--silver2)', lineHeight: 1.65, marginBottom: 16 }}>
-                          Primary emphasis: <span style={{ color: 'var(--white)', textTransform: UC }}>{block.focus}</span>
+                          Recent emphasis: <span style={{ color: 'var(--white)', textTransform: UC }}>{block.focus}</span>
                         </div>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                           <span className="meta-chip">{block.window}</span>

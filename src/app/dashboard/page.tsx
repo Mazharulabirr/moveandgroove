@@ -235,6 +235,7 @@ export default function DashboardPage() {
     ? QUICK_ACTIONS.filter((action) => ['/quiz', '/programs', '/session-checkin'].includes(action.href))
     : QUICK_ACTIONS.filter((action) => ['/quiz', '/results', '/session-checkin'].includes(action.href))
   const latestRoutine = routines[0] || null
+  const showPremiumModeChoice = hasScreening && effectiveIsPro && hasBattery
 
   let stageLabel = 'Start with your mobility baseline'
   let stageTitle = 'MOBILITY SCREENING'
@@ -261,16 +262,14 @@ export default function DashboardPage() {
     secondaryAction = { label: 'VIEW MOBILITY SCORES', href: '/results', mode: 'route' as const }
   }
 
-  if (hasScreening && effectiveIsPro && hasBattery && routines.length === 0) {
-    stageLabel = 'Assessments complete'
-    stageTitle = 'BUILD YOUR PLAN'
-    stageBody = 'Your screening and battery are both saved. Now choose a daily routine or move into your program and calendar view.'
+  if (showPremiumModeChoice) {
+    stageLabel = 'Premium planning unlocked'
+    stageTitle = 'CHOOSE YOUR TRAINING MODE'
+    stageBody = 'You now have a clear fork: build a one-off workout for today, or move into a planned 4, 8, or 12 week block built from your screening and movement profile.'
     stageStatement = null
-    primaryAction = { label: 'BUILD DAILY ROUTINE', href: '/quiz' }
-    secondaryAction = { label: 'OPEN PROGRAMS + CALENDAR', href: '/programs', mode: 'route' as const }
-  }
-
-  if (hasScreening && ((effectiveIsPro && hasBattery) || !effectiveIsPro) && routines.length > 0) {
+    primaryAction = { label: 'RANDOM WORKOUT', href: '/quiz' }
+    secondaryAction = { label: 'PLANNED 4 / 8 / 12 WEEKS', href: '/programs', mode: 'route' as const }
+  } else if (hasScreening && !effectiveIsPro && routines.length > 0) {
     stageLabel = 'Keep momentum going'
     stageTitle = 'CONTINUE YOUR TRAINING FLOW'
     stageBody = 'Your latest scores are saved, your routines are on file, and you can jump back into today\'s session or review your profile history.'
@@ -401,6 +400,53 @@ export default function DashboardPage() {
                     {secondaryAction.label}
                   </button>
                 </div>
+                {showPremiumModeChoice && (
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))',
+                      gap: 12,
+                      marginTop: 18,
+                    }}
+                  >
+                    {[
+                      {
+                        title: 'RANDOM WORKOUT',
+                        sub: 'Generate one smart session right now from your current profile.',
+                        href: '/quiz',
+                        accent: 'var(--cyan)',
+                      },
+                      {
+                        title: 'PLANNED BLOCK',
+                        sub: 'Choose 4, 8, or 12 weeks and follow a more structured premium path.',
+                        href: '/programs',
+                        accent: 'var(--silver2)',
+                      },
+                    ].map((option) => (
+                      <button
+                        key={option.title}
+                        onClick={() => router.push(option.href)}
+                        style={{
+                          textAlign: 'left',
+                          padding: '18px 18px 16px',
+                          background: 'linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(8,10,14,0.98) 100%)',
+                          border: '1px solid rgba(255,255,255,0.08)',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 3, color: option.accent, marginBottom: 8, textTransform: UC }}>
+                          {'// Premium Choice'}
+                        </div>
+                        <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 14, fontWeight: 700, letterSpacing: 2, color: 'var(--white)', marginBottom: 8 }}>
+                          {option.title}
+                        </div>
+                        <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 14, color: 'var(--silver2)', lineHeight: 1.65 }}>
+                          {option.sub}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
                 {secondaryAction.mode === 'modal' && showWhyFirst && (
                   <div style={{ marginTop: 16, maxWidth: 620, border: '1px solid rgba(139,231,255,0.18)', background: 'linear-gradient(180deg, rgba(0,180,216,0.08) 0%, rgba(8,10,14,0.96) 100%)', padding: '18px 20px' }}>
                     <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: 'var(--cyan)', marginBottom: 10, textTransform: UC }}>
