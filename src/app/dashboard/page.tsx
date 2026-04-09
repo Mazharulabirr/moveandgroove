@@ -357,63 +357,185 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.3fr) minmax(320px,0.9fr)', gap: 18, marginBottom: 10, alignItems: 'start' }}>
-            <div style={{ background: 'linear-gradient(145deg, rgba(255,255,255,0.06) 0%, rgba(10,12,16,0.98) 55%)', border: '1px solid rgba(139,231,255,0.18)', padding: '28px 30px', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.08)', alignSelf: 'start' }}>
-              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: 'var(--cyan)', marginBottom: 12, textTransform: UC }}>
-                {stageLabel}
-              </div>
-              <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 'clamp(26px,4vw,40px)', fontWeight: 700, letterSpacing: 3, lineHeight: 1.15, marginBottom: 14, ...METALLIC_TEXT }}>
-                {stageTitle}
-              </div>
-              {stageStatement && (
-                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, letterSpacing: 5, color: 'var(--cyan)', marginBottom: 16, textTransform: UC }}>
-                  {stageStatement}
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.3fr) minmax(320px,0.9fr)', gap: 18, marginBottom: 28, alignItems: 'start' }}>
+            <div style={{ display: 'grid', gap: 18, alignContent: 'start' }}>
+              <div style={{ background: 'linear-gradient(145deg, rgba(255,255,255,0.06) 0%, rgba(10,12,16,0.98) 55%)', border: '1px solid rgba(139,231,255,0.18)', padding: '28px 30px', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.08)', alignSelf: 'start' }}>
+                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: 'var(--cyan)', marginBottom: 12, textTransform: UC }}>
+                  {stageLabel}
                 </div>
-              )}
-              <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 18, color: 'var(--silver2)', lineHeight: 1.8, marginBottom: 18, maxWidth: 720 }}>
-                {stageBody}
+                <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 'clamp(26px,4vw,40px)', fontWeight: 700, letterSpacing: 3, lineHeight: 1.15, marginBottom: 14, ...METALLIC_TEXT }}>
+                  {stageTitle}
+                </div>
+                {stageStatement && (
+                  <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, letterSpacing: 5, color: 'var(--cyan)', marginBottom: 16, textTransform: UC }}>
+                    {stageStatement}
+                  </div>
+                )}
+                <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 18, color: 'var(--silver2)', lineHeight: 1.8, marginBottom: 18, maxWidth: 720 }}>
+                  {stageBody}
+                </div>
+
+                {latestScreening && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 18 }}>
+                    <span className="meta-chip">Mobility {latestScreening.overall_score}%</span>
+                    {latestScreeningDate && <span className="meta-chip">Saved {formatDate(latestScreeningDate)}</span>}
+                    {!canRetakeScreening && nextScreeningDate && <span className="meta-chip">Next screen {formatDate(nextScreeningDate.toISOString())}</span>}
+                    {latestBattery && <span className="meta-chip">Battery {latestBattery.total_score}/{latestBattery.max_score}</span>}
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                  <button className="btn-primary" onClick={() => router.push(primaryAction.href)}>
+                    {primaryAction.label}
+                  </button>
+                  <button
+                    className="btn-outline"
+                    onClick={() => {
+                      if (secondaryAction.mode === 'modal') {
+                        setShowWhyFirst((current) => !current)
+                        return
+                      }
+                      router.push(secondaryAction.href)
+                    }}
+                  >
+                    {secondaryAction.label}
+                  </button>
+                </div>
+                {secondaryAction.mode === 'modal' && showWhyFirst && (
+                  <div style={{ marginTop: 16, maxWidth: 620, border: '1px solid rgba(139,231,255,0.18)', background: 'linear-gradient(180deg, rgba(0,180,216,0.08) 0%, rgba(8,10,14,0.96) 100%)', padding: '18px 20px' }}>
+                    <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: 'var(--cyan)', marginBottom: 10, textTransform: UC }}>
+                      Why Screening Comes First
+                    </div>
+                    <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: 'var(--silver2)', lineHeight: 1.75 }}>
+                      Screening shows where you move well and where you are restricted.
+                      <br />
+                      It gives us a benchmark before we build any routine or program.
+                      <br />
+                      That means your next step is based on your body, not a generic template.
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {latestScreening && (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 18 }}>
-                  <span className="meta-chip">Mobility {latestScreening.overall_score}%</span>
-                  {latestScreeningDate && <span className="meta-chip">Saved {formatDate(latestScreeningDate)}</span>}
-                  {!canRetakeScreening && nextScreeningDate && <span className="meta-chip">Next screen {formatDate(nextScreeningDate.toISOString())}</span>}
-                  {latestBattery && <span className="meta-chip">Battery {latestBattery.total_score}/{latestBattery.max_score}</span>}
+              <div style={{ background: 'rgba(8,10,14,0.96)', border: '1px solid var(--border)', padding: '28px 28px 24px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
+                  <div>
+                    <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: 'var(--cyan)', marginBottom: 10, textTransform: UC }}>
+                      {'// Mobility Profile'}
+                    </div>
+                    <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 18, fontWeight: 700, letterSpacing: 2, color: 'var(--white)' }}>
+                      MOBILITY SCORE
+                    </div>
+                  </div>
+                  <button className="btn-outline" onClick={() => router.push('/results')}>
+                    PREVIOUS SCORES
+                  </button>
                 </div>
-              )}
 
-              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                <button className="btn-primary" onClick={() => router.push(primaryAction.href)}>
-                  {primaryAction.label}
-                </button>
-                <button
-                  className="btn-outline"
-                  onClick={() => {
-                    if (secondaryAction.mode === 'modal') {
-                      setShowWhyFirst((current) => !current)
-                      return
-                    }
-                    router.push(secondaryAction.href)
-                  }}
-                >
-                  {secondaryAction.label}
-                </button>
+                {latestScreening ? (
+                  <>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,minmax(0,1fr))', gap: 10, marginBottom: 18 }}>
+                      {[
+                        { label: 'Overall', value: latestScreening.overall_score },
+                        { label: 'Hips', value: latestScreening.hip_score },
+                        { label: 'Shoulders', value: latestScreening.shoulder_score },
+                        { label: 'Spine', value: latestScreening.spine_score },
+                      ].map((score) => (
+                        <div key={score.label} style={{ border: '1px solid rgba(255,255,255,0.08)', padding: '18px 14px', background: 'rgba(255,255,255,0.02)' }}>
+                          <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 28, fontWeight: 700, color: scoreColor(score.value), lineHeight: 1, marginBottom: 8 }}>{score.value}</div>
+                          <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 2, color: 'var(--silver3)', textTransform: UC }}>{score.label}</div>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: 'var(--silver2)', lineHeight: 1.75 }}>
+                      Last saved on <span style={{ color: 'var(--white)' }}>{latestScreeningDate ? formatDate(latestScreeningDate) : 'your latest check'}</span>. {canRetakeScreening ? 'You can complete a new screening now.' : `Your next screening unlocks on ${formatDate(nextScreeningDate!.toISOString())}.`}
+                    </div>
+                    <div style={{ marginTop: 18, paddingTop: 18, borderTop: '1px solid var(--border2)' }}>
+                      <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: 'var(--silver3)', marginBottom: 10, textTransform: UC }}>
+                        {'// Routine Library'}
+                      </div>
+                      {latestRoutine ? (
+                        <>
+                          <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 15, fontWeight: 700, letterSpacing: 2, color: 'var(--white)', marginBottom: 8 }}>
+                            {routines.length} SAVED {routines.length === 1 ? 'ROUTINE' : 'ROUTINES'}
+                          </div>
+                          <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: 'var(--silver2)', lineHeight: 1.7, marginBottom: 14 }}>
+                            Latest: <span style={{ color: 'var(--white)' }}>{latestRoutine.title}</span> on {formatDate(latestRoutine.created_at)}.
+                          </div>
+                          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                            <button className="btn-outline" onClick={() => router.push('/programs')}>
+                              OPEN LIBRARY
+                            </button>
+                            <button className="btn-outline" onClick={() => router.push(`/routine/${latestRoutine.id}`)}>
+                              LAST ROUTINE
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: 'var(--silver2)', lineHeight: 1.7 }}>
+                          No routines saved yet. Generate one when you want to keep it in your library.
+                        </div>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 16, color: 'var(--silver2)', lineHeight: 1.8 }}>
+                    No mobility screening saved yet. Every user starts here so the app can personalize what comes next.
+                  </div>
+                )}
               </div>
-              {secondaryAction.mode === 'modal' && showWhyFirst && (
-                <div style={{ marginTop: 16, maxWidth: 620, border: '1px solid rgba(139,231,255,0.18)', background: 'linear-gradient(180deg, rgba(0,180,216,0.08) 0%, rgba(8,10,14,0.96) 100%)', padding: '18px 20px' }}>
-                  <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: 'var(--cyan)', marginBottom: 10, textTransform: UC }}>
-                    Why Screening Comes First
+
+              <div
+                style={{
+                  background: effectiveIsPro ? 'rgba(8,10,14,0.96)' : 'linear-gradient(180deg, rgba(216,228,234,0.06) 0%, rgba(8,10,14,0.96) 100%)',
+                  border: effectiveIsPro ? '1px solid var(--border)' : '1px solid rgba(216,228,234,0.16)',
+                  padding: '28px 28px 24px',
+                  cursor: effectiveIsPro ? 'pointer' : 'default',
+                }}
+                onClick={() => {
+                  if (effectiveIsPro) {
+                    router.push('/battery')
+                  }
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 10, flexWrap: 'wrap' }}>
+                  <div>
+                    <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: effectiveIsPro ? 'var(--cyan)' : 'var(--silver2)', marginBottom: 10, textTransform: UC }}>
+                      {'// Movement Quality'}
+                    </div>
+                    <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 18, fontWeight: 700, letterSpacing: 2, color: 'var(--white)', marginBottom: 8 }}>
+                      MOVEMENT SCREENING
+                    </div>
                   </div>
-                  <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: 'var(--silver2)', lineHeight: 1.75 }}>
-                    Screening shows where you move well and where you are restricted.
-                    <br />
-                    It gives us a benchmark before we build any routine or program.
-                    <br />
-                    That means your next step is based on your body, not a generic template.
-                  </div>
+                  {!effectiveIsPro && (
+                    <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 3, color: 'var(--silver2)', border: '1px solid rgba(216,228,234,0.16)', padding: '6px 10px', textTransform: UC }}>
+                      PREMIUM ONLY
+                    </div>
+                  )}
                 </div>
-              )}
+
+                {latestBattery ? (
+                  <>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 12 }}>
+                      <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 54, fontWeight: 700, color: scoreColor(Math.round((latestBattery.total_score / latestBattery.max_score) * 100)), lineHeight: 1 }}>
+                        {latestBattery.total_score}
+                      </div>
+                      <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, letterSpacing: 3, color: 'var(--silver3)', textTransform: UC }}>
+                        / {latestBattery.max_score}
+                      </div>
+                    </div>
+                    <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: 'var(--silver2)', lineHeight: 1.75 }}>
+                      Saved on <span style={{ color: 'var(--white)' }}>{latestBatteryDate ? formatDate(latestBatteryDate) : 'your latest test'}</span>. Premium members use this score alongside screening data to steer the next block.
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 16, color: 'var(--silver2)', lineHeight: 1.8 }}>
+                    {effectiveIsPro
+                      ? 'Premium unlocked. Click here to begin the movement battery and add a second layer to your profile.'
+                      : 'Movement battery is reserved for the Premium path after the shared mobility screening.'}
+                  </div>
+                )}
+              </div>
             </div>
 
             <div style={{ display: 'grid', gap: 1, background: 'rgba(255,255,255,0.08)', border: '1px solid var(--border)' }}>
@@ -461,128 +583,6 @@ export default function DashboardPage() {
                   </div>
                 </div>
               ))}
-            </div>
-          </div>
-
-          <div className="mg-grid-2" style={{ gap: 18, marginTop: 'clamp(-175px, -12vw, -96px)', marginBottom: 28, position: 'relative', zIndex: 1 }}>
-            <div style={{ background: 'rgba(8,10,14,0.96)', border: '1px solid var(--border)', padding: '28px 28px 24px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
-                <div>
-                  <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: 'var(--cyan)', marginBottom: 10, textTransform: UC }}>
-                    {'// Mobility Profile'}
-                  </div>
-                  <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 18, fontWeight: 700, letterSpacing: 2, color: 'var(--white)' }}>
-                    MOBILITY SCORE
-                  </div>
-                </div>
-                <button className="btn-outline" onClick={() => router.push('/results')}>
-                  PREVIOUS SCORES
-                </button>
-              </div>
-
-              {latestScreening ? (
-                <>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,minmax(0,1fr))', gap: 10, marginBottom: 18 }}>
-                    {[
-                      { label: 'Overall', value: latestScreening.overall_score },
-                      { label: 'Hips', value: latestScreening.hip_score },
-                      { label: 'Shoulders', value: latestScreening.shoulder_score },
-                      { label: 'Spine', value: latestScreening.spine_score },
-                    ].map((score) => (
-                      <div key={score.label} style={{ border: '1px solid rgba(255,255,255,0.08)', padding: '18px 14px', background: 'rgba(255,255,255,0.02)' }}>
-                        <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 28, fontWeight: 700, color: scoreColor(score.value), lineHeight: 1, marginBottom: 8 }}>{score.value}</div>
-                        <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 2, color: 'var(--silver3)', textTransform: UC }}>{score.label}</div>
-                      </div>
-                    ))}
-                  </div>
-                  <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: 'var(--silver2)', lineHeight: 1.75 }}>
-                    Last saved on <span style={{ color: 'var(--white)' }}>{latestScreeningDate ? formatDate(latestScreeningDate) : 'your latest check'}</span>. {canRetakeScreening ? 'You can complete a new screening now.' : `Your next screening unlocks on ${formatDate(nextScreeningDate!.toISOString())}.`}
-                  </div>
-                  <div style={{ marginTop: 18, paddingTop: 18, borderTop: '1px solid var(--border2)' }}>
-                    <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: 'var(--silver3)', marginBottom: 10, textTransform: UC }}>
-                      {'// Routine Library'}
-                    </div>
-                    {latestRoutine ? (
-                      <>
-                        <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 15, fontWeight: 700, letterSpacing: 2, color: 'var(--white)', marginBottom: 8 }}>
-                          {routines.length} SAVED {routines.length === 1 ? 'ROUTINE' : 'ROUTINES'}
-                        </div>
-                        <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: 'var(--silver2)', lineHeight: 1.7, marginBottom: 14 }}>
-                          Latest: <span style={{ color: 'var(--white)' }}>{latestRoutine.title}</span> on {formatDate(latestRoutine.created_at)}.
-                        </div>
-                        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                          <button className="btn-outline" onClick={() => router.push('/programs')}>
-                            OPEN LIBRARY
-                          </button>
-                          <button className="btn-outline" onClick={() => router.push(`/routine/${latestRoutine.id}`)}>
-                            LAST ROUTINE
-                          </button>
-                        </div>
-                      </>
-                    ) : (
-                      <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: 'var(--silver2)', lineHeight: 1.7 }}>
-                        No routines saved yet. Generate one when you want to keep it in your library.
-                      </div>
-                    )}
-                  </div>
-                </>
-              ) : (
-                <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 16, color: 'var(--silver2)', lineHeight: 1.8 }}>
-                  No mobility screening saved yet. Every user starts here so the app can personalize what comes next.
-                </div>
-              )}
-            </div>
-
-            <div
-              style={{
-                background: effectiveIsPro ? 'rgba(8,10,14,0.96)' : 'linear-gradient(180deg, rgba(216,228,234,0.06) 0%, rgba(8,10,14,0.96) 100%)',
-                border: effectiveIsPro ? '1px solid var(--border)' : '1px solid rgba(216,228,234,0.16)',
-                padding: '28px 28px 24px',
-                cursor: effectiveIsPro ? 'pointer' : 'default',
-              }}
-              onClick={() => {
-                if (effectiveIsPro) {
-                  router.push('/battery')
-                }
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 10, flexWrap: 'wrap' }}>
-                <div>
-                  <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: effectiveIsPro ? 'var(--cyan)' : 'var(--silver2)', marginBottom: 10, textTransform: UC }}>
-                    {'// Movement Quality'}
-                  </div>
-                  <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 18, fontWeight: 700, letterSpacing: 2, color: 'var(--white)', marginBottom: 8 }}>
-                    MOVEMENT SCREENING
-                  </div>
-                </div>
-                {!effectiveIsPro && (
-                  <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 3, color: 'var(--silver2)', border: '1px solid rgba(216,228,234,0.16)', padding: '6px 10px', textTransform: UC }}>
-                    PREMIUM ONLY
-                  </div>
-                )}
-              </div>
-
-              {latestBattery ? (
-                <>
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 12 }}>
-                    <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 54, fontWeight: 700, color: scoreColor(Math.round((latestBattery.total_score / latestBattery.max_score) * 100)), lineHeight: 1 }}>
-                      {latestBattery.total_score}
-                    </div>
-                    <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, letterSpacing: 3, color: 'var(--silver3)', textTransform: UC }}>
-                      / {latestBattery.max_score}
-                    </div>
-                  </div>
-                  <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: 'var(--silver2)', lineHeight: 1.75 }}>
-                    Saved on <span style={{ color: 'var(--white)' }}>{latestBatteryDate ? formatDate(latestBatteryDate) : 'your latest test'}</span>. Premium members use this score alongside screening data to steer the next block.
-                  </div>
-                </>
-              ) : (
-                <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 16, color: 'var(--silver2)', lineHeight: 1.8 }}>
-                  {effectiveIsPro
-                    ? 'Premium unlocked. Click here to begin the movement battery and add a second layer to your profile.'
-                    : 'Movement battery is reserved for the Premium path after the shared mobility screening.'}
-                </div>
-              )}
             </div>
           </div>
 
