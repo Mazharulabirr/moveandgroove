@@ -30,7 +30,7 @@ const TESTS: Test[] = [
     focus: 'Hips · Ankles · Thoracic Spine',
     what: 'The deep squat tests bilateral lower-body mobility plus thoracic extension and overhead position.',
     instruction: 'Stand with feet shoulder-width apart and toes slightly out. Hold a dowel or broomstick overhead with arms fully extended. Squat as deep as possible, keeping heels flat and chest up.',
-    photo: 'https://images.unsplash.com/photo-1574680096145-d05b474e2155?w=700&q=80&fit=crop',
+    photo: '/movement-tests/deep-squat.jpg',
     ytSearch: 'deep+squat+FMS+movement+screen+how+to+score',
     scores: [
       { value: 3, label: 'Full depth', description: 'Hips below knees, heels flat, torso upright, stick directly overhead' },
@@ -46,7 +46,7 @@ const TESTS: Test[] = [
     focus: 'Hamstrings · Glutes · Lower Back',
     what: 'The hip hinge tests your ability to load the posterior chain while maintaining a neutral spine.',
     instruction: 'Stand tall with feet hip-width apart. Place a dowel along your spine touching head, upper back, and tailbone. Hinge forward at the hips while keeping all three contact points.',
-    photo: 'https://images.unsplash.com/photo-1541534741688-6078c6bfb5c5?w=700&q=80&fit=crop',
+    photo: '/movement-tests/hip-hinge.jpg',
     ytSearch: 'hip+hinge+movement+screen+assessment+how+to',
     scores: [
       { value: 3, label: 'Perfect hinge', description: 'All three contact points stay in place with clean range' },
@@ -62,7 +62,7 @@ const TESTS: Test[] = [
     focus: 'Shoulder Flexion · Thoracic Extension · Lat Length',
     what: 'Tests overhead shoulder mobility and stability without compensating through the lower back.',
     instruction: 'Stand with your back flat against a wall, feet slightly forward. Slide both arms up the wall, trying to get them fully overhead while keeping the lower back flat.',
-    photo: 'https://images.unsplash.com/photo-1597452485669-2c7bb5fef90d?w=700&q=80&fit=crop',
+    photo: '/movement-tests/shoulder-press.jpg',
     ytSearch: 'shoulder+overhead+press+mobility+wall+test+assessment',
     scores: [
       { value: 3, label: 'Full overhead', description: 'Both arms reach vertical and the lower back stays flat' },
@@ -78,7 +78,7 @@ const TESTS: Test[] = [
     focus: 'Hip Flexor · Quad · Glute · Knee Stability',
     what: 'The inline lunge tests hip mobility, knee stability, and trunk control in the sagittal plane.',
     instruction: 'Stand on a line or place a stick on the floor. Step forward into a lunge with your front foot on the line and lower your back knee behind the front heel while keeping the torso tall.',
-    photo: 'https://images.unsplash.com/photo-1434608519344-49d77a124f2a?w=700&q=80&fit=crop',
+    photo: '/movement-tests/inline-lunge.jpg',
     ytSearch: 'inline+lunge+FMS+movement+screen+assessment',
     scores: [
       { value: 3, label: 'Clean lunge', description: 'Trunk stays upright and the front knee tracks well' },
@@ -94,7 +94,7 @@ const TESTS: Test[] = [
     focus: 'Thoracic Spine · Rib Cage · Shoulder Girdle',
     what: 'Tests thoracic rotation, a key movement quality for athletes and desk workers alike.',
     instruction: 'Sit upright on a chair with feet flat. Cross your arms over your chest and rotate left then right while the hips and feet stay completely still.',
-    photo: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700&q=80&fit=crop',
+    photo: '/movement-tests/seated-rotation.png',
     ytSearch: 'thoracic+rotation+mobility+test+seated+assessment+FMS',
     scores: [
       { value: 3, label: 'Full rotation', description: 'Strong rotation both ways without hip movement' },
@@ -160,6 +160,8 @@ export default function BatteryPage() {
   const [scores, setScores] = useState<BatteryScores>({})
   const [saving, setSaving] = useState(false)
   const [isPro, setIsPro] = useState(false)
+  const [saveError, setSaveError] = useState('')
+  const [saveConfirmed, setSaveConfirmed] = useState(false)
 
   useEffect(() => {
     async function loadSubscription() {
@@ -199,11 +201,13 @@ export default function BatteryPage() {
 
   async function finish() {
     setSaving(true)
+    setSaveError('')
+    setSaveConfirmed(false)
     try {
       const { data: { session } } = await supabase.auth.getSession()
       const uid = session?.user?.id
       if (uid) {
-        await supabase.from('test_results').insert([
+        const { error } = await supabase.from('test_results').insert([
           {
             user_id: uid,
             scores,
@@ -211,9 +215,22 @@ export default function BatteryPage() {
             max_score: TESTS.length * 3,
           },
         ])
+
+        if (error) {
+          throw error
+        }
+
+        setSaveConfirmed(true)
+      } else {
+        throw new Error('Sign in required to save your movement screening to your profile.')
       }
     } catch (error) {
       console.error('[battery]', error)
+      setSaveError(
+        typeof error === 'object' && error !== null && 'message' in error && typeof error.message === 'string'
+          ? error.message
+          : 'Could not save your movement screening to your profile.'
+      )
     }
     setSaving(false)
   }
@@ -348,6 +365,17 @@ export default function BatteryPage() {
                 <p style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 160, fontWeight: 700, color: scoreColor(total, maxScore), lineHeight: 1, letterSpacing: 4 }}>{total}</p>
                 <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 18, letterSpacing: 6, color: 'var(--silver2)', marginTop: 16 }}>OUT OF {maxScore}</p>
                 <p style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 18, fontWeight: 700, letterSpacing: 5, color: scoreColor(total, maxScore), marginTop: 20 }}>{scoreLabel(total, maxScore)}</p>
+              </div>
+
+              <div style={{ borderLeft: `6px solid ${saveConfirmed ? '#00b4d8' : '#e74c3c'}`, border: `1px solid ${saveConfirmed ? 'rgba(0,180,216,0.25)' : 'rgba(231,76,60,0.25)'}`, background: 'var(--black2)', padding: '22px 28px', marginBottom: 24 }}>
+                <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, letterSpacing: 4, color: saveConfirmed ? 'var(--cyan)' : '#ff8f8f', marginBottom: 10, textTransform: UC }}>
+                  {saveConfirmed ? 'Saved To Profile' : 'Profile Save Failed'}
+                </p>
+                <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 17, color: 'var(--silver2)', lineHeight: 1.7 }}>
+                  {saveConfirmed
+                    ? 'Your movement screening is stored in your profile and will show up in the dashboard and results history.'
+                    : saveError || 'Your movement score was calculated, but we could not save it to your profile.'}
+                </p>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 2, background: 'var(--border)', border: '1px solid var(--border)', borderTop: 'none', marginBottom: 48 }}>
