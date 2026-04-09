@@ -107,6 +107,38 @@ const BATTERY_ICONS = {
   rotation: IconRotation,
 }
 
+function batteryPriority(scores: Record<string, number>) {
+  const tests = Object.entries(scores)
+    .map(([id, score]) => ({ id, score: score as number }))
+    .sort((a, b) => a.score - b.score)
+
+  if (tests.length === 0) {
+    return null
+  }
+
+  const lowest = tests[0].score
+  const highest = tests[tests.length - 1].score
+  const lowestTests = tests.filter((test) => test.score === lowest)
+
+  if (highest - lowest <= 1 && lowestTests.length >= 3) {
+    return {
+      label: 'Balanced movement profile',
+      score: (lowest / 3) * 100,
+      color: scoreColor((lowest / 3) * 100),
+      action: 'Scores are similar across the battery, so keep your next block balanced rather than chasing one single pattern.',
+    }
+  }
+
+  const worst = tests[0]
+  const pct = (worst.score / 3) * 100
+  return {
+    label: BATTERY_LABELS[worst.id] || worst.id,
+    score: pct,
+    color: scoreColor(pct),
+    action: 'Include this movement pattern in your current training block.',
+  }
+}
+
 export default function ResultsPage() {
   const router = useRouter()
   const supabase = createClient()
@@ -163,18 +195,13 @@ export default function ResultsPage() {
   }
 
   if (latestBattery && latestBattery.scores) {
-    const tests = Object.entries(latestBattery.scores)
-      .map(([id, score]) => ({ id, score: score as number }))
-      .sort((a, b) => a.score - b.score)
-
-    if (tests.length > 0) {
-      const worst = tests[0]
-      const pct = (worst.score / 3) * 100
+    const priority = batteryPriority(latestBattery.scores)
+    if (priority) {
       priorities.push({
-        label: BATTERY_LABELS[worst.id] || worst.id,
-        score: pct,
-        color: scoreColor(pct),
-        action: 'Include this movement pattern in your current training block.',
+        label: priority.label,
+        score: priority.score,
+        color: priority.color,
+        action: priority.action,
       })
     }
   }

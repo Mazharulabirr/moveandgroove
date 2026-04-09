@@ -127,6 +127,32 @@ function scoreLabel(score: number, max: number) {
   return 'NEEDS WORK'
 }
 
+function batteryRecommendation(scores: BatteryScores) {
+  const ranked = TESTS.map((test) => ({
+    ...test,
+    score: scores[test.id] ?? 0,
+  })).sort((a, b) => a.score - b.score)
+
+  const lowest = ranked[0]?.score ?? 0
+  const highest = ranked[ranked.length - 1]?.score ?? 0
+  const lowestTests = ranked.filter((test) => test.score === lowest)
+
+  if (highest - lowest <= 1 && lowestTests.length >= 3) {
+    return {
+      title: 'BALANCED MOVEMENT PROFILE',
+      color: scoreColor(lowest, 3),
+      body: `Your scores are fairly even across the battery, so there is no single weak link dominating the profile. Keep your next block balanced across squat, hinge, press, lunge, and rotation, then retest after the block.`,
+    }
+  }
+
+  const weakest = lowestTests[0]
+  return {
+    title: weakest.label,
+    color: scoreColor(weakest.score, 3),
+    body: `Your ${weakest.label.toLowerCase()} scored ${weakest.score}/3. Focus on ${weakest.focus.toLowerCase()} in your next training block, then retest at the end of the block.`,
+  }
+}
+
 export default function BatteryPage() {
   const router = useRouter()
   const supabase = createClient()
@@ -344,15 +370,13 @@ export default function BatteryPage() {
               </div>
 
               {(() => {
-                const weakest = TESTS.reduce((a, b) => ((scores[a.id] ?? 0) <= (scores[b.id] ?? 0) ? a : b))
-                const weakestScore = scores[weakest.id] ?? 0
-                const color = scoreColor(weakestScore, 3)
+                const recommendation = batteryRecommendation(scores)
                 return (
-                  <div style={{ borderLeft: `6px solid ${color}`, border: `1px solid ${color}30`, background: 'var(--black2)', padding: '40px 48px', marginBottom: 52 }}>
-                    <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 13, letterSpacing: 3, color, marginBottom: 18, textTransform: UC }}>Priority Movement</p>
-                    <p style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 28, fontWeight: 700, letterSpacing: 2, color: 'var(--white)', marginBottom: 18 }}>{weakest.label}</p>
+                  <div style={{ borderLeft: `6px solid ${recommendation.color}`, border: `1px solid ${recommendation.color}30`, background: 'var(--black2)', padding: '40px 48px', marginBottom: 52 }}>
+                    <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 13, letterSpacing: 3, color: recommendation.color, marginBottom: 18, textTransform: UC }}>Priority Movement</p>
+                    <p style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 28, fontWeight: 700, letterSpacing: 2, color: 'var(--white)', marginBottom: 18 }}>{recommendation.title}</p>
                     <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 22, color: 'var(--silver2)', lineHeight: 1.7 }}>
-                      Your {weakest.label.toLowerCase()} scored {weakestScore}/3. Focus on {weakest.focus.toLowerCase()} in your next training block, then retest at the end of the block.
+                      {recommendation.body}
                     </p>
                   </div>
                 )
