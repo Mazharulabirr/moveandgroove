@@ -357,7 +357,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.3fr) minmax(320px,0.9fr)', gap: 18, marginBottom: 28, alignItems: 'start' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.3fr) minmax(320px,0.9fr)', gap: 18, marginBottom: 10, alignItems: 'start' }}>
             <div style={{ background: 'linear-gradient(145deg, rgba(255,255,255,0.06) 0%, rgba(10,12,16,0.98) 55%)', border: '1px solid rgba(139,231,255,0.18)', padding: '28px 30px', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.08)', alignSelf: 'start' }}>
               <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: 'var(--cyan)', marginBottom: 12, textTransform: UC }}>
                 {stageLabel}
@@ -464,7 +464,38 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="mg-grid-2" style={{ gap: 18, marginBottom: 28 }}>
+          <div className="mg-grid-2" style={{ gap: 18, marginTop: 'clamp(-110px, -7vw, -44px)', marginBottom: 28, position: 'relative', zIndex: 1 }}>
+            <div style={{ background: 'rgba(8,10,14,0.96)', border: '1px solid var(--border)', padding: '28px 28px 24px' }}>
+              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: 'var(--cyan)', marginBottom: 10, textTransform: UC }}>
+                {'// Movement Quality'}
+              </div>
+              <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 18, fontWeight: 700, letterSpacing: 2, color: 'var(--white)', marginBottom: 18 }}>
+                MOVEMENT SCREENING
+              </div>
+
+              {latestBattery ? (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 12 }}>
+                    <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 54, fontWeight: 700, color: scoreColor(Math.round((latestBattery.total_score / latestBattery.max_score) * 100)), lineHeight: 1 }}>
+                      {latestBattery.total_score}
+                    </div>
+                    <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, letterSpacing: 3, color: 'var(--silver3)', textTransform: UC }}>
+                      / {latestBattery.max_score}
+                    </div>
+                  </div>
+                  <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: 'var(--silver2)', lineHeight: 1.75 }}>
+                    Saved on <span style={{ color: 'var(--white)' }}>{latestBatteryDate ? formatDate(latestBatteryDate) : 'your latest test'}</span>. Premium members use this score alongside screening data to steer the next block.
+                  </div>
+                </>
+              ) : (
+                <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 16, color: 'var(--silver2)', lineHeight: 1.8 }}>
+                  {effectiveIsPro
+                    ? 'You have Premium access, so your next step after screening is the movement battery.'
+                    : 'Movement battery is reserved for the Premium path after the shared mobility screening.'}
+                </div>
+              )}
+            </div>
+
             <div style={{ background: 'rgba(8,10,14,0.96)', border: '1px solid var(--border)', padding: '28px 28px 24px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
                 <div>
@@ -472,7 +503,7 @@ export default function DashboardPage() {
                     {'// Mobility Profile'}
                   </div>
                   <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 18, fontWeight: 700, letterSpacing: 2, color: 'var(--white)' }}>
-                    SCREENING STATUS
+                    MOBILITY SCORE
                   </div>
                 </div>
                 <button className="btn-outline" onClick={() => router.push('/results')}>
@@ -532,37 +563,6 @@ export default function DashboardPage() {
                 </div>
               )}
             </div>
-
-            <div style={{ background: 'rgba(8,10,14,0.96)', border: '1px solid var(--border)', padding: '28px 28px 24px' }}>
-              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: 'var(--cyan)', marginBottom: 10, textTransform: UC }}>
-                {'// Movement Quality'}
-              </div>
-              <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 18, fontWeight: 700, letterSpacing: 2, color: 'var(--white)', marginBottom: 18 }}>
-                BATTERY STATUS
-              </div>
-
-              {latestBattery ? (
-                <>
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 12 }}>
-                    <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 54, fontWeight: 700, color: scoreColor(Math.round((latestBattery.total_score / latestBattery.max_score) * 100)), lineHeight: 1 }}>
-                      {latestBattery.total_score}
-                    </div>
-                    <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, letterSpacing: 3, color: 'var(--silver3)', textTransform: UC }}>
-                      / {latestBattery.max_score}
-                    </div>
-                  </div>
-                  <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: 'var(--silver2)', lineHeight: 1.75 }}>
-                    Saved on <span style={{ color: 'var(--white)' }}>{latestBatteryDate ? formatDate(latestBatteryDate) : 'your latest test'}</span>. Premium members use this score alongside screening data to steer the next block.
-                  </div>
-                </>
-              ) : (
-                <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 16, color: 'var(--silver2)', lineHeight: 1.8 }}>
-                  {effectiveIsPro
-                    ? 'You have Premium access, so your next step after screening is the movement battery.'
-                    : 'Movement battery is reserved for the Premium path after the shared mobility screening.'}
-                </div>
-              )}
-            </div>
           </div>
 
           {!effectiveIsPro && (
@@ -598,7 +598,7 @@ export default function DashboardPage() {
               {'// Quick Tools'}
             </div>
             <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 18, fontWeight: 700, letterSpacing: 2, color: 'var(--white)' }}>
-              ONLY THE ESSENTIALS
+              TOOLS
             </div>
           </div>
 
