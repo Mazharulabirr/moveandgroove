@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { User } from '@supabase/supabase-js'
 import Header from '@/components/Header'
-import PreSessionReadinessModal from '@/components/PreSessionReadinessModal'
 import {
   IconCheckin,
   IconPrograms,
@@ -14,7 +13,6 @@ import {
 } from '@/components/Icons'
 import { createClient } from '@/lib/supabase/client'
 import { getIsPro } from '@/lib/profiles'
-import { hasPreSessionCheckinToday } from '@/lib/session-flow'
 
 interface Stats {
   totalSessions: number
@@ -159,8 +157,6 @@ export default function DashboardPage() {
   const [isPro, setIsPro] = useState(false)
   const [previewMode, setPreviewMode] = useState<'basic' | 'pro' | null>(() => getPreviewModeFromLocation())
   const [showWhyFirst, setShowWhyFirst] = useState(false)
-  const [showPreSessionReadiness, setShowPreSessionReadiness] = useState(false)
-  const [hasTodayReadiness, setHasTodayReadiness] = useState(false)
 
   const loadData = useCallback(async (userId: string) => {
     try {
@@ -216,20 +212,9 @@ export default function DashboardPage() {
       }
       setUser(session.user)
       void loadData(session.user.id)
-      void hasPreSessionCheckinToday(supabase as never, session.user.id)
-        .then((ready) => {
-          setHasTodayReadiness(ready)
-          setShowPreSessionReadiness(!ready)
-        })
-        .catch((error) => {
-          console.error(error)
-        })
     })
   }, [loadData, router, supabase])
 
-  const name = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Athlete'
-  const firstName = name.split(' ')[0]
-  const firstNameCap = firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase()
   const effectiveIsPro = previewMode === 'pro' ? true : previewMode === 'basic' ? false : isPro
   const hasScreening = Boolean(latestScreening)
   const hasBattery = Boolean(latestBattery)
@@ -334,15 +319,10 @@ export default function DashboardPage() {
       <main style={{ position: 'relative', zIndex: 2, paddingTop: 64 }}>
         <div className="mg-page-shell">
           <div style={{ marginBottom: 52 }}>
-            <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, letterSpacing: 4, color: 'var(--cyan)', marginBottom: 14, textTransform: UC }}>
-              {'// Guided Dashboard'}
-            </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 20, flexWrap: 'wrap' }}>
               <div>
                 <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 'clamp(34px,6vw,58px)', fontWeight: 700, letterSpacing: 4, color: 'var(--white)', lineHeight: 1.05, marginBottom: 10 }}>
-                  WELCOME BACK
-                  <br />
-                  <span style={METALLIC_TEXT}>{firstNameCap}</span>
+                  DASHBOARD
                 </div>
               </div>
               <button className="btn-outline" onClick={() => router.push('/results')}>
@@ -350,14 +330,6 @@ export default function DashboardPage() {
               </button>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 20 }}>
-              <button className="btn-primary" onClick={() => setShowPreSessionReadiness(true)}>
-                PRE TRAINING READINESS CHECK
-              </button>
-              <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 14, color: hasTodayReadiness ? 'var(--silver2)' : 'var(--cyan)' }}>
-                {hasTodayReadiness ? 'Today’s readiness check is already logged.' : 'Complete this before generating today’s session.'}
-              </span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 16 }}>
               <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 3, color: 'var(--silver3)', textTransform: UC }}>
                 Dashboard Preview
               </span>
@@ -743,15 +715,6 @@ export default function DashboardPage() {
           </div>
         </div>
       </main>
-      <PreSessionReadinessModal
-        open={showPreSessionReadiness}
-        allowClose
-        onClose={() => setShowPreSessionReadiness(false)}
-        onComplete={() => {
-          setHasTodayReadiness(true)
-          setShowPreSessionReadiness(false)
-        }}
-      />
     </>
   )
 }

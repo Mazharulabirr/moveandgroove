@@ -3,7 +3,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Header from '@/components/Header'
+import PreSessionReadinessModal from '@/components/PreSessionReadinessModal'
 import { createClient } from '@/lib/supabase/client'
+import { hasPreSessionCheckinToday } from '@/lib/session-flow'
 
 type Exercise = {
   videoId: number | null
@@ -193,6 +195,8 @@ export default function RoutinePage() {
   const [saveError, setSaveError] = useState('')
   const [activeExerciseIndex, setActiveExerciseIndex] = useState(0)
   const [sessionFinished, setSessionFinished] = useState(false)
+  const [showReadinessModal, setShowReadinessModal] = useState(false)
+  const [hasTodayReadiness, setHasTodayReadiness] = useState(false)
 
   useEffect(() => {
     if (!routine) {
@@ -204,6 +208,25 @@ export default function RoutinePage() {
     setActiveExerciseIndex(0)
     setSessionFinished(false)
   }, [routine])
+
+  useEffect(() => {
+    async function loadReadiness() {
+      const { data: { session } } = await supabase.auth.getSession()
+      const uid = session?.user?.id
+      if (!uid) {
+        return
+      }
+
+      try {
+        const ready = await hasPreSessionCheckinToday(supabase as never, uid)
+        setHasTodayReadiness(ready)
+      } catch (error) {
+        console.error(error)
+      }
+    }
+
+    void loadReadiness()
+  }, [supabase])
 
   const sportLabel = storedMeta?.sport ? storedMeta.sport.toUpperCase() : null
   const areasLabel = storedMeta?.areas && storedMeta.areas.length > 0 ? storedMeta.areas.map((area) => area.toUpperCase()).join(' / ') : 'FULL BODY'
@@ -329,6 +352,14 @@ export default function RoutinePage() {
               </div>
               <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 16, color: 'var(--silver2)', lineHeight: 1.7, maxWidth: 560 }}>
                 {routine.summary}
+              </div>
+              <div style={{ marginTop: 18, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                <button className="btn-primary" onClick={() => setShowReadinessModal(true)}>
+                  PRE TRAINING READINESS CHECK
+                </button>
+                <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 14, color: hasTodayReadiness ? 'var(--silver2)' : 'var(--cyan)' }}>
+                  {hasTodayReadiness ? 'Today’s readiness check is logged.' : 'Complete this before you start the workout.'}
+                </span>
               </div>
               <div style={{ marginTop: 22, maxWidth: 620, border: '1px solid rgba(139,231,255,0.18)', background: 'linear-gradient(180deg, rgba(0,180,216,0.08) 0%, rgba(8,10,14,0.96) 100%)', padding: '18px 20px' }}>
                 <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: 'var(--cyan)', marginBottom: 10, textTransform: 'uppercase' }}>
@@ -514,6 +545,15 @@ export default function RoutinePage() {
           </div>
         </div>
       </main>
+      <PreSessionReadinessModal
+        open={showReadinessModal}
+        allowClose
+        onClose={() => setShowReadinessModal(false)}
+        onComplete={() => {
+          setHasTodayReadiness(true)
+          setShowReadinessModal(false)
+        }}
+      />
     </>
   )
 }

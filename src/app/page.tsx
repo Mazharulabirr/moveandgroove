@@ -142,6 +142,83 @@ export default function HomePage() {
             <Link href="/auth" className="btn-primary">GET STARTED</Link>
             <Link href="/quiz" className="btn-outline">TRY DEMO</Link>
           </div>
+
+          <div style={{
+            width: '100%',
+            maxWidth: 1100,
+            marginTop: 96,
+            paddingTop: 28,
+            borderTop: '1px solid rgba(255,255,255,0.08)',
+            animation: 'fadeUp 0.8s 0.95s both',
+          }}>
+            <div style={{
+              fontFamily: "'DM Mono', monospace",
+              fontSize: 10,
+              letterSpacing: 5,
+              color: 'var(--cyan)',
+              textTransform: 'uppercase',
+              marginBottom: 14,
+            }}>
+              Trusted By
+            </div>
+            <div style={{
+              fontFamily: "'Syncopate', sans-serif",
+              fontSize: 'clamp(16px,2vw,22px)',
+              fontWeight: 700,
+              letterSpacing: 3,
+              color: 'var(--white)',
+              marginBottom: 16,
+            }}>
+              TEAMS WHO HAVE USED OUR PROGRAM
+            </div>
+            <div style={{
+              fontFamily: "'DM Sans', sans-serif",
+              fontSize: 15,
+              color: 'var(--silver2)',
+              lineHeight: 1.7,
+              maxWidth: 760,
+              margin: '0 auto 28px',
+            }}>
+              Built with athletes in mind and already used across high-performance environments.
+            </div>
+
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))',
+              gap: 16,
+            }}>
+              {[
+                { src: '/trusted-by-bullets.avif', alt: 'Brisbane Bullets' },
+                { src: '/trusted-by-heat.png', alt: 'Brisbane Heat' },
+                { src: '/trusted-by-logo.jpg', alt: 'Partner logo' },
+              ].map((logo) => (
+                <div
+                  key={logo.src}
+                  style={{
+                    minHeight: 150,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '22px',
+                    background: 'linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(8,10,14,0.96) 100%)',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.05)',
+                  }}
+                >
+                  <img
+                    src={logo.src}
+                    alt={logo.alt}
+                    style={{
+                      maxWidth: '100%',
+                      maxHeight: 88,
+                      objectFit: 'contain',
+                      filter: 'drop-shadow(0 10px 26px rgba(0,0,0,0.25))',
+                    }}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
         </section>
       </main>
     </>

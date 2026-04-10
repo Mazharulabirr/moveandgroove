@@ -57,24 +57,6 @@ export default function QuizPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [showReadinessGate, setShowReadinessGate] = useState(false)
-  const [readyChecked, setReadyChecked] = useState(false)
-
-  useEffect(() => {
-    void supabase.auth.getSession().then(async ({ data: { session } }) => {
-      const uid = session?.user?.id
-      if (!uid) {
-        return
-      }
-
-      try {
-        const ready = await hasPreSessionCheckinToday(supabase as never, uid)
-        setReadyChecked(ready)
-        setShowReadinessGate(!ready)
-      } catch (gateError) {
-        console.error(gateError)
-      }
-    })
-  }, [supabase])
 
   const progress = { 1: 20, '2a': 40, '2b': 40, 3: 60, 4: 80, 5: 95 }[step] || 20
 
@@ -135,6 +117,28 @@ export default function QuizPage() {
     }
   }
 
+  async function handleGenerateClick() {
+    const { data: { session } } = await supabase.auth.getSession()
+    const uid = session?.user?.id
+
+    if (!uid) {
+      void generateRoutine()
+      return
+    }
+
+    try {
+      const ready = await hasPreSessionCheckinToday(supabase as never, uid)
+      if (!ready) {
+        setShowReadinessGate(true)
+        return
+      }
+    } catch (gateError) {
+      console.error(gateError)
+    }
+
+    void generateRoutine()
+  }
+
   const baseCard = {
     background: 'var(--black2)',
     padding: 28,
@@ -192,7 +196,7 @@ export default function QuizPage() {
       <Header />
 
       <main style={{ position: 'relative', zIndex: 2, paddingTop: 64 }}>
-        <div className="mg-page-shell" style={{ maxWidth: 820, opacity: showReadinessGate && !readyChecked ? 0.3 : 1, pointerEvents: showReadinessGate && !readyChecked ? 'none' : 'auto' }}>
+        <div className="mg-page-shell" style={{ maxWidth: 820 }}>
           <div style={{ width: '100%', height: 1, background: 'var(--border)', marginBottom: 52, position: 'relative' }}>
             <div
               style={{
@@ -422,7 +426,7 @@ export default function QuizPage() {
 
               <div style={{ display: 'flex', gap: 12 }}>
                 <button className="btn-outline" onClick={() => setStep(4)}>BACK</button>
-                <button className="btn-primary" disabled={includeFoamRoll === null || loading} onClick={generateRoutine}>
+                <button className="btn-primary" disabled={includeFoamRoll === null || loading} onClick={handleGenerateClick}>
                   {loading ? 'GENERATING...' : 'GENERATE ROUTINE'}
                 </button>
               </div>
@@ -433,8 +437,8 @@ export default function QuizPage() {
       <PreSessionReadinessModal
         open={showReadinessGate}
         onComplete={() => {
-          setReadyChecked(true)
           setShowReadinessGate(false)
+          void generateRoutine()
         }}
       />
     </>
