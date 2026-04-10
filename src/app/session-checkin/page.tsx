@@ -1,7 +1,7 @@
 ﻿'use client'
 
 import { useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import Header from '@/components/Header'
 import { IconBattery, IconCheckin, IconCheckbox, IconFocus, IconMotivation, IconPain, IconReadiness, IconSleep, IconSoreness } from '@/components/Icons'
 import { createClient } from '@/lib/supabase/client'
@@ -109,14 +109,24 @@ const POST_QUESTIONS: Question[] = [
   },
 ]
 
+function readInitialRouteState() {
+  if (typeof window === 'undefined') {
+    return { initialType: null as CheckinType | null, autoStart: false }
+  }
+
+  const searchParams = new URLSearchParams(window.location.search)
+  const routeType = searchParams.get('type')
+
+  return {
+    initialType: routeType === 'pre' || routeType === 'post' ? routeType as CheckinType : null,
+    autoStart: searchParams.get('autostart') === '1',
+  }
+}
+
 export default function SessionCheckinPage() {
   const router = useRouter()
-  const searchParams = useSearchParams()
   const supabase = createClient()
-  const initialType = searchParams.get('type') === 'pre' || searchParams.get('type') === 'post'
-    ? searchParams.get('type') as CheckinType
-    : null
-  const autoStart = searchParams.get('autostart') === '1'
+  const { initialType, autoStart } = readInitialRouteState()
   const [type, setType] = useState<CheckinType | null>(initialType)
   const [step, setStep] = useState(initialType && autoStart ? 1 : 0)
   const [answers, setAnswers] = useState<Record<string, number>>({})
