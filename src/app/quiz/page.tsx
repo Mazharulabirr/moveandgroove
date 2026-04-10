@@ -1,10 +1,12 @@
 ﻿'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Header from '@/components/Header'
+import PreSessionReadinessModal from '@/components/PreSessionReadinessModal'
 import { Icon, type IconName } from '@/components/Icons'
 import { createClient } from '@/lib/supabase/client'
+import { hasPreSessionCheckinToday } from '@/lib/session-flow'
 
 const SPORTS: { id: string; label: string; icon: IconName }[] = [
   { id: 'golf', label: 'Golf', icon: 'golf' },
@@ -54,6 +56,25 @@ export default function QuizPage() {
   const [includeFoamRoll, setIncludeFoamRoll] = useState<boolean | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [showReadinessGate, setShowReadinessGate] = useState(false)
+  const [readyChecked, setReadyChecked] = useState(false)
+
+  useEffect(() => {
+    void supabase.auth.getSession().then(async ({ data: { session } }) => {
+      const uid = session?.user?.id
+      if (!uid) {
+        return
+      }
+
+      try {
+        const ready = await hasPreSessionCheckinToday(supabase as never, uid)
+        setReadyChecked(ready)
+        setShowReadinessGate(!ready)
+      } catch (gateError) {
+        console.error(gateError)
+      }
+    })
+  }, [supabase])
 
   const progress = { 1: 20, '2a': 40, '2b': 40, 3: 60, 4: 80, 5: 95 }[step] || 20
 
@@ -171,7 +192,7 @@ export default function QuizPage() {
       <Header />
 
       <main style={{ position: 'relative', zIndex: 2, paddingTop: 64 }}>
-        <div className="mg-page-shell" style={{ maxWidth: 820 }}>
+        <div className="mg-page-shell" style={{ maxWidth: 820, opacity: showReadinessGate && !readyChecked ? 0.3 : 1, pointerEvents: showReadinessGate && !readyChecked ? 'none' : 'auto' }}>
           <div style={{ width: '100%', height: 1, background: 'var(--border)', marginBottom: 52, position: 'relative' }}>
             <div
               style={{
@@ -409,6 +430,13 @@ export default function QuizPage() {
           )}
         </div>
       </main>
+      <PreSessionReadinessModal
+        open={showReadinessGate}
+        onComplete={() => {
+          setReadyChecked(true)
+          setShowReadinessGate(false)
+        }}
+      />
     </>
   )
 }

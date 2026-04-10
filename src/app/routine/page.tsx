@@ -191,6 +191,8 @@ export default function RoutinePage() {
   const [savedId, setSavedId] = useState<number | null>(() => storedMeta?.routine?.savedId ?? null)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
+  const [activeExerciseIndex, setActiveExerciseIndex] = useState(0)
+  const [sessionFinished, setSessionFinished] = useState(false)
 
   useEffect(() => {
     if (!routine) {
@@ -198,11 +200,17 @@ export default function RoutinePage() {
     }
   }, [routine, router])
 
+  useEffect(() => {
+    setActiveExerciseIndex(0)
+    setSessionFinished(false)
+  }, [routine])
+
   const sportLabel = storedMeta?.sport ? storedMeta.sport.toUpperCase() : null
   const areasLabel = storedMeta?.areas && storedMeta.areas.length > 0 ? storedMeta.areas.map((area) => area.toUpperCase()).join(' / ') : 'FULL BODY'
   const builderHref = storedMeta?.source === 'recovery' ? '/recovery' : '/quiz'
   const builderLabel = storedMeta?.source === 'recovery' ? 'REGENERATE RECOVERY' : 'GENERATE NEW ROUTINE'
   const isSaved = savedId !== null
+  const totalExerciseCount = routine ? routine.phases.reduce((sum, phase) => sum + phase.exercises.length, 0) : 0
 
   const studies = useMemo(
     () => (routine ? [...new Set(routine.phases.flatMap((phase) => phase.exercises).map((exercise) => exercise.study).filter(Boolean))] : []),
@@ -261,6 +269,21 @@ export default function RoutinePage() {
     } finally {
       setSaving(false)
     }
+  }
+
+  function completeExercise(index: number) {
+    if (index !== activeExerciseIndex) {
+      return
+    }
+
+    const nextIndex = index + 1
+    if (nextIndex >= totalExerciseCount) {
+      setSessionFinished(true)
+      setActiveExerciseIndex(nextIndex)
+      return
+    }
+
+    setActiveExerciseIndex(nextIndex)
   }
 
   if (!routine) {
@@ -344,6 +367,10 @@ export default function RoutinePage() {
 
           {routine.phases.map((phase, phaseIndex) => {
             const phaseStyle = PHASE_STYLES[phase.pillar]
+            let runningIndexBeforePhase = 0
+            for (let i = 0; i < phaseIndex; i += 1) {
+              runningIndexBeforePhase += routine.phases[i].exercises.length
+            }
             return (
               <div key={phaseIndex} style={{ marginBottom: 44 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16, paddingBottom: 14, borderBottom: '1px solid var(--border2)' }}>
@@ -355,8 +382,26 @@ export default function RoutinePage() {
                   </div>
                 </div>
 
-                {phase.exercises.map((exercise, exerciseIndex) => (
-                  <div key={exerciseIndex} style={{ border: '1px solid var(--border)', marginBottom: 2, background: 'var(--black)', borderRadius: 4, overflow: 'hidden', transition: 'all 0.2s' }} onMouseEnter={(event) => { event.currentTarget.style.background = 'var(--black2)' }} onMouseLeave={(event) => { event.currentTarget.style.background = 'var(--black)' }}>
+                {phase.exercises.map((exercise, exerciseIndex) => {
+                  const flatIndex = runningIndexBeforePhase + exerciseIndex
+                  const isCurrent = flatIndex === activeExerciseIndex && !sessionFinished
+                  const isDone = flatIndex < activeExerciseIndex || sessionFinished
+                  const isLocked = flatIndex > activeExerciseIndex && !sessionFinished
+
+                  return (
+                  <div
+                    key={exerciseIndex}
+                    style={{
+                      border: isCurrent ? '1px solid rgba(0,180,216,0.28)' : '1px solid var(--border)',
+                      marginBottom: 2,
+                      background: isLocked ? 'rgba(255,255,255,0.015)' : 'var(--black)',
+                      borderRadius: 4,
+                      overflow: 'hidden',
+                      transition: 'all 0.2s',
+                    }}
+                    onMouseEnter={(event) => { event.currentTarget.style.background = 'var(--black2)' }}
+                    onMouseLeave={(event) => { event.currentTarget.style.background = isLocked ? 'rgba(255,255,255,0.015)' : 'var(--black)' }}
+                  >
                     <div className="mg-grid-2" style={{ gridTemplateColumns: '240px 1fr' }}>
                       <div style={{ width: 240, minHeight: 160, background: 'var(--black3)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, borderRight: '1px solid var(--border)' }}>
                         <svg viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" strokeWidth="1" style={{ width: 28, opacity: 0.12 }}>
@@ -370,7 +415,7 @@ export default function RoutinePage() {
 
                       <div style={{ padding: '24px 28px', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 8 }}>
                         <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 3, color: 'var(--silver4)', textTransform: 'uppercase' }}>
-                          {String(exerciseIndex + 1).padStart(2, '0')} / {phaseStyle.label}
+                          {String(flatIndex + 1).padStart(2, '0')} / {phaseStyle.label}
                         </div>
                         <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 18, fontWeight: 700, color: 'var(--white)', lineHeight: 1.3, letterSpacing: 2 }}>
                           {exercise.name}
@@ -395,13 +440,49 @@ export default function RoutinePage() {
                         </div>
 
                         {exercise.holdSeconds && <ExerciseTimer sets={exercise.sets} holdSeconds={exercise.holdSeconds} />}
+
+                        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 10 }}>
+                          {isDone && (
+                            <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 3, color: 'var(--cyan)', textTransform: 'uppercase' }}>
+                              COMPLETED
+                            </span>
+                          )}
+                          {isCurrent && (
+                            <button className="btn-primary" onClick={() => completeExercise(flatIndex)}>
+                              CONFIRM EXERCISE DONE
+                            </button>
+                          )}
+                          {isLocked && (
+                            <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 3, color: 'var(--silver3)', textTransform: 'uppercase' }}>
+                              VISIBLE NOW / STARTS AFTER THE CURRENT EXERCISE IS COMPLETED
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
-                ))}
+                )})}
               </div>
             )
           })}
+
+          <div style={{ border: '1px solid rgba(0,180,216,0.18)', padding: '22px 24px', marginTop: 12, background: 'linear-gradient(180deg, rgba(0,180,216,0.05) 0%, rgba(8,10,14,0.96) 100%)' }}>
+            <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 3, color: 'var(--cyan)', marginBottom: 10, textTransform: 'uppercase' }}>
+              Session Progress
+            </div>
+            <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 16, color: 'var(--silver2)', lineHeight: 1.7 }}>
+              {sessionFinished
+                ? 'All exercises confirmed. Finish with your post-session check-in.'
+                : `Exercise ${Math.min(activeExerciseIndex + 1, totalExerciseCount)} of ${totalExerciseCount} is live now. Confirm each exercise to unlock the next one.`}
+            </div>
+            {sessionFinished && (
+              <div style={{ marginTop: 16 }}>
+                <button className="btn-primary" onClick={() => router.push('/session-checkin?type=post&autostart=1')}>
+                  POST SESSION CHECK-IN
+                </button>
+              </div>
+            )}
+          </div>
 
           {routine.evidenceSummary && (
             <div style={{ border: '1px solid var(--border)', padding: '28px 32px', marginTop: 40, background: 'var(--black2)', borderLeft: '2px solid var(--cyan3)', borderRadius: 4 }}>

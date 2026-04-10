@@ -1,7 +1,7 @@
 ﻿'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Header from '@/components/Header'
 import { IconBattery, IconCheckin, IconCheckbox, IconFocus, IconMotivation, IconPain, IconReadiness, IconSleep, IconSoreness } from '@/components/Icons'
 import { createClient } from '@/lib/supabase/client'
@@ -111,9 +111,14 @@ const POST_QUESTIONS: Question[] = [
 
 export default function SessionCheckinPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const supabase = createClient()
-  const [type, setType] = useState<CheckinType | null>(null)
-  const [step, setStep] = useState(0)
+  const initialType = searchParams.get('type') === 'pre' || searchParams.get('type') === 'post'
+    ? searchParams.get('type') as CheckinType
+    : null
+  const autoStart = searchParams.get('autostart') === '1'
+  const [type, setType] = useState<CheckinType | null>(initialType)
+  const [step, setStep] = useState(initialType && autoStart ? 1 : 0)
   const [answers, setAnswers] = useState<Record<string, number>>({})
   const [sorenessAreas, setSorenessAreas] = useState<string[]>([])
   const [sorenessSeverity, setSorenessSeverity] = useState(0)
@@ -189,7 +194,7 @@ export default function SessionCheckinPage() {
   }
 
   function reset() {
-    setType(null)
+    setType(initialType)
     setStep(0)
     setAnswers({})
     setSorenessAreas([])
