@@ -353,7 +353,7 @@ export default function RoutinePage() {
               <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 16, color: 'var(--silver2)', lineHeight: 1.7, maxWidth: 560 }}>
                 {routine.summary}
               </div>
-              <div style={{ marginTop: 18, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+              <div className="mg-mobile-stack" style={{ marginTop: 18, alignItems: 'center' }}>
                 <button className="btn-primary" onClick={() => setShowReadinessModal(true)}>
                   PRE TRAINING READINESS CHECK
                 </button>
@@ -378,7 +378,7 @@ export default function RoutinePage() {
                     {saveError}
                   </div>
                 )}
-                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 14 }}>
+                <div className="mg-mobile-stack" style={{ marginTop: 14 }}>
                   {!isSaved && (
                     <button className="btn-primary" onClick={saveRoutine} disabled={saving}>
                       {saving ? 'SAVING...' : 'SAVE TO LIBRARY'}
@@ -390,7 +390,7 @@ export default function RoutinePage() {
                 </div>
               </div>
             </div>
-            <div style={{ display: 'flex', gap: 10, flexShrink: 0, flexWrap: 'wrap' }}>
+            <div className="mg-mobile-stack" style={{ flexShrink: 0 }}>
               <button className="btn-outline" onClick={() => router.push(builderHref)}>ADJUST</button>
               <button className="btn-primary" onClick={() => router.push(builderHref)}>REGENERATE</button>
             </div>
@@ -433,8 +433,8 @@ export default function RoutinePage() {
                     onMouseEnter={(event) => { event.currentTarget.style.background = 'var(--black2)' }}
                     onMouseLeave={(event) => { event.currentTarget.style.background = isLocked ? 'rgba(255,255,255,0.015)' : 'var(--black)' }}
                   >
-                    <div className="mg-grid-2" style={{ gridTemplateColumns: '240px 1fr' }}>
-                      <div style={{ width: 240, minHeight: 160, background: 'var(--black3)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, borderRight: '1px solid var(--border)' }}>
+                    <div className="mg-routine-exercise-row">
+                      <div className="mg-routine-media" style={{ background: 'var(--black3)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, borderRight: '1px solid var(--border)' }}>
                         <svg viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" strokeWidth="1" style={{ width: 28, opacity: 0.12 }}>
                           <rect x="2" y="4" width="20" height="16" rx="1" />
                           <polygon points="10,9 16,12 10,15" fill="currentColor" stroke="none" opacity="0.5" />
@@ -444,7 +444,7 @@ export default function RoutinePage() {
                         </div>
                       </div>
 
-                      <div style={{ padding: '24px 28px', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 8 }}>
+                      <div style={{ padding: '24px 28px', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 8, minWidth: 0 }}>
                         <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 3, color: 'var(--silver4)', textTransform: 'uppercase' }}>
                           {String(flatIndex + 1).padStart(2, '0')} / {phaseStyle.label}
                         </div>
@@ -472,7 +472,7 @@ export default function RoutinePage() {
 
                         {exercise.holdSeconds && <ExerciseTimer sets={exercise.sets} holdSeconds={exercise.holdSeconds} />}
 
-                        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 10 }}>
+                        <div className="mg-mobile-stack" style={{ marginTop: 10 }}>
                           {isDone && (
                             <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 3, color: 'var(--cyan)', textTransform: 'uppercase' }}>
                               COMPLETED
@@ -539,7 +539,7 @@ export default function RoutinePage() {
             </div>
           )}
 
-          <div style={{ display: 'flex', gap: 12, justifyContent: 'center', padding: '52px 0', flexWrap: 'wrap' }}>
+          <div className="mg-mobile-stack" style={{ justifyContent: 'center', padding: '52px 0' }}>
             <button className="btn-outline" onClick={() => router.push('/dashboard')}>HOME</button>
             <button className="btn-primary" onClick={() => router.push(builderHref)}>{builderLabel}</button>
           </div>

@@ -348,7 +348,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.3fr) minmax(320px,0.9fr)', gap: 18, marginBottom: 28, alignItems: 'start' }}>
+          <div className="mg-dashboard-main-grid">
             <div style={{ display: 'grid', gap: 18, alignContent: 'start' }}>
               <div style={{ background: 'linear-gradient(145deg, rgba(255,255,255,0.06) 0%, rgba(10,12,16,0.98) 55%)', border: '1px solid rgba(139,231,255,0.18)', padding: '28px 30px', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.08)', alignSelf: 'start' }}>
                 <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: 'var(--cyan)', marginBottom: 12, textTransform: UC }}>
@@ -375,7 +375,7 @@ export default function DashboardPage() {
                   </div>
                 )}
 
-                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                <div className="mg-mobile-stack">
                   <button className="btn-primary" onClick={() => router.push(primaryAction.href)}>
                     {primaryAction.label}
                   </button>
@@ -472,17 +472,17 @@ export default function DashboardPage() {
 
                 {latestScreening ? (
                   <>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,minmax(0,1fr))', gap: 10, marginBottom: 18 }}>
+                    <div className="mg-dashboard-score-grid">
                       {[
                         { label: 'Overall', value: latestScreening.overall_score },
                         { label: 'Hips', value: latestScreening.hip_score },
                         { label: 'Shoulders', value: latestScreening.shoulder_score },
                         { label: 'Spine', value: latestScreening.spine_score },
                       ].map((score) => (
-                        <div key={score.label} style={{ border: '1px solid rgba(255,255,255,0.08)', padding: '18px 14px', background: 'rgba(255,255,255,0.02)' }}>
-                          <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 28, fontWeight: 700, color: scoreColor(score.value), lineHeight: 1, marginBottom: 8 }}>{score.value}</div>
-                          <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 2, color: 'var(--silver3)', textTransform: UC }}>{score.label}</div>
-                        </div>
+                          <div key={score.label} style={{ border: '1px solid rgba(255,255,255,0.08)', padding: '18px 14px', background: 'rgba(255,255,255,0.02)', minWidth: 0 }}>
+                            <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 28, fontWeight: 700, color: scoreColor(score.value), lineHeight: 1, marginBottom: 8 }}>{score.value}</div>
+                            <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 2, color: 'var(--silver3)', textTransform: UC }}>{score.label}</div>
+                          </div>
                       ))}
                     </div>
                     <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: 'var(--silver2)', lineHeight: 1.75 }}>
@@ -500,7 +500,7 @@ export default function DashboardPage() {
                           <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: 'var(--silver2)', lineHeight: 1.7, marginBottom: 14 }}>
                             Latest: <span style={{ color: 'var(--white)' }}>{latestRoutine.title}</span> on {formatDate(latestRoutine.created_at)}.
                           </div>
-                          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                          <div className="mg-mobile-stack">
                             <button className="btn-outline" onClick={() => router.push('/programs')}>
                               OPEN LIBRARY
                             </button>
@@ -576,7 +576,7 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div style={{ display: 'grid', gap: 1, background: 'rgba(255,255,255,0.08)', border: '1px solid var(--border)' }}>
+            <div style={{ display: 'grid', gap: 1, background: 'rgba(255,255,255,0.08)', border: '1px solid var(--border)', minWidth: 0 }}>
               <div style={{ background: effectiveIsPro ? 'linear-gradient(180deg, rgba(216,228,234,0.14) 0%, rgba(8,10,14,0.96) 100%)' : 'linear-gradient(180deg, rgba(0,180,216,0.14) 0%, rgba(8,10,14,0.96) 100%)', padding: '26px 24px' }}>
                 <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: membershipTone, marginBottom: 10, textTransform: UC }}>
                   {'// Account Tier'}

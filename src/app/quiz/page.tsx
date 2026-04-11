@@ -167,7 +167,7 @@ export default function QuizPage() {
   )
 
   const Nav = ({ back, next, nextDisabled, nextLabel }: { back: () => void; next?: () => void; nextDisabled?: boolean; nextLabel?: string }) => (
-    <div style={{ display: 'flex', gap: 12, marginTop: 44 }}>
+    <div className="mg-mobile-stack" style={{ marginTop: 44 }}>
       <button className="btn-outline" onClick={back}>BACK</button>
       {next && (
         <button className="btn-primary" disabled={nextDisabled} onClick={next}>
@@ -323,7 +323,7 @@ export default function QuizPage() {
               <Q>HOW LONG<br />TODAY?</Q>
               <Sub>Exercise volume and hold times are scaled to fit your available window.</Sub>
               <div style={{ border: '1px solid var(--border)', padding: 44, background: 'var(--black2)' }}>
-                <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 108, fontWeight: 700, letterSpacing: 4, color: 'var(--white)', lineHeight: 1, marginBottom: 4 }}>
+                <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 'clamp(64px, 20vw, 108px)', fontWeight: 700, letterSpacing: 4, color: 'var(--white)', lineHeight: 1, marginBottom: 4 }}>
                   {duration}
                 </div>
                 <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 13, letterSpacing: 5, color: 'var(--silver2)', marginBottom: 36, textTransform: 'uppercase' }}>
@@ -424,7 +424,7 @@ export default function QuizPage() {
                 </div>
               )}
 
-              <div style={{ display: 'flex', gap: 12 }}>
+              <div className="mg-mobile-stack">
                 <button className="btn-outline" onClick={() => setStep(4)}>BACK</button>
                 <button className="btn-primary" disabled={includeFoamRoll === null || loading} onClick={handleGenerateClick}>
                   {loading ? 'GENERATING...' : 'GENERATE ROUTINE'}

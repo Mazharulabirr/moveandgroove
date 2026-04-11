@@ -275,7 +275,7 @@ export default function ProgramsPage() {
                 Premium lets you choose between a one-off workout for today or a structured 4, 8, or 12 week block built from your recent routine history and assessment profile.
               </div>
             </div>
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <div className="mg-mobile-stack">
               <button className="btn-outline" onClick={() => router.push('/dashboard')}>DASHBOARD</button>
               <button className="btn-outline" onClick={() => router.push('/quiz')}>RANDOM WORKOUT</button>
               <button className="btn-primary" onClick={() => setShowReadiness(true)}>START PLANNED SESSION</button>
@@ -294,7 +294,7 @@ export default function ProgramsPage() {
             ) : (
               <>
                 <section style={{ marginBottom: 28 }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))', gap: 14 }}>
+                  <div className="mg-program-choice-grid">
                     <div style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(8,10,14,0.98) 100%)', border: '1px solid rgba(255,255,255,0.08)', padding: '24px 22px' }}>
                       <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: 'var(--silver2)', marginBottom: 10, textTransform: UC }}>{'// Choice One'}</div>
                       <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 16, fontWeight: 700, letterSpacing: 2, color: 'var(--white)', marginBottom: 8 }}>RANDOM WORKOUT</div>
@@ -353,7 +353,7 @@ export default function ProgramsPage() {
 
                 <section style={{ marginBottom: 30 }}>
                   <div className="section-title" style={{ marginBottom: 18 }}>Weekly Calendar</div>
-                  <div className="mg-grid-7" style={{ gap: 1, background: 'var(--border)', border: '1px solid var(--border)' }}>
+                  <div className="mg-program-calendar-grid">
                     {calendar.map((day) => (
                       <div key={day.key} style={{ background: day.isToday ? 'rgba(0,180,216,0.05)' : 'var(--black2)', padding: '22px 18px', minHeight: 240, borderTop: day.isToday ? '2px solid var(--cyan)' : '2px solid transparent' }}>
                         <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 3, color: day.isToday ? 'var(--cyan)' : 'var(--silver3)', textTransform: UC, marginBottom: 6 }}>{day.label}</div>
@@ -387,7 +387,7 @@ export default function ProgramsPage() {
                   <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: 'var(--silver2)', lineHeight: 1.75, marginBottom: 18, maxWidth: 760 }}>
                     This is your structured premium lane. The block adapts its rhythm from your saved routine history now, and it can later become true scheduled calendar persistence once we wire the backend for full program storage.
                   </div>
-                  <div className="mg-grid-4" style={{ gap: 1, background: 'var(--border)', border: '1px solid var(--border)' }}>
+                  <div className="mg-program-plan-grid">
                     {plannedWeeks.map((week) => (
                       <div key={week.week} style={{ background: 'var(--black2)', padding: '28px 24px' }}>
                         <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 3, color: 'var(--cyan)', textTransform: UC, marginBottom: 12 }}>
@@ -413,7 +413,7 @@ export default function ProgramsPage() {
 
                 <section style={{ marginBottom: 30 }}>
                   <div className="section-title" style={{ marginBottom: 18 }}>Recent 4-Week Trend</div>
-                  <div className="mg-grid-4" style={{ gap: 1, background: 'var(--border)', border: '1px solid var(--border)' }}>
+                  <div className="mg-program-trend-grid">
                     {blocks.map((block) => (
                       <div key={block.week} style={{ background: 'var(--black2)', padding: '28px 24px' }}>
                         <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 3, color: 'var(--silver2)', textTransform: UC, marginBottom: 12 }}>Week {block.week}</div>

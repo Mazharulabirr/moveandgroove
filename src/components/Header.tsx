@@ -40,17 +40,17 @@ const initials = fullName
       backdropFilter: 'blur(24px)',
       borderBottom: '1px solid var(--border)',
     }}>
-      <Link href={user ? '/dashboard' : '/'} style={{ textDecoration: 'none', cursor: 'pointer' }}>
+      <Link href={user ? '/dashboard' : '/'} style={{ textDecoration: 'none', cursor: 'pointer', minWidth: 0 }}>
         <div style={{
           fontFamily: "'Syncopate', sans-serif",
-          fontSize: 17, fontWeight: 700, letterSpacing: 5,
+          fontSize: 'clamp(13px, 3.4vw, 17px)', fontWeight: 700, letterSpacing: 5,
           background: 'linear-gradient(90deg, var(--white) 0%, var(--white) 40%, var(--cyan) 100%)',
           WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
           textTransform: 'uppercase', lineHeight: 1,
         }}>
           MOVE<span style={{ WebkitTextFillColor: 'var(--cyan)' }}>&</span>GROOVE
         </div>
-   <span style={{
+   <span className="mg-header-brand-tagline" style={{
   fontFamily: "'DM Mono', monospace", fontSize: 9,
   letterSpacing: 3, color: 'var(--silver2)', display: 'block', marginTop: 3,
 }}>
@@ -81,7 +81,7 @@ const initials = fullName
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
         {user ? (
-          <div style={{
+          <div className="mg-header-user-pill" style={{
             display: 'flex', alignItems: 'center', gap: 10,
             background: 'var(--black3)', border: '1px solid var(--border)',
             padding: '6px 14px 6px 8px', borderRadius: 30,
@@ -95,7 +95,7 @@ const initials = fullName
             }}>
               {initials}
             </div>
-            <span style={{
+            <span className="mg-header-user-name" style={{
               fontFamily: "'DM Mono', monospace", fontSize: 10,
               letterSpacing: 2, color: 'var(--silver2)',
             }}>

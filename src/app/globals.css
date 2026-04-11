@@ -18,7 +18,7 @@
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
-html { scroll-behavior: smooth; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 
 body {
   background: var(--black);
@@ -190,6 +190,60 @@ body {
 .mg-grid-5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 .mg-grid-7 { grid-template-columns: repeat(7, minmax(0, 1fr)); }
 
+.mg-mobile-stack {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.mg-dashboard-main-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(320px, 0.9fr);
+  gap: 18px;
+  margin-bottom: 28px;
+  align-items: start;
+}
+
+.mg-dashboard-score-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.mg-routine-exercise-row {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+}
+
+.mg-routine-media {
+  width: 240px;
+  min-height: 160px;
+}
+
+.mg-program-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+}
+
+.mg-program-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+}
+
+.mg-program-plan-grid,
+.mg-program-trend-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+}
+
 @media (max-width: 768px) {
   .mg-page-shell { padding: 36px 18px !important; }
   .mg-split-section { flex-direction: column !important; align-items: stretch !important; }
@@ -211,4 +265,30 @@ body {
   .meta-chip { font-size: 9px; letter-spacing: 1.5px; }
   header { padding-left: 18px !important; padding-right: 18px !important; }
   .hide-mobile { display: none !important; }
+  .mg-mobile-stack { flex-direction: column !important; align-items: stretch !important; }
+  .mg-dashboard-main-grid { grid-template-columns: 1fr !important; }
+  .mg-dashboard-score-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .mg-routine-exercise-row { grid-template-columns: 1fr !important; }
+  .mg-routine-media {
+    width: 100% !important;
+    min-height: 132px !important;
+    border-right: none !important;
+    border-bottom: 1px solid var(--border) !important;
+  }
+  .mg-program-calendar-grid,
+  .mg-program-plan-grid,
+  .mg-program-trend-grid { grid-template-columns: 1fr !important; }
+  .mg-program-choice-grid { grid-template-columns: 1fr !important; }
+  .mg-header-brand-tagline { display: none !important; }
+  .mg-header-user-pill {
+    padding: 4px 8px 4px 6px !important;
+    gap: 8px !important;
+  }
+  .mg-header-user-name { display: none !important; }
+  .mg-hero-mobile-title { letter-spacing: 3px !important; }
+  .mg-hero-mobile-tagline { letter-spacing: 1.5px !important; }
+  .mg-auth-section {
+    align-items: flex-start !important;
+    padding: 24px 18px !important;
+  }
 }

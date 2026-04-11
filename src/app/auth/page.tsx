@@ -151,7 +151,7 @@ export default function AuthPage() {
       <Header />
 
       <main style={{ position: 'relative', zIndex: 2, paddingTop: 64 }}>
-        <section style={{
+        <section className="mg-auth-section" style={{
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           minHeight: 'calc(100vh - 64px)', padding: 40,
         }}>

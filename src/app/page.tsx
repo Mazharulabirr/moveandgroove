@@ -51,7 +51,7 @@ export default function HomePage() {
         <section style={{
           display: 'flex', flexDirection: 'column', alignItems: 'center',
           justifyContent: 'center', textAlign: 'center',
-          minHeight: 'calc(100vh - 64px)', padding: '80px 40px',
+          minHeight: 'calc(100vh - 64px)', padding: '80px clamp(18px, 5vw, 40px)',
           position: 'relative', overflow: 'hidden',
         }}>
           <div style={{
@@ -81,7 +81,7 @@ export default function HomePage() {
             fontWeight: 700, letterSpacing: 8, lineHeight: 1,
             color: 'var(--white)', marginBottom: 12,
             animation: 'fadeUp 0.8s 0.35s both',
-          }}>
+          }} className="mg-hero-mobile-title">
             MOVE<span style={{ color: 'var(--cyan)' }}>&</span>GROOVE
           </h1>
 
@@ -92,7 +92,7 @@ export default function HomePage() {
             color: 'var(--silver3)', letterSpacing: 3,
             marginBottom: 60,
             animation: 'fadeUp 0.8s 0.5s both',
-          }}>
+          }} className="mg-hero-mobile-tagline">
             Trusted by Elite Athletes, Crafted for You
           </p>
 
@@ -100,6 +100,8 @@ export default function HomePage() {
             display: 'flex', alignItems: 'center', gap: 12, marginBottom: 60,
             animation: 'fadeUp 0.8s 0.65s both',
             flexWrap: 'wrap', justifyContent: 'center',
+            width: '100%',
+            maxWidth: 920,
           }}>
             {[
               { label: 'RELEASE',    sub: 'Flexibility',        color: 'var(--silver2)', border: 'var(--silver4)',        bg: 'linear-gradient(135deg,var(--black3),var(--black4))' },
@@ -120,7 +122,7 @@ export default function HomePage() {
                   <div style={{
                     fontFamily: "'Syncopate',sans-serif", fontSize: 11, fontWeight: 700,
                     letterSpacing: 3, textTransform: 'uppercase',
-                    padding: '14px 24px', border: `1px solid ${item.border}`,
+                    padding: '14px clamp(16px, 4vw, 24px)', border: `1px solid ${item.border}`,
                     color: item.color, background: item.bg,
                   }}>
                     {item.label}
