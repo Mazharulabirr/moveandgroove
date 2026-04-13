@@ -6,6 +6,7 @@ import type { User } from '@supabase/supabase-js'
 import Header from '@/components/Header'
 import {
   IconCheckin,
+  IconScreening,
   IconPrograms,
   IconRecovery,
   IconResults,
@@ -233,6 +234,37 @@ export default function DashboardPage() {
     : QUICK_ACTIONS.filter((action) => ['/quiz', '/results', '/session-checkin'].includes(action.href))
   const latestRoutine = routines[0] || null
   const showPremiumModeChoice = hasScreening && effectiveIsPro && hasBattery
+  const basicChecklist = [
+    {
+      label: 'Mobility Screening',
+      done: hasScreening,
+      detail: hasScreening ? `${latestScreening?.overall_score ?? 0}% baseline saved` : 'Complete your first screening',
+      Icon: IconScreening,
+      href: '/screening',
+    },
+    {
+      label: 'Choose Your Goal',
+      done: hasScreening,
+      detail: hasScreening ? 'Sport-specific or general mobility focus' : 'Unlocks after your screening',
+      Icon: IconRoutine,
+      href: '/quiz',
+    },
+    {
+      label: 'Create the Workout',
+      done: stats.totalSessions > 0 || routines.length > 0,
+      detail: stats.totalSessions > 0 || routines.length > 0 ? 'Workout flow completed' : 'Build your first routine',
+      Icon: IconCheckin,
+      href: '/quiz',
+    },
+  ]
+  const railStats = [
+    { val: stats.totalSessions, label: 'Sessions Done' },
+    { val: stats.totalMinutes, label: 'Minutes Moved' },
+    { val: stats.thisWeek, label: 'This Week' },
+  ]
+  const profileHistoryText = latestScreening
+    ? `Latest overall ${latestScreening.overall_score}%${latestScreeningDate ? ` / ${formatDate(latestScreeningDate)}` : ''}`
+    : 'No screening saved yet'
 
   let stageLabel = 'Start with your mobility baseline'
   let stageTitle = 'MOBILITY SCREENING'
@@ -299,19 +331,8 @@ export default function DashboardPage() {
 
   return (
     <>
-      <div
-        style={{
-          position: 'fixed',
-          inset: 0,
-          zIndex: 0,
-          pointerEvents: 'none',
-          backgroundImage: 'url(https://images.unsplash.com/photo-1599058945522-28d584b6f0ff?w=1920&q=80&fit=crop&crop=center)',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          opacity: 1,
-        }}
-      >
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom,rgba(0,0,0,0.88) 0%,rgba(0,0,0,0.74) 42%,rgba(0,0,0,0.94) 100%)' }} />
+      <div style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none', background: '#000000' }}>
+        <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at top, rgba(0,180,216,0.08) 0%, rgba(0,0,0,0) 34%), linear-gradient(to bottom, rgba(3,5,8,0.98) 0%, rgba(0,0,0,1) 100%)' }} />
       </div>
 
       <Header />
@@ -350,6 +371,7 @@ export default function DashboardPage() {
 
           <div className="mg-dashboard-main-grid">
             <div style={{ display: 'grid', gap: 18, alignContent: 'start' }}>
+              {effectiveIsPro ? (
               <div style={{ background: 'linear-gradient(145deg, rgba(255,255,255,0.06) 0%, rgba(10,12,16,0.98) 55%)', border: '1px solid rgba(139,231,255,0.18)', padding: '28px 30px', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.08)', alignSelf: 'start' }}>
                 <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: 'var(--cyan)', marginBottom: 12, textTransform: UC }}>
                   {stageLabel}
@@ -454,7 +476,69 @@ export default function DashboardPage() {
                   </div>
                 )}
               </div>
+              ) : (
+                <div style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(8,10,14,0.98) 100%)', border: '1px solid rgba(255,255,255,0.08)', padding: '24px 26px' }}>
+                  <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 26, fontWeight: 700, letterSpacing: 3, color: 'var(--white)', marginBottom: 18 }}>
+                    YOUR PROCESS
+                  </div>
+                  <div style={{ display: 'grid', gap: 12 }}>
+                    {basicChecklist.map((item, index) => (
+                      <button
+                        key={item.label}
+                        onClick={() => router.push(item.href)}
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: '28px 20px minmax(0,1fr)',
+                          gap: 14,
+                          alignItems: 'start',
+                          textAlign: 'left',
+                          padding: '16px 16px 15px',
+                          background: item.done ? 'rgba(67,209,122,0.04)' : 'rgba(255,255,255,0.02)',
+                          border: item.done ? '1px solid rgba(67,209,122,0.16)' : '1px solid rgba(255,255,255,0.06)',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <span
+                          style={{
+                            width: 34,
+                            height: 34,
+                            borderRadius: 999,
+                            border: `1px solid ${item.done ? 'rgba(67,209,122,0.35)' : 'rgba(0,180,216,0.18)'}`,
+                            color: item.done ? '#43d17a' : 'var(--cyan)',
+                            display: 'grid',
+                            placeItems: 'center',
+                            fontFamily: "'Syncopate',sans-serif",
+                            fontSize: 14,
+                            fontWeight: 700,
+                            background: item.done ? 'rgba(67,209,122,0.04)' : 'rgba(0,180,216,0.04)',
+                            boxShadow: item.done ? 'none' : 'inset 0 1px 0 rgba(255,255,255,0.04)',
+                          }}
+                        >
+                          {index + 1}
+                        </span>
+                        <span style={{ display: 'flex', marginTop: 4 }}>
+                          <item.Icon size={18} color={item.done ? '#43d17a' : 'var(--silver3)'} />
+                        </span>
+                        <span>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 5 }}>
+                            <span style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 14, fontWeight: 700, letterSpacing: 2, color: item.done ? 'var(--white)' : 'var(--silver)' }}>
+                              {item.label}
+                            </span>
+                            <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, letterSpacing: 2, color: item.done ? '#43d17a' : 'var(--silver4)', border: `1px solid ${item.done ? 'rgba(67,209,122,0.35)' : 'rgba(90,100,112,0.35)'}`, background: item.done ? 'rgba(67,209,122,0.08)' : 'rgba(90,100,112,0.08)', padding: '3px 7px', textTransform: UC }}>
+                              {item.done ? 'DONE' : 'NEXT'}
+                            </span>
+                          </span>
+                          <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 14, color: 'var(--silver2)', lineHeight: 1.6 }}>
+                            {item.detail}
+                          </span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
+              {effectiveIsPro && (
               <div style={{ background: 'rgba(8,10,14,0.96)', border: '1px solid var(--border)', padding: '28px 28px 24px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
                   <div>
@@ -472,22 +556,102 @@ export default function DashboardPage() {
 
                 {latestScreening ? (
                   <>
-                    <div className="mg-dashboard-score-grid">
-                      {[
-                        { label: 'Overall', value: latestScreening.overall_score },
-                        { label: 'Hips', value: latestScreening.hip_score },
-                        { label: 'Shoulders', value: latestScreening.shoulder_score },
-                        { label: 'Spine', value: latestScreening.spine_score },
-                      ].map((score) => (
-                          <div key={score.label} style={{ border: '1px solid rgba(255,255,255,0.08)', padding: '18px 14px', background: 'rgba(255,255,255,0.02)', minWidth: 0 }}>
-                            <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 28, fontWeight: 700, color: scoreColor(score.value), lineHeight: 1, marginBottom: 8 }}>{score.value}</div>
-                            <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 2, color: 'var(--silver3)', textTransform: UC }}>{score.label}</div>
+                    {effectiveIsPro ? (
+                      <div className="mg-dashboard-score-grid">
+                        {[
+                          { label: 'Overall', value: latestScreening.overall_score },
+                          { label: 'Hips', value: latestScreening.hip_score },
+                          { label: 'Shoulders', value: latestScreening.shoulder_score },
+                          { label: 'Spine', value: latestScreening.spine_score },
+                        ].map((score) => (
+                            <div key={score.label} style={{ border: '1px solid rgba(255,255,255,0.08)', padding: '18px 14px', background: 'rgba(255,255,255,0.02)', minWidth: 0 }}>
+                              <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 28, fontWeight: 700, color: scoreColor(score.value), lineHeight: 1, marginBottom: 8 }}>{score.value}</div>
+                              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 2, color: 'var(--silver3)', textTransform: UC }}>{score.label}</div>
+                            </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.15fr) minmax(220px,0.85fr)', gap: 14, alignItems: 'stretch' }} className="mg-dashboard-basic-score">
+                        <div style={{ border: '1px solid rgba(139,231,255,0.18)', background: 'linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(10,12,16,0.98) 62%)', padding: '20px 22px' }}>
+                          <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: 'var(--cyan)', marginBottom: 10, textTransform: UC }}>
+                            {'// Mobility Score'}
                           </div>
-                      ))}
-                    </div>
+                          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 14, flexWrap: 'wrap', marginBottom: 12 }}>
+                            <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 'clamp(54px,9vw,82px)', fontWeight: 700, lineHeight: 0.9, ...METALLIC_TEXT }}>
+                              {latestScreening.overall_score}
+                            </div>
+                            <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, letterSpacing: 3, color: 'var(--silver3)', textTransform: UC, paddingBottom: 8 }}>
+                              overall / 100
+                            </div>
+                          </div>
+                          <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 14, color: 'var(--silver2)', lineHeight: 1.75 }}>
+                            A slimmer baseline view for Basic members. Your mobility profile is saved and ready to guide the next workout.
+                          </div>
+                        </div>
+
+                        <div style={{ border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: '18px 18px 16px' }}>
+                          <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: 'var(--silver3)', marginBottom: 12, textTransform: UC }}>
+                            {'// First Wins'}
+                          </div>
+                          <div style={{ display: 'grid', gap: 10 }}>
+                            {basicChecklist.map((item) => (
+                              <div key={item.label} style={{ display: 'grid', gridTemplateColumns: '18px 18px minmax(0,1fr)', gap: 10, alignItems: 'start' }}>
+                                <span
+                                  style={{
+                                    display: 'grid',
+                                    placeItems: 'center',
+                                    width: 16,
+                                    height: 16,
+                                    marginTop: 1,
+                                    borderRadius: 999,
+                                    background: item.done ? '#43d17a' : 'transparent',
+                                    border: item.done ? 'none' : '1px solid var(--silver4)',
+                                    color: item.done ? '#04110a' : 'transparent',
+                                    fontFamily: "'DM Mono',monospace",
+                                    fontSize: 10,
+                                    lineHeight: 1,
+                                    fontWeight: 700,
+                                  }}
+                                >
+                                  {item.done ? '✓' : '·'}
+                                </span>
+                                <span style={{ display: 'flex', marginTop: 1, opacity: item.done ? 1 : 0.65 }}>
+                                  <item.Icon size={16} color={item.done ? '#43d17a' : 'var(--silver3)'} />
+                                </span>
+                                <div>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                    <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 14, color: item.done ? 'var(--white)' : 'var(--silver2)', lineHeight: 1.4 }}>
+                                      {item.label}
+                                    </div>
+                                    <span
+                                      style={{
+                                        fontFamily: "'DM Mono',monospace",
+                                        fontSize: 8,
+                                        letterSpacing: 2,
+                                        color: item.done ? '#43d17a' : 'var(--silver4)',
+                                        border: `1px solid ${item.done ? 'rgba(67,209,122,0.35)' : 'rgba(90,100,112,0.35)'}`,
+                                        background: item.done ? 'rgba(67,209,122,0.08)' : 'rgba(90,100,112,0.08)',
+                                        padding: '3px 7px',
+                                        textTransform: UC,
+                                      }}
+                                    >
+                                      {item.done ? 'DONE' : 'PENDING'}
+                                    </span>
+                                  </div>
+                                  <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 2, color: item.done ? '#43d17a' : 'var(--silver4)', textTransform: UC, marginTop: 5 }}>
+                                    {item.detail}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                     <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: 'var(--silver2)', lineHeight: 1.75 }}>
                       Last saved on <span style={{ color: 'var(--white)' }}>{latestScreeningDate ? formatDate(latestScreeningDate) : 'your latest check'}</span>. {canRetakeScreening ? 'You can complete a new screening now.' : `Your next screening unlocks on ${formatDate(nextScreeningDate!.toISOString())}.`}
                     </div>
+                    {effectiveIsPro && (
                     <div style={{ marginTop: 18, paddingTop: 18, borderTop: '1px solid var(--border2)' }}>
                       <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: 'var(--silver3)', marginBottom: 10, textTransform: UC }}>
                         {'// Routine Library'}
@@ -515,6 +679,7 @@ export default function DashboardPage() {
                         </div>
                       )}
                     </div>
+                    )}
                   </>
                 ) : (
                   <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 16, color: 'var(--silver2)', lineHeight: 1.8 }}>
@@ -522,105 +687,123 @@ export default function DashboardPage() {
                   </div>
                 )}
               </div>
+              )}
 
-              <div
-                style={{
-                  background: effectiveIsPro ? 'rgba(8,10,14,0.96)' : 'linear-gradient(180deg, rgba(216,228,234,0.06) 0%, rgba(8,10,14,0.96) 100%)',
-                  border: effectiveIsPro ? '1px solid var(--border)' : '1px solid rgba(216,228,234,0.16)',
-                  padding: '28px 28px 24px',
-                  cursor: effectiveIsPro ? 'pointer' : 'default',
-                }}
-                onClick={() => {
-                  if (effectiveIsPro) {
+              {effectiveIsPro && (
+                <div
+                  style={{
+                    background: 'rgba(8,10,14,0.96)',
+                    border: '1px solid var(--border)',
+                    padding: '28px 28px 24px',
+                    cursor: 'pointer',
+                  }}
+                  onClick={() => {
                     router.push('/battery')
-                  }
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 10, flexWrap: 'wrap' }}>
-                  <div>
-                    <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: effectiveIsPro ? 'var(--cyan)' : 'var(--silver2)', marginBottom: 10, textTransform: UC }}>
-                      {'// Movement Quality'}
-                    </div>
-                    <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 18, fontWeight: 700, letterSpacing: 2, color: 'var(--white)', marginBottom: 8 }}>
-                      MOVEMENT SCREENING
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 10, flexWrap: 'wrap' }}>
+                    <div>
+                      <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: 'var(--cyan)', marginBottom: 10, textTransform: UC }}>
+                        {'// Movement Quality'}
+                      </div>
+                      <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 18, fontWeight: 700, letterSpacing: 2, color: 'var(--white)', marginBottom: 8 }}>
+                        MOVEMENT SCREENING
+                      </div>
                     </div>
                   </div>
-                  {!effectiveIsPro && (
-                    <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 3, color: 'var(--silver2)', border: '1px solid rgba(216,228,234,0.16)', padding: '6px 10px', textTransform: UC }}>
-                      PREMIUM ONLY
+
+                  {latestBattery ? (
+                    <>
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 12 }}>
+                        <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 54, fontWeight: 700, color: scoreColor(Math.round((latestBattery.total_score / latestBattery.max_score) * 100)), lineHeight: 1 }}>
+                          {latestBattery.total_score}
+                        </div>
+                        <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, letterSpacing: 3, color: 'var(--silver3)', textTransform: UC }}>
+                          / {latestBattery.max_score}
+                        </div>
+                      </div>
+                      <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: 'var(--silver2)', lineHeight: 1.75 }}>
+                        Saved on <span style={{ color: 'var(--white)' }}>{latestBatteryDate ? formatDate(latestBatteryDate) : 'your latest test'}</span>. Premium members use this score alongside screening data to steer the next block.
+                      </div>
+                    </>
+                  ) : (
+                    <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 16, color: 'var(--silver2)', lineHeight: 1.8 }}>
+                      Premium unlocked. Click here to begin the movement battery and add a second layer to your profile.
                     </div>
                   )}
                 </div>
-
-                {latestBattery ? (
-                  <>
-                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 12 }}>
-                      <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 54, fontWeight: 700, color: scoreColor(Math.round((latestBattery.total_score / latestBattery.max_score) * 100)), lineHeight: 1 }}>
-                        {latestBattery.total_score}
-                      </div>
-                      <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, letterSpacing: 3, color: 'var(--silver3)', textTransform: UC }}>
-                        / {latestBattery.max_score}
-                      </div>
-                    </div>
-                    <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: 'var(--silver2)', lineHeight: 1.75 }}>
-                      Saved on <span style={{ color: 'var(--white)' }}>{latestBatteryDate ? formatDate(latestBatteryDate) : 'your latest test'}</span>. Premium members use this score alongside screening data to steer the next block.
-                    </div>
-                  </>
-                ) : (
-                  <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 16, color: 'var(--silver2)', lineHeight: 1.8 }}>
-                    {effectiveIsPro
-                      ? 'Premium unlocked. Click here to begin the movement battery and add a second layer to your profile.'
-                      : 'Movement battery is reserved for the Premium path after the shared mobility screening.'}
-                  </div>
-                )}
-              </div>
+              )}
             </div>
 
-            <div style={{ display: 'grid', gap: 1, background: 'rgba(255,255,255,0.08)', border: '1px solid var(--border)', minWidth: 0 }}>
-              <div style={{ background: effectiveIsPro ? 'linear-gradient(180deg, rgba(216,228,234,0.14) 0%, rgba(8,10,14,0.96) 100%)' : 'linear-gradient(180deg, rgba(0,180,216,0.14) 0%, rgba(8,10,14,0.96) 100%)', padding: '26px 24px' }}>
-                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: membershipTone, marginBottom: 10, textTransform: UC }}>
-                  {'// Account Tier'}
-                </div>
-                <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 22, fontWeight: 700, letterSpacing: 2, color: membershipTone, marginBottom: 10 }}>
-                  {membershipLabel}
-                </div>
-                <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 14, color: 'var(--silver2)', lineHeight: 1.7 }}>
-                  {membershipSummary}
-                </div>
-              </div>
-
-              <div style={{ background: 'rgba(8,10,14,0.95)', padding: '24px' }}>
-                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: 'var(--silver3)', marginBottom: 12, textTransform: UC }}>
-                  {'// Your Path'}
-                </div>
-                <div style={{ display: 'grid', gap: 10 }}>
-                  {journeySteps.map((step, index) => (
-                    <div key={step} style={{ display: 'grid', gridTemplateColumns: '26px minmax(0,1fr)', gap: 12, alignItems: 'start' }}>
-                      <div style={{ width: 26, height: 26, borderRadius: 999, border: `1px solid ${membershipTone}`, color: membershipTone, display: 'grid', placeItems: 'center', fontFamily: "'DM Mono',monospace", fontSize: 11 }}>
-                        {index + 1}
-                      </div>
-                      <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 14, color: 'var(--silver2)', lineHeight: 1.6 }}>
-                        {step}
-                      </div>
+            <div style={{ display: 'grid', gap: 12, minWidth: 0 }}>
+              {effectiveIsPro && (
+                <div style={{ display: 'grid', gap: 1, background: 'rgba(255,255,255,0.08)', border: '1px solid var(--border)', minWidth: 0 }}>
+                  <div style={{ background: 'linear-gradient(180deg, rgba(216,228,234,0.14) 0%, rgba(8,10,14,0.96) 100%)', padding: '26px 24px' }}>
+                    <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: membershipTone, marginBottom: 10, textTransform: UC }}>
+                      {'// Account Tier'}
                     </div>
-                  ))}
+                    <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 22, fontWeight: 700, letterSpacing: 2, color: membershipTone, marginBottom: 10 }}>
+                      {membershipLabel}
+                    </div>
+                    <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 14, color: 'var(--silver2)', lineHeight: 1.7 }}>
+                      {membershipSummary}
+                    </div>
+                  </div>
+
+                  <div style={{ background: 'rgba(8,10,14,0.95)', padding: '24px' }}>
+                    <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: 'var(--silver3)', marginBottom: 12, textTransform: UC }}>
+                      {'// Your Path'}
+                    </div>
+                    <div style={{ display: 'grid', gap: 10 }}>
+                      {journeySteps.map((step, index) => (
+                        <div key={step} style={{ display: 'grid', gridTemplateColumns: '26px minmax(0,1fr)', gap: 12, alignItems: 'start' }}>
+                          <div style={{ width: 26, height: 26, borderRadius: 999, border: `1px solid ${membershipTone}`, color: membershipTone, display: 'grid', placeItems: 'center', fontFamily: "'DM Mono',monospace", fontSize: 11 }}>
+                            {index + 1}
+                          </div>
+                          <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 14, color: 'var(--silver2)', lineHeight: 1.6 }}>
+                            {step}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
+              )}
+
+              <div style={{ display: 'grid', gap: 10 }}>
+                {railStats.map((item) => (
+                  <div key={item.label} style={{ background: 'rgba(8,10,14,0.95)', border: '1px solid var(--border)', padding: '18px 20px' }}>
+                    <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 30, fontWeight: 700, letterSpacing: 2, color: 'var(--white)', lineHeight: 1, marginBottom: 6 }}>
+                      {item.val}
+                    </div>
+                    <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 3, color: 'var(--cyan)', textTransform: UC }}>
+                      {item.label}
+                    </div>
+                  </div>
+                ))}
               </div>
 
-              {[
-                { val: stats.totalSessions, label: 'Total Sessions' },
-                { val: stats.totalMinutes, label: 'Minutes Moved' },
-                { val: stats.thisWeek, label: 'Sessions This Week' },
-              ].map((item) => (
-                <div key={item.label} style={{ background: 'rgba(8,10,14,0.95)', padding: '28px 24px' }}>
-                  <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 44, fontWeight: 700, letterSpacing: 2, color: 'var(--white)', lineHeight: 1, marginBottom: 8 }}>
-                    {item.val}
+              {!effectiveIsPro && (
+                <div style={{ background: 'rgba(8,10,14,0.95)', border: '1px solid var(--border)', padding: '20px' }}>
+                  <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: 'var(--cyan)', marginBottom: 10, textTransform: UC }}>
+                    {'// Profile'}
                   </div>
-                  <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, letterSpacing: 3, color: 'var(--cyan)', textTransform: UC }}>
-                    {item.label}
+                  <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 14, fontWeight: 700, letterSpacing: 2, color: 'var(--white)', marginBottom: 12 }}>
+                    PROFILE
                   </div>
+                  <button
+                    onClick={() => router.push('/results')}
+                    style={{ width: '100%', textAlign: 'left', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', padding: '14px 14px 13px', cursor: 'pointer' }}
+                  >
+                    <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 3, color: 'var(--silver3)', textTransform: UC, marginBottom: 6 }}>
+                      Mobility Scores
+                    </div>
+                    <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 13, color: 'var(--silver2)', lineHeight: 1.65 }}>
+                      {profileHistoryText}
+                    </div>
+                  </button>
                 </div>
-              ))}
+              )}
             </div>
           </div>
 
@@ -652,67 +835,71 @@ export default function DashboardPage() {
             </div>
           )}
 
-          <div style={{ marginBottom: 18 }}>
-            <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: 'var(--cyan)', marginBottom: 10, textTransform: UC }}>
-              {'// Quick Tools'}
-            </div>
-            <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 18, fontWeight: 700, letterSpacing: 2, color: 'var(--white)' }}>
-              TOOLS
-            </div>
-          </div>
-
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit,minmax(250px,1fr))',
-              gap: 14,
-              marginBottom: 48,
-            }}
-          >
-            {visibleQuickActions.map((action) => (
-              <div
-                key={action.title}
-                onClick={() => router.push(action.href)}
-                style={{
-                  background: 'linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(10,12,16,0.98) 100%)',
-                  border: '1px solid rgba(255,255,255,0.08)',
-                  padding: '28px 24px',
-                  cursor: 'pointer',
-                  transition: 'transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease',
-                  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04)',
-                }}
-                onMouseEnter={(event) => applyHoverState(event.currentTarget, true)}
-                onMouseLeave={(event) => applyHoverState(event.currentTarget, false)}
-              >
-                <span style={{ display: 'flex', marginBottom: 12 }}>
-                  <action.Icon size={28} color="var(--cyan)" />
-                </span>
-                <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 14, fontWeight: 700, letterSpacing: 3, color: 'var(--white)', marginBottom: 8, textTransform: UC }}>
-                  {action.title}
+          {effectiveIsPro && (
+            <>
+              <div style={{ marginBottom: 18 }}>
+                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: 'var(--cyan)', marginBottom: 10, textTransform: UC }}>
+                  {'// Quick Tools'}
                 </div>
-                <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: 'var(--silver2)', lineHeight: 1.7 }}>
-                  {action.sub}
+                <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 18, fontWeight: 700, letterSpacing: 2, color: 'var(--white)' }}>
+                  TOOLS
                 </div>
-                <span
-                  style={{
-                    fontFamily: "'DM Mono',monospace",
-                    fontSize: 9,
-                    letterSpacing: 2,
-                    color: 'var(--silver2)',
-                    background: 'rgba(216,228,234,0.08)',
-                    border: '1px solid rgba(216,228,234,0.18)',
-                    padding: '4px 10px',
-                    borderRadius: 20,
-                    display: 'inline-block',
-                    marginTop: 12,
-                    textTransform: UC,
-                  }}
-                >
-                  {action.badge}
-                </span>
               </div>
-            ))}
-          </div>
+
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit,minmax(250px,1fr))',
+                  gap: 14,
+                  marginBottom: 48,
+                }}
+              >
+                {visibleQuickActions.map((action) => (
+                  <div
+                    key={action.title}
+                    onClick={() => router.push(action.href)}
+                    style={{
+                      background: 'linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(10,12,16,0.98) 100%)',
+                      border: '1px solid rgba(255,255,255,0.08)',
+                      padding: '28px 24px',
+                      cursor: 'pointer',
+                      transition: 'transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease',
+                      boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04)',
+                    }}
+                    onMouseEnter={(event) => applyHoverState(event.currentTarget, true)}
+                    onMouseLeave={(event) => applyHoverState(event.currentTarget, false)}
+                  >
+                    <span style={{ display: 'flex', marginBottom: 12 }}>
+                      <action.Icon size={28} color="var(--cyan)" />
+                    </span>
+                    <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 14, fontWeight: 700, letterSpacing: 3, color: 'var(--white)', marginBottom: 8, textTransform: UC }}>
+                      {action.title}
+                    </div>
+                    <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: 'var(--silver2)', lineHeight: 1.7 }}>
+                      {action.sub}
+                    </div>
+                    <span
+                      style={{
+                        fontFamily: "'DM Mono',monospace",
+                        fontSize: 9,
+                        letterSpacing: 2,
+                        color: 'var(--silver2)',
+                        background: 'rgba(216,228,234,0.08)',
+                        border: '1px solid rgba(216,228,234,0.18)',
+                        padding: '4px 10px',
+                        borderRadius: 20,
+                        display: 'inline-block',
+                        marginTop: 12,
+                        textTransform: UC,
+                      }}
+                    >
+                      {action.badge}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       </main>
     </>

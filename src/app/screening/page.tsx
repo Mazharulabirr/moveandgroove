@@ -283,6 +283,7 @@ export default function ScreeningPage() {
   const [latestScreening, setLatestScreening] = useState<LatestScreening>(null)
   const [eligibilityChecked, setEligibilityChecked] = useState(false)
   const [saveError, setSaveError] = useState('')
+  const [saveConfirmed, setSaveConfirmed] = useState(false)
 
   const question = QUESTIONS[step - 1]
   const progress = step === 0 ? 0 : Math.round((step / TOTAL) * 100)
@@ -339,6 +340,7 @@ export default function ScreeningPage() {
   async function finish() {
     setSaving(true)
     setSaveError('')
+    setSaveConfirmed(false)
     const nextScores = calcScores(answers)
     setScores(nextScores)
 
@@ -359,7 +361,7 @@ export default function ScreeningPage() {
           .single()
 
         if (error) {
-          console.warn('[screening.questionnaire]', error)
+          throw error
         }
 
         const screeningInsert = questionnaire?.id
@@ -371,6 +373,8 @@ export default function ScreeningPage() {
         if (screeningError) {
           console.warn('[screening.results]', screeningError)
         }
+
+        setSaveConfirmed(true)
       }
 
       setDone(true)
@@ -396,23 +400,23 @@ export default function ScreeningPage() {
       <Header />
 
       <div style={{ position: 'relative', zIndex: 2, paddingTop: 80 }}>
-        <div style={{ maxWidth: 1600, margin: '0 auto', padding: '60px 100px' }}>
+        <div className="mg-assessment-shell">
           {step === 0 && eligibilityChecked && screeningLocked && latestScreening && nextEligibleDate && (
             <div style={{ animation: 'fadeUp 0.5s ease forwards' }}>
               <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 15, letterSpacing: 6, color: 'var(--cyan)', marginBottom: 32, textTransform: UC }}>Mobility Screening</p>
-              <p style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 72, fontWeight: 700, letterSpacing: 2, color: 'var(--white)', lineHeight: 1.05, marginBottom: 28 }}>
+              <p style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 'clamp(40px, 10vw, 72px)', fontWeight: 700, letterSpacing: 2, color: 'var(--white)', lineHeight: 1.05, marginBottom: 28 }}>
                 SCREENING
                 <br />
                 ALREADY SAVED
               </p>
-              <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 24, lineHeight: 1.7, color: 'var(--silver2)', marginBottom: 42, maxWidth: 760 }}>
+              <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 'clamp(18px, 4.5vw, 24px)', lineHeight: 1.7, color: 'var(--silver2)', marginBottom: 42, maxWidth: 760 }}>
                 Your most recent mobility screening was saved on {formatDate(latestScreeningDate!)}. To keep the profile meaningful, you can retake it once every 30 days.
               </p>
               <div style={{ border: '1px solid rgba(0,180,216,0.16)', background: 'rgba(8,10,14,0.94)', padding: '28px 32px', marginBottom: 42, maxWidth: 720 }}>
                 <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, letterSpacing: 4, color: 'var(--cyan)', marginBottom: 12, textTransform: UC }}>Next available</div>
                 <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 24, fontWeight: 700, letterSpacing: 3, color: 'var(--white)' }}>{formatDate(nextEligibleDate!.toISOString())}</div>
               </div>
-              <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+              <div className="mg-assessment-action-row">
                 <button className="btn-primary" onClick={() => router.push('/results')}>VIEW MY SCORES</button>
                 <button className="btn-outline" onClick={() => router.push('/dashboard')}>DASHBOARD</button>
               </div>
@@ -422,12 +426,12 @@ export default function ScreeningPage() {
           {step === 0 && eligibilityChecked && !screeningLocked && (
             <div style={{ animation: 'fadeUp 0.5s ease forwards' }}>
               <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 15, letterSpacing: 6, color: 'var(--cyan)', marginBottom: 32, textTransform: UC }}>Mobility Screening</p>
-              <p style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 80, fontWeight: 700, letterSpacing: 2, color: 'var(--white)', lineHeight: 1.05, marginBottom: 28 }}>
+              <p style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 'clamp(42px, 11vw, 80px)', fontWeight: 700, letterSpacing: 2, color: 'var(--white)', lineHeight: 1.05, marginBottom: 28 }}>
                 UNDERSTAND
                 <br />
                 YOUR BODY
               </p>
-              <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 24, lineHeight: 1.7, color: 'var(--silver2)', marginBottom: 32, maxWidth: 760 }}>
+              <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 'clamp(18px, 4.5vw, 24px)', lineHeight: 1.7, color: 'var(--silver2)', marginBottom: 32, maxWidth: 760 }}>
                 11 questions across hips, shoulders, and spine. This is the first step for every member because it creates the baseline score that drives what comes next.
               </p>
               {latestScreening && nextEligibleDate && (
@@ -435,7 +439,7 @@ export default function ScreeningPage() {
                   Your last screening was on {formatDate(latestScreeningDate!)}. Since the 30-day window has passed, you can update your profile again now.
                 </p>
               )}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 2, background: 'var(--border)', border: '1px solid var(--border)', marginBottom: 64 }}>
+              <div className="mg-assessment-grid-3" style={{ marginBottom: 64 }}>
                 {[
                   { Icon: IconHips, label: 'Hips', color: REGION_COLORS.hips },
                   { Icon: IconShoulders, label: 'Shoulders', color: REGION_COLORS.shoulders },
@@ -448,7 +452,7 @@ export default function ScreeningPage() {
                   </div>
                 ))}
               </div>
-              <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+              <div className="mg-assessment-action-row">
                 <button className="btn-outline" onClick={() => router.push('/dashboard')}>BACK</button>
                 {latestScreening && <button className="btn-outline" onClick={() => router.push('/results')}>PREVIOUS SCORES</button>}
                 <button className="btn-primary" onClick={() => setStep(1)}>{latestScreening ? 'UPDATE SCREENING' : 'BEGIN SCREENING'}</button>
@@ -463,17 +467,17 @@ export default function ScreeningPage() {
               </div>
               <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 15, letterSpacing: 4, color: 'var(--silver3)', marginBottom: 44, textTransform: UC }}>Question {step} of {TOTAL}</p>
 
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 16, background: `${regionColor}20`, border: `1px solid ${regionColor}50`, padding: '18px 40px', marginBottom: 44 }}>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 16, background: `${regionColor}20`, border: `1px solid ${regionColor}50`, padding: '18px 24px', marginBottom: 44, maxWidth: '100%' }}>
                 <question.RegionIcon size={38} color={regionColor} />
-                <span style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 22, fontWeight: 700, letterSpacing: 4, color: regionColor, textTransform: UC }}>{question.regionLabel}</span>
+                <span style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 'clamp(16px, 4vw, 22px)', fontWeight: 700, letterSpacing: 3, color: regionColor, textTransform: UC }}>{question.regionLabel}</span>
               </div>
 
-              <p style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 64, fontWeight: 700, letterSpacing: 2, color: 'var(--white)', lineHeight: 1.1, marginBottom: 20 }}>{question.text}</p>
-              <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 24, color: 'var(--silver2)', marginBottom: 44, lineHeight: 1.6 }}>{question.sub}</p>
+              <p style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 'clamp(30px, 8vw, 64px)', fontWeight: 700, letterSpacing: 2, color: 'var(--white)', lineHeight: 1.1, marginBottom: 20 }}>{question.text}</p>
+              <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 'clamp(18px, 4.5vw, 24px)', color: 'var(--silver2)', marginBottom: 44, lineHeight: 1.6 }}>{question.sub}</p>
 
               {isGeneral && (
                 <div style={{ marginBottom: 48 }}>
-                  <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 20, color: 'var(--silver)', marginBottom: 32, lineHeight: 1.7, maxWidth: 700, padding: '24px 28px', background: 'var(--black2)', border: '1px solid var(--border)' }}>{question.instruction}</p>
+                  <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 'clamp(16px, 4vw, 20px)', color: 'var(--silver)', marginBottom: 32, lineHeight: 1.7, maxWidth: 700, padding: '24px 28px', background: 'var(--black2)', border: '1px solid var(--border)' }}>{question.instruction}</p>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                     {question.options.map((option, index) => {
                       const selected = answers[question.id] === option.value
@@ -481,10 +485,11 @@ export default function ScreeningPage() {
                         <div
                           key={option.id}
                           onClick={() => pick(question.id, option.value)}
-                          style={{ background: selected ? 'var(--black3)' : 'var(--black2)', padding: '32px 48px', cursor: 'pointer', transition: 'background 0.2s', display: 'flex', alignItems: 'center', gap: 28, borderLeft: selected ? `6px solid ${regionColor}` : '6px solid transparent' }}
+                          style={{ background: selected ? 'var(--black3)' : 'var(--black2)', padding: '32px 24px', cursor: 'pointer', transition: 'background 0.2s', borderLeft: selected ? `6px solid ${regionColor}` : '6px solid transparent' }}
+                          className="mg-assessment-option-row"
                         >
                           <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 18, letterSpacing: 2, color: selected ? regionColor : 'var(--silver4)', minWidth: 32, flexShrink: 0 }}>{index + 1}</span>
-                          <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 26, fontWeight: selected ? 600 : 400, color: selected ? 'var(--white)' : 'var(--silver)', lineHeight: 1.4 }}>{option.label}</span>
+                          <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 'clamp(18px, 4.6vw, 26px)', fontWeight: selected ? 600 : 400, color: selected ? 'var(--white)' : 'var(--silver)', lineHeight: 1.4 }}>{option.label}</span>
                           {selected && (
                             <span style={{ marginLeft: 'auto', flexShrink: 0, display: 'flex' }}>
                               <IconCheckin size={26} color={regionColor} />
@@ -498,11 +503,11 @@ export default function ScreeningPage() {
               )}
 
               {!isGeneral && (
-                <div style={{ display: 'grid', gridTemplateColumns: '480px 1fr', gap: 2, background: 'var(--border)', border: '1px solid var(--border)', marginBottom: 48 }}>
+                <div className="mg-assessment-test-grid">
                   <div style={{ background: 'var(--black2)', padding: '40px 36px', display: 'flex', flexDirection: 'column', gap: 28 }}>
                     <div>
                       <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 13, letterSpacing: 3, color: regionColor, marginBottom: 18, textTransform: UC }}>How to test yourself</p>
-                      <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 20, lineHeight: 1.85, color: 'var(--silver)' }}>{question.instruction}</p>
+                      <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 'clamp(16px, 4vw, 20px)', lineHeight: 1.85, color: 'var(--silver)' }}>{question.instruction}</p>
                     </div>
                     {question.photo && (
                       <div>
@@ -524,10 +529,11 @@ export default function ScreeningPage() {
                         <div
                           key={option.id}
                           onClick={() => pick(question.id, option.value)}
-                          style={{ flex: 1, background: selected ? 'var(--black3)' : 'var(--black2)', padding: '36px 48px', cursor: 'pointer', transition: 'background 0.2s', display: 'flex', alignItems: 'center', gap: 28, borderLeft: selected ? `6px solid ${regionColor}` : '6px solid transparent' }}
+                          style={{ flex: 1, background: selected ? 'var(--black3)' : 'var(--black2)', padding: '32px 24px', cursor: 'pointer', transition: 'background 0.2s', borderLeft: selected ? `6px solid ${regionColor}` : '6px solid transparent' }}
+                          className="mg-assessment-option-row"
                         >
                           <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 18, letterSpacing: 2, color: selected ? regionColor : 'var(--silver4)', minWidth: 32, flexShrink: 0 }}>{index + 1}</span>
-                          <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 26, fontWeight: selected ? 600 : 400, color: selected ? 'var(--white)' : 'var(--silver)', lineHeight: 1.4 }}>{option.label}</span>
+                          <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 'clamp(18px, 4.6vw, 26px)', fontWeight: selected ? 600 : 400, color: selected ? 'var(--white)' : 'var(--silver)', lineHeight: 1.4 }}>{option.label}</span>
                           {selected && (
                             <span style={{ marginLeft: 'auto', flexShrink: 0, display: 'flex' }}>
                               <IconCheckin size={26} color={regionColor} />
@@ -540,7 +546,7 @@ export default function ScreeningPage() {
                 </div>
               )}
 
-              <div style={{ display: 'flex', gap: 16 }}>
+              <div className="mg-assessment-action-row">
                 <button className="btn-outline" onClick={back}>BACK</button>
                 <button className="btn-primary" disabled={answers[question.id] === undefined} onClick={next}>
                   {step === TOTAL ? (saving ? 'SAVING...' : 'SEE MY RESULTS') : 'CONTINUE'}
@@ -557,19 +563,30 @@ export default function ScreeningPage() {
           {done && scores && (
             <div style={{ animation: 'fadeUp 0.5s ease forwards' }}>
               <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 15, letterSpacing: 6, color: 'var(--cyan)', marginBottom: 32, textTransform: UC }}>Your Mobility Profile</p>
-              <p style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 72, fontWeight: 700, letterSpacing: 2, color: 'var(--white)', lineHeight: 1.05, marginBottom: 60 }}>
+              <p style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 'clamp(40px, 10vw, 72px)', fontWeight: 700, letterSpacing: 2, color: 'var(--white)', lineHeight: 1.05, marginBottom: 60 }}>
                 SCREENING
                 <br />
                 COMPLETE
               </p>
 
-              <div style={{ border: '1px solid var(--border)', background: 'var(--black2)', padding: '80px 56px', marginBottom: 2, textAlign: CA }}>
-                <p style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 160, fontWeight: 700, color: scoreLabel(scores.overall.pct).color, lineHeight: 1, letterSpacing: 4 }}>{scores.overall.pct}</p>
+              <div style={{ border: '1px solid var(--border)', background: 'var(--black2)', padding: '56px 28px', marginBottom: 2, textAlign: CA }}>
+                <p style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 'clamp(88px, 24vw, 160px)', fontWeight: 700, color: scoreLabel(scores.overall.pct).color, lineHeight: 1, letterSpacing: 4 }}>{scores.overall.pct}</p>
                 <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 18, letterSpacing: 6, color: 'var(--silver2)', marginTop: 16 }}>OVERALL MOBILITY SCORE</p>
                 <p style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 18, fontWeight: 700, letterSpacing: 5, color: scoreLabel(scores.overall.pct).color, marginTop: 20 }}>{scoreLabel(scores.overall.pct).label}</p>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 2, background: 'var(--border)', border: '1px solid var(--border)', borderTop: 'none', marginBottom: 48 }}>
+              <div style={{ borderLeft: `6px solid ${saveConfirmed ? '#00b4d8' : '#e74c3c'}`, border: `1px solid ${saveConfirmed ? 'rgba(0,180,216,0.25)' : 'rgba(231,76,60,0.25)'}`, background: 'var(--black2)', padding: '22px 28px', marginBottom: 24 }}>
+                <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, letterSpacing: 4, color: saveConfirmed ? 'var(--cyan)' : '#ff8f8f', marginBottom: 10, textTransform: UC }}>
+                  {saveConfirmed ? 'Saved To Profile' : 'Profile Save Failed'}
+                </p>
+                <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 17, color: 'var(--silver2)', lineHeight: 1.7 }}>
+                  {saveConfirmed
+                    ? 'Your screening answers are stored in your profile and will now drive dashboard and results recommendations.'
+                    : saveError || 'Your score was calculated, but we could not save it to your profile. Please retake the screening or try again.'}
+                </p>
+              </div>
+
+              <div className="mg-assessment-grid-3" style={{ borderTop: 'none', marginBottom: 48 }}>
                 {(['hips', 'shoulders', 'spine'] as const).map((region) => {
                   const score = scores[region]
                   const status = scoreLabel(score.pct)
@@ -598,17 +615,17 @@ export default function ScreeningPage() {
                   spine: 'Spinal Mobility',
                 }
                 return (
-                  <div style={{ borderLeft: `6px solid ${status.color}`, border: `1px solid ${status.color}30`, background: 'var(--black2)', padding: '40px 48px', marginBottom: 52 }}>
+                  <div style={{ borderLeft: `6px solid ${status.color}`, border: `1px solid ${status.color}30`, background: 'var(--black2)', padding: '32px 24px', marginBottom: 52 }}>
                     <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 13, letterSpacing: 3, color: status.color, marginBottom: 18, textTransform: UC }}>Priority Area</p>
-                    <p style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 28, fontWeight: 700, letterSpacing: 2, color: 'var(--white)', marginBottom: 18 }}>{regionLabel[weakest]}</p>
-                    <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 22, color: 'var(--silver2)', lineHeight: 1.7 }}>
+                    <p style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 'clamp(22px, 5vw, 28px)', fontWeight: 700, letterSpacing: 2, color: 'var(--white)', marginBottom: 18 }}>{regionLabel[weakest]}</p>
+                    <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 'clamp(17px, 4vw, 22px)', color: 'var(--silver2)', lineHeight: 1.7 }}>
                       Your {weakest} scored lowest at {scores[weakest].pct}%. Start your next routine with a {weakest}-focused session and reassess at the end of your current training block.
                     </p>
                   </div>
                 )
               })()}
 
-              <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+              <div className="mg-assessment-action-row">
                 <button className="btn-primary" onClick={() => router.push(isPro ? '/battery' : '/quiz')}>{isPro ? 'CONTINUE TO BATTERY' : 'CHOOSE SPORT OR BODY AREA'}</button>
                 <button className="btn-outline" onClick={() => router.push('/results')}>VIEW SAVED SCORES</button>
                 <button className="btn-outline" onClick={() => router.push('/dashboard')}>DASHBOARD</button>

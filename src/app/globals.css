@@ -244,6 +244,50 @@ body {
   border: 1px solid var(--border);
 }
 
+.mg-assessment-shell {
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 60px 100px;
+}
+
+.mg-assessment-test-grid {
+  display: grid;
+  grid-template-columns: 480px minmax(0, 1fr);
+  gap: 2px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  margin-bottom: 48px;
+}
+
+.mg-assessment-grid-3,
+.mg-assessment-grid-5 {
+  display: grid;
+  gap: 2px;
+  background: var(--border);
+  border: 1px solid var(--border);
+}
+
+.mg-assessment-grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.mg-assessment-grid-5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+
+.mg-assessment-option-row {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+}
+
+.mg-assessment-action-row {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.mg-assessment-priority-card {
+  display: flex;
+  align-items: center;
+  gap: 40px;
+}
+
 @media (max-width: 768px) {
   .mg-page-shell { padding: 36px 18px !important; }
   .mg-split-section { flex-direction: column !important; align-items: stretch !important; }
@@ -279,6 +323,23 @@ body {
   .mg-program-plan-grid,
   .mg-program-trend-grid { grid-template-columns: 1fr !important; }
   .mg-program-choice-grid { grid-template-columns: 1fr !important; }
+  .mg-assessment-shell { padding: 32px 18px !important; }
+  .mg-assessment-test-grid,
+  .mg-assessment-grid-3,
+  .mg-assessment-grid-5 { grid-template-columns: 1fr !important; }
+  .mg-assessment-option-row {
+    gap: 16px !important;
+    align-items: flex-start !important;
+  }
+  .mg-assessment-action-row {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+  .mg-assessment-priority-card {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 16px !important;
+  }
   .mg-header-brand-tagline { display: none !important; }
   .mg-header-user-pill {
     padding: 4px 8px 4px 6px !important;

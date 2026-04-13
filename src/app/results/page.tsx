@@ -5,13 +5,13 @@ import { useRouter } from 'next/navigation'
 import Header from '@/components/Header'
 import ProGate from '@/components/ProGate'
 import {
+  IconBalance,
   IconBattery,
   IconHinge,
   IconHips,
   IconLunge,
-  IconPress,
+  IconPerformance,
   IconResults,
-  IconRotation,
   IconShoulders,
   IconSpine,
   IconSquat,
@@ -95,16 +95,20 @@ const BATTERY_LABELS: Record<string, string> = {
   deep_squat: 'Deep Squat',
   hip_hinge: 'Hip Hinge',
   shoulder_press: 'Shoulder Press',
+  single_leg_balance: 'Single-Leg Balance',
   lunge: 'Inline Lunge',
   rotation: 'Seated Rotation',
+  push_up_control: 'Push-Up Control',
 }
 
 const BATTERY_ICONS = {
   deep_squat: IconSquat,
   hip_hinge: IconHinge,
-  shoulder_press: IconPress,
+  shoulder_press: IconBattery,
+  single_leg_balance: IconBalance,
   lunge: IconLunge,
-  rotation: IconRotation,
+  rotation: IconBattery,
+  push_up_control: IconPerformance,
 }
 
 function batteryPriority(scores: Record<string, number>) {
@@ -231,8 +235,8 @@ export default function ResultsPage() {
       <div style={{ position: 'relative', zIndex: 2, paddingTop: 80 }}>
         <div className="mg-page-shell" style={{ maxWidth: 1600 }}>
           <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 15, letterSpacing: 6, color: 'var(--cyan)', marginBottom: 32, textTransform: UC }}>Mobility Profile</p>
-          <p style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 72, fontWeight: 700, letterSpacing: 2, color: 'var(--white)', lineHeight: 1.05, marginBottom: 16 }}>YOUR RESULTS</p>
-          <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 22, color: 'var(--silver2)', marginBottom: 64, lineHeight: 1.6 }}>
+          <p style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 'clamp(40px, 10vw, 72px)', fontWeight: 700, letterSpacing: 2, color: 'var(--white)', lineHeight: 1.05, marginBottom: 16 }}>YOUR RESULTS</p>
+          <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 'clamp(18px, 4vw, 22px)', color: 'var(--silver2)', marginBottom: 64, lineHeight: 1.6 }}>
             Your mobility screening and movement battery scores over time.
           </p>
 
@@ -256,7 +260,7 @@ export default function ResultsPage() {
                 {latestScreening && (
                   <div style={{ background: 'var(--black2)', padding: '56px 48px', textAlign: CA }}>
                     <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 13, letterSpacing: 4, color: 'var(--cyan)', marginBottom: 24, textTransform: UC }}>Mobility Screening</p>
-                    <p style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 120, fontWeight: 700, color: scoreColor(latestScreening.overall_score), lineHeight: 1, letterSpacing: 4 }}>{latestScreening.overall_score}</p>
+                    <p style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 'clamp(72px, 18vw, 120px)', fontWeight: 700, color: scoreColor(latestScreening.overall_score), lineHeight: 1, letterSpacing: 4 }}>{latestScreening.overall_score}</p>
                     <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 14, letterSpacing: 5, color: 'var(--silver2)', marginTop: 12 }}>OVERALL SCORE</p>
                     <p style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 14, fontWeight: 700, letterSpacing: 4, color: scoreColor(latestScreening.overall_score), marginTop: 14 }}>{scoreLabel(latestScreening.overall_score)}</p>
                     <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, letterSpacing: 2, color: 'var(--silver4)', marginTop: 16 }}>{formatDate(getScreeningDate(latestScreening))}</p>
@@ -266,7 +270,7 @@ export default function ResultsPage() {
                 {latestBattery && (
                   <div style={{ background: 'var(--black2)', padding: '56px 48px', textAlign: CA }}>
                     <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 13, letterSpacing: 4, color: 'var(--cyan)', marginBottom: 24, textTransform: UC }}>Movement Battery</p>
-                    <p style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 120, fontWeight: 700, color: scoreColor((latestBattery.total_score / latestBattery.max_score) * 100), lineHeight: 1, letterSpacing: 4 }}>{latestBattery.total_score}</p>
+                    <p style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 'clamp(72px, 18vw, 120px)', fontWeight: 700, color: scoreColor((latestBattery.total_score / latestBattery.max_score) * 100), lineHeight: 1, letterSpacing: 4 }}>{latestBattery.total_score}</p>
                     <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 14, letterSpacing: 5, color: 'var(--silver2)', marginTop: 12 }}>OUT OF {latestBattery.max_score}</p>
                     <p style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 14, fontWeight: 700, letterSpacing: 4, color: scoreColor((latestBattery.total_score / latestBattery.max_score) * 100), marginTop: 14 }}>{scoreLabel((latestBattery.total_score / latestBattery.max_score) * 100)}</p>
                     <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, letterSpacing: 2, color: 'var(--silver4)', marginTop: 16 }}>{formatDate(getAssessmentDate(latestBattery))}</p>
@@ -320,7 +324,7 @@ export default function ResultsPage() {
                   <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 13, letterSpacing: 4, color: 'var(--cyan)', marginBottom: 24, textTransform: UC }}>Priority Recommendations</p>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 48 }}>
                     {priorities.map((priority, index) => (
-                      <div key={index} style={{ borderLeft: `6px solid ${priority.color}`, border: `1px solid ${priority.color}30`, background: 'var(--black2)', padding: '32px 40px', display: 'flex', alignItems: 'center', gap: 40 }}>
+                      <div key={index} style={{ borderLeft: `6px solid ${priority.color}`, border: `1px solid ${priority.color}30`, background: 'var(--black2)', padding: '32px 24px' }} className="mg-assessment-priority-card">
                         <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 48, fontWeight: 700, color: priority.color, minWidth: 80, textAlign: CA }}>
                           {Math.round(priority.score)}<span style={{ fontSize: 20 }}>%</span>
                         </div>

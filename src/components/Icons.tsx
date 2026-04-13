@@ -206,3 +206,5 @@ export function IconMotivation(props: StandaloneIconProps) { return <Icon name="
 export function IconPain(props: StandaloneIconProps) { return <Icon name="pain" {...props} /> }
 export function IconCheckbox(props: StandaloneIconProps) { return <Icon name="checkbox" {...props} /> }
 export function IconFocus(props: StandaloneIconProps) { return <Icon name="focus" {...props} /> }
+export function IconBalance(props: StandaloneIconProps) { return <Icon name="balance" {...props} /> }
+export function IconPerformance(props: StandaloneIconProps) { return <Icon name="performance" {...props} /> }
