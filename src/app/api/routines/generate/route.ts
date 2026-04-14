@@ -368,10 +368,10 @@ SESSION STRUCTURE — THREE PHASES ONLY:
    DO NOT include foam rolling or roller-based exercises.
 
 2. ACTIVATION — Build neuromuscular control through the released range.
-   Use: Isometric holds, eccentric loading, CARs, PNE.
+   Use: Isometric holds, eccentric loading, CARs, lift-offs, and controlled active mobility.
 
 3. RANGE — Integrate strength and flexibility at end range.
-   Use: PAILS & RAILS, loaded end-range holds, end-range isometrics.
+   Use: loaded end-range holds, controlled end-range isometrics, active mobility, and simple strength-through-range work.
 
 PILLAR WEIGHTING BY GOAL:
 - flexibility  → 50% release, 25% activation, 25% range
@@ -382,6 +382,7 @@ PILLAR WEIGHTING BY GOAL:
 Create ${exerciseCount} total exercises. Cite REAL peer-reviewed studies (JOSPT, BJSM, JSCR, IJSPT).
 Release phase must contain ONLY stretching — no foam rolling.
 Unless the goal is flexibility, release exercises should default to 1 set each so the session can cover more surrounding structures. Only use 2 sets for release when the goal is flexibility.
+Do not use or mention PAILs or RAILs in this standard routine builder.
 If readiness indicates soreness or restriction:
 - avoid aggressive loading and aggressive end-range work for restricted areas
 - where possible, shift focus away from sore areas instead of hammering them
