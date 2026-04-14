@@ -171,11 +171,32 @@ function selectFoamRollExercises(areas: string[], duration: number) {
   return selected
 }
 
-function goalBalancedPillars(goal: string) {
-  if (goal === 'flexibility') return ['release', 'release', 'activation', 'range'] as const
-  if (goal === 'strength') return ['activation', 'activation', 'release', 'range'] as const
-  if (goal === 'performance') return ['range', 'activation', 'release', 'range'] as const
-  return ['release', 'activation', 'range', 'activation'] as const
+function buildPhaseSlots(goal: string, exerciseTarget: number, areaCount: number) {
+  const minimumRelease = Math.min(Math.max(areaCount, 1), 3)
+
+  let releaseCount = 1
+  if (goal === 'flexibility') {
+    releaseCount = Math.max(minimumRelease, Math.ceil(exerciseTarget * 0.5))
+  } else if (goal === 'balanced') {
+    releaseCount = Math.max(minimumRelease, Math.ceil(exerciseTarget * 0.4))
+  } else if (goal === 'performance') {
+    releaseCount = Math.max(1, Math.ceil(exerciseTarget * 0.25))
+  } else {
+    releaseCount = Math.max(1, Math.ceil(exerciseTarget * 0.25))
+  }
+
+  releaseCount = Math.min(releaseCount, exerciseTarget - 2)
+  const remaining = exerciseTarget - releaseCount
+  const activationCount = Math.ceil(remaining / 2)
+  const rangeCount = remaining - activationCount
+
+  const slots: Array<'release' | 'activation' | 'range'> = [
+    ...Array.from({ length: releaseCount }, () => 'release' as const),
+    ...Array.from({ length: activationCount }, () => 'activation' as const),
+    ...Array.from({ length: rangeCount }, () => 'range' as const),
+  ]
+
+  return slots
 }
 
 function releaseSetCount(goal: string) {
@@ -226,8 +247,8 @@ function buildFallbackRoutine({
 }): GeneratedRoutine {
   const pillars: Array<'release' | 'activation' | 'range'> = ['release', 'activation', 'range']
   const exerciseTarget = Math.max(4, Math.min(8, Math.round(duration / 4)))
-  const emphasis = goalBalancedPillars(goal)
   const chosenAreas = getRoutineAreas(targetAreas, readiness)
+  const phaseSlots = buildPhaseSlots(goal, exerciseTarget, chosenAreas.length)
   const phases: RoutinePhase[] = pillars.map((pillar) => ({
     pillar,
     phaseDescription:
@@ -241,7 +262,7 @@ function buildFallbackRoutine({
 
   for (let index = 0; index < exerciseTarget; index += 1) {
     const area = chosenAreas[index % chosenAreas.length]
-    const pillar = emphasis[index % emphasis.length]
+    const pillar = phaseSlots[index % phaseSlots.length]
     const library = FALLBACK_LIBRARY[area]?.[pillar]
     const pick = library?.[Math.floor(index / chosenAreas.length) % library.length]
     if (!pick) continue
@@ -343,7 +364,11 @@ export async function POST(req: NextRequest) {
 
     const prepMinutes   = prepPhase ? prepPhase.exercises.length * 3 : 0
     const aiDuration    = duration - prepMinutes
-    const exerciseCount = Math.max(4, Math.round(aiDuration / 4))
+    const baseExerciseCount = Math.max(4, Math.round(aiDuration / 4))
+    const exerciseCount =
+      goal === 'balanced' || goal === 'flexibility'
+        ? Math.max(baseExerciseCount, aiDuration >= 18 ? 6 : 5)
+        : baseExerciseCount
 
     const prompt = `You are an expert sports physiotherapist and strength and conditioning coach building an evidence-based joint mobility routine.
 
@@ -376,13 +401,16 @@ SESSION STRUCTURE — THREE PHASES ONLY:
 PILLAR WEIGHTING BY GOAL:
 - flexibility  → 50% release, 25% activation, 25% range
 - strength     → 25% release, 50% activation, 25% range
-- balanced     → 33% each
+- balanced     → meaningful release first, then activation and range
 - performance  → 25% release, 25% activation, 50% range
 
 Create ${exerciseCount} total exercises. Cite REAL peer-reviewed studies (JOSPT, BJSM, JSCR, IJSPT).
 Release phase must contain ONLY stretching — no foam rolling.
 Unless the goal is flexibility, release exercises should default to 1 set each so the session can cover more surrounding structures. Only use 2 sets for release when the goal is flexibility.
 Do not use or mention PAILs or RAILs in this standard routine builder.
+For balanced and flexibility sessions, release must be substantial rather than token. Cover multiple structures around the joint, not just one stretch per region.
+For sport-specific balanced sessions, release should usually contain at least 3 exercises when the session length allows it.
+Do not give a balanced session just one pec stretch and one hip stretch and call release covered.
 If readiness indicates soreness or restriction:
 - avoid aggressive loading and aggressive end-range work for restricted areas
 - where possible, shift focus away from sore areas instead of hammering them
