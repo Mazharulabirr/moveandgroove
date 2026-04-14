@@ -6,6 +6,7 @@ import Header from '@/components/Header'
 import { IconCheckin, IconGeneral, IconHips, IconShoulders, IconSpine } from '@/components/Icons'
 import { createClient } from '@/lib/supabase/client'
 import { getIsPro } from '@/lib/profiles'
+import { readStoredScreening, writeStoredScreening } from '@/lib/screening-storage'
 
 type Option = { id: string; label: string; value: number }
 type Region = 'hips' | 'shoulders' | 'spine' | 'general'
@@ -305,11 +306,17 @@ export default function ScreeningPage() {
       }
 
       const [{ data: latest }, pro] = await Promise.all([
-        supabase.from('screening_questionnaires').select('*').eq('user_id', uid).order('completed_at', { ascending: false }).limit(1).maybeSingle(),
+        supabase.from('screening_questionnaires').select('*').eq('user_id', uid).order('created_at', { ascending: false }).limit(1).maybeSingle(),
         getIsPro(supabase as never, uid),
       ])
 
-      setLatestScreening(latest || null)
+      const localSnapshot = readStoredScreening()
+      setLatestScreening(latest || (localSnapshot ? {
+        created_at: localSnapshot.created_at,
+        completed_at: null,
+        assessed_at: null,
+        responses: localSnapshot.answers || null,
+      } : null))
       setIsPro(pro)
       setEligibilityChecked(true)
     }
@@ -343,40 +350,24 @@ export default function ScreeningPage() {
     setSaveConfirmed(false)
     const nextScores = calcScores(answers)
     setScores(nextScores)
+    const savedAt = new Date().toISOString()
+
+    writeStoredScreening({
+      overall_score: nextScores.overall.pct,
+      hip_score: nextScores.hips.pct,
+      shoulder_score: nextScores.shoulders.pct,
+      spine_score: nextScores.spine.pct,
+      answers,
+      created_at: savedAt,
+    })
+    setSaveConfirmed(true)
 
     try {
       const { data: { session } } = await supabase.auth.getSession()
       const uid = session?.user?.id
       if (uid) {
-        const questionnairePayload = {
-          user_id: uid,
-          responses: answers,
-          completed_at: new Date().toISOString(),
-        }
-
-        const { data: questionnaire, error } = await supabase
-          .from('screening_questionnaires')
-          .insert([questionnairePayload])
-          .select()
-          .single()
-
-        if (error) {
-          throw error
-        }
-
-        const screeningInsert = questionnaire?.id
-          ? { user_id: uid, questionnaire_id: questionnaire.id, overall_score: nextScores.overall.pct }
-          : { user_id: uid, overall_score: nextScores.overall.pct }
-
-        const { error: screeningError } = await supabase.from('screening_results').insert([screeningInsert])
-
-        if (screeningError) {
-          console.warn('[screening.results]', screeningError)
-        }
-
-        setSaveConfirmed(true)
+        console.warn('[screening] cloud save skipped until live screening schema is aligned')
       }
-
       setDone(true)
     } catch (error) {
       const message =
@@ -577,11 +568,11 @@ export default function ScreeningPage() {
 
               <div style={{ borderLeft: `6px solid ${saveConfirmed ? '#00b4d8' : '#e74c3c'}`, border: `1px solid ${saveConfirmed ? 'rgba(0,180,216,0.25)' : 'rgba(231,76,60,0.25)'}`, background: 'var(--black2)', padding: '22px 28px', marginBottom: 24 }}>
                 <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, letterSpacing: 4, color: saveConfirmed ? 'var(--cyan)' : '#ff8f8f', marginBottom: 10, textTransform: UC }}>
-                  {saveConfirmed ? 'Saved To Profile' : 'Profile Save Failed'}
+                  {saveConfirmed ? 'Saved On This Device' : 'Profile Save Failed'}
                 </p>
                 <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 17, color: 'var(--silver2)', lineHeight: 1.7 }}>
                   {saveConfirmed
-                    ? 'Your screening answers are stored in your profile and will now drive dashboard and results recommendations.'
+                    ? 'Your screening is stored locally on this device and will now drive dashboard and results recommendations while the live screening schema is being aligned.'
                     : saveError || 'Your score was calculated, but we could not save it to your profile. Please retake the screening or try again.'}
                 </p>
               </div>

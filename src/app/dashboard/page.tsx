@@ -14,6 +14,7 @@ import {
 } from '@/components/Icons'
 import { createClient } from '@/lib/supabase/client'
 import { getIsPro } from '@/lib/profiles'
+import { readStoredScreening } from '@/lib/screening-storage'
 
 interface Stats {
   totalSessions: number
@@ -169,7 +170,7 @@ export default function DashboardPage() {
       ] = await Promise.all([
         supabase.from('progress').select('*').eq('user_id', userId),
         supabase.from('routines').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
-        supabase.from('screening_questionnaires').select('*').eq('user_id', userId).order('completed_at', { ascending: false }).limit(1).maybeSingle(),
+        supabase.from('screening_questionnaires').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
         supabase.from('test_results').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
       ])
 
@@ -194,7 +195,16 @@ export default function DashboardPage() {
           completed_at: screening.completed_at || null,
         })
       } else {
-        setLatestScreening(null)
+        const localSnapshot = readStoredScreening()
+        setLatestScreening(localSnapshot ? {
+          id: 'local-screening',
+          overall_score: localSnapshot.overall_score,
+          hip_score: localSnapshot.hip_score,
+          shoulder_score: localSnapshot.shoulder_score,
+          spine_score: localSnapshot.spine_score,
+          created_at: localSnapshot.created_at,
+          completed_at: null,
+        } : null)
       }
       setLatestBattery(battery || null)
       setIsPro(await getIsPro(supabase as never, userId))
@@ -257,6 +267,7 @@ export default function DashboardPage() {
       href: '/quiz',
     },
   ]
+  const basicProcessComplete = basicChecklist.every((item) => item.done)
   const railStats = [
     { val: stats.totalSessions, label: 'Sessions Done' },
     { val: stats.totalMinutes, label: 'Minutes Moved' },
@@ -476,7 +487,7 @@ export default function DashboardPage() {
                   </div>
                 )}
               </div>
-              ) : (
+              ) : !basicProcessComplete ? (
                 <div style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(8,10,14,0.98) 100%)', border: '1px solid rgba(255,255,255,0.08)', padding: '24px 26px' }}>
                   <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 26, fontWeight: 700, letterSpacing: 3, color: 'var(--white)', marginBottom: 18 }}>
                     YOUR PROCESS
@@ -530,6 +541,61 @@ export default function DashboardPage() {
                           </span>
                           <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 14, color: 'var(--silver2)', lineHeight: 1.6 }}>
                             {item.detail}
+                          </span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(8,10,14,0.98) 100%)', border: '1px solid rgba(255,255,255,0.08)', padding: '24px 26px' }}>
+                  <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: 'var(--cyan)', marginBottom: 12, textTransform: UC }}>
+                    {'// Core Actions'}
+                  </div>
+                  <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 24, fontWeight: 700, letterSpacing: 3, color: 'var(--white)', marginBottom: 18 }}>
+                    KEEP MOVING
+                  </div>
+                  <div style={{ display: 'grid', gap: 12 }}>
+                    {[
+                      {
+                        title: 'MOBILITY SCORE',
+                        sub: latestScreening
+                          ? `Latest score ${latestScreening.overall_score}%${latestScreeningDate ? ` / ${formatDate(latestScreeningDate)}` : ''}`
+                          : 'Review or retake your mobility baseline',
+                        href: '/screening',
+                        Icon: IconScreening,
+                      },
+                      {
+                        title: 'CREATE YOUR OWN WORKOUT',
+                        sub: 'Build a new sport-specific or general mobility session.',
+                        href: '/quiz',
+                        Icon: IconRoutine,
+                      },
+                    ].map((action) => (
+                      <button
+                        key={action.title}
+                        onClick={() => router.push(action.href)}
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: '20px minmax(0,1fr)',
+                          gap: 14,
+                          alignItems: 'start',
+                          textAlign: 'left',
+                          padding: '16px 16px 15px',
+                          background: 'rgba(255,255,255,0.02)',
+                          border: '1px solid rgba(255,255,255,0.06)',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <span style={{ display: 'flex', marginTop: 2 }}>
+                          <action.Icon size={18} color="var(--cyan)" />
+                        </span>
+                        <span>
+                          <span style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 14, fontWeight: 700, letterSpacing: 2, color: 'var(--white)', display: 'block', marginBottom: 6 }}>
+                            {action.title}
+                          </span>
+                          <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 14, color: 'var(--silver2)', lineHeight: 1.6 }}>
+                            {action.sub}
                           </span>
                         </span>
                       </button>

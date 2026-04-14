@@ -17,6 +17,7 @@ import {
   IconSquat,
 } from '@/components/Icons'
 import { createClient } from '@/lib/supabase/client'
+import { readStoredScreening } from '@/lib/screening-storage'
 
 const UC = 'uppercase' as const
 const CA = 'center' as const
@@ -160,7 +161,7 @@ export default function ResultsPage() {
       const uid = session.user.id
 
       const [{ data: screening }, { data: battery }] = await Promise.all([
-        supabase.from('screening_questionnaires').select('*').eq('user_id', uid).order('completed_at', { ascending: false }).limit(10),
+        supabase.from('screening_questionnaires').select('*').eq('user_id', uid).order('created_at', { ascending: false }).limit(10),
         supabase.from('test_results').select('*').eq('user_id', uid).order('created_at', { ascending: false }).limit(10),
       ])
 
@@ -172,6 +173,20 @@ export default function ResultsPage() {
           completed_at: item.completed_at || null,
         }))
       )
+      if ((!screening || screening.length === 0)) {
+        const localSnapshot = readStoredScreening()
+        if (localSnapshot) {
+          setScreeningHistory([{
+            id: 'local-screening',
+            overall_score: localSnapshot.overall_score,
+            hip_score: localSnapshot.hip_score,
+            shoulder_score: localSnapshot.shoulder_score,
+            spine_score: localSnapshot.spine_score,
+            created_at: localSnapshot.created_at,
+            completed_at: null,
+          }])
+        }
+      }
       setBatteryHistory(battery || [])
       setLoading(false)
     }
