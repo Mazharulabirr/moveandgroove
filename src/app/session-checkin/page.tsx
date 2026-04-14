@@ -4,6 +4,8 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Header from '@/components/Header'
 import { IconBattery, IconCheckin, IconCheckbox, IconFocus, IconMotivation, IconPain, IconReadiness, IconSleep, IconSoreness } from '@/components/Icons'
+import { buildReadinessAdjustmentSnapshot } from '@/lib/readiness'
+import { writeStoredPreSessionReadiness } from '@/lib/readiness-storage'
 import { createClient } from '@/lib/supabase/client'
 
 const UC = 'uppercase' as const
@@ -176,6 +178,17 @@ export default function SessionCheckinPage() {
     try {
       const { data: { session } } = await supabase.auth.getSession()
       const uid = session?.user?.id
+      const checkedAt = new Date().toISOString()
+      if (type === 'pre') {
+        const snapshot = buildReadinessAdjustmentSnapshot({
+          answers,
+          sorenessAreas,
+          sorenessSeverity,
+          sorenessNotes,
+          checkedAt,
+        })
+        writeStoredPreSessionReadiness(snapshot)
+      }
       if (uid) {
         const responses =
           type === 'pre'
@@ -192,7 +205,7 @@ export default function SessionCheckinPage() {
             user_id: uid,
             responses,
             checkin_type: type,
-            checked_at: new Date().toISOString(),
+            checked_at: checkedAt,
           },
         ])
       }

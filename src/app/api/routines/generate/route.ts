@@ -1,5 +1,6 @@
 ﻿import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
+import type { ReadinessAdjustmentSnapshot } from '@/lib/readiness'
 
 function readRequiredEnv(name: string) {
   const raw = process.env[name]
@@ -76,6 +77,7 @@ type GenerateRequest = {
   duration: number
   goal: string
   includeFoamRoll: boolean
+  readiness?: ReadinessAdjustmentSnapshot | null
 }
 
 type MessageBlock = {
@@ -194,6 +196,17 @@ function normalizeRoutineForGoal(routine: GeneratedRoutine, goal: string): Gener
   }
 }
 
+function getRoutineAreas(targetAreas: string[], readiness: ReadinessAdjustmentSnapshot | null | undefined) {
+  const base = targetAreas.length > 0 ? targetAreas : ['hips', 'shoulders', 'spine']
+  if (!readiness || (readiness.modificationMode !== 'avoid_sore_areas' && readiness.modificationMode !== 'recovery')) {
+    return base
+  }
+
+  const restricted = new Set(readiness.restrictedAreas)
+  const filtered = base.filter((area) => !restricted.has(area))
+  return filtered.length > 0 ? filtered : base
+}
+
 function buildFallbackRoutine({
   mode,
   sport,
@@ -201,6 +214,7 @@ function buildFallbackRoutine({
   duration,
   goal,
   prepPhase,
+  readiness,
 }: {
   mode: 'sport' | 'area'
   sport: string | null
@@ -208,11 +222,12 @@ function buildFallbackRoutine({
   duration: number
   goal: string
   prepPhase: RoutinePhase | null
+  readiness?: ReadinessAdjustmentSnapshot | null
 }): GeneratedRoutine {
   const pillars: Array<'release' | 'activation' | 'range'> = ['release', 'activation', 'range']
   const exerciseTarget = Math.max(4, Math.min(8, Math.round(duration / 4)))
   const emphasis = goalBalancedPillars(goal)
-  const chosenAreas = targetAreas.length > 0 ? targetAreas : ['hips', 'shoulders', 'spine']
+  const chosenAreas = getRoutineAreas(targetAreas, readiness)
   const phases: RoutinePhase[] = pillars.map((pillar) => ({
     pillar,
     phaseDescription:
@@ -254,7 +269,7 @@ function buildFallbackRoutine({
   return {
     routineTitle: titleFocus,
     summary: 'This routine was assembled from the in-app exercise library so you still get a usable session immediately. It follows the same release, activation, and range structure as the AI flow.',
-    difficultyLevel: goal === 'performance' ? 'Intermediate' : 'Beginner',
+    difficultyLevel: readiness?.modificationMode === 'recovery' ? 'Beginner' : goal === 'performance' ? 'Intermediate' : 'Beginner',
     totalExercises,
     phases: filteredPhases.map((phase) => ({
       ...phase,
@@ -276,9 +291,10 @@ export async function POST(req: NextRequest) {
   let duration = 20
   let goal = 'balanced'
   let includeFoamRoll = false
+  let readiness: ReadinessAdjustmentSnapshot | null = null
 
   try {
-    ;({ userId, mode, sport, areas, duration, goal, includeFoamRoll } = await req.json() as GenerateRequest)
+    ;({ userId, mode, sport, areas, duration, goal, includeFoamRoll, readiness = null } = await req.json() as GenerateRequest)
 
     const targetAreas = areas && areas.length > 0 ? areas : ['hips', 'shoulders', 'spine']
     const sportFocus  = sport ? SPORTS[sport] : null
@@ -314,6 +330,7 @@ export async function POST(req: NextRequest) {
       duration,
       goal,
       prepPhase,
+      readiness,
     })
 
     let anthropic: Anthropic
@@ -336,6 +353,13 @@ ${sportFocus ? `- Sport: ${sport} (key demands: ${sportFocus})` : ''}
 - Focus Areas: ${areasText}
 - Session Duration: ${aiDuration} minutes
 - Primary Goal: ${goal}
+${readiness ? `- Readiness Score: ${readiness.readinessScore}
+- Readiness State: ${readiness.readinessLabel}
+- Soreness Areas: ${readiness.sorenessAreas.join(', ') || 'none'}
+- Soreness Severity: ${readiness.sorenessSeverity}/10
+- Restricted Areas: ${readiness.restrictedAreas.join(', ') || 'none'}
+- Modification Mode: ${readiness.modificationMode}
+- Readiness Note: ${readiness.sorenessNotes || 'none'}` : ''}
 
 SESSION STRUCTURE — THREE PHASES ONLY:
 
@@ -358,6 +382,11 @@ PILLAR WEIGHTING BY GOAL:
 Create ${exerciseCount} total exercises. Cite REAL peer-reviewed studies (JOSPT, BJSM, JSCR, IJSPT).
 Release phase must contain ONLY stretching — no foam rolling.
 Unless the goal is flexibility, release exercises should default to 1 set each so the session can cover more surrounding structures. Only use 2 sets for release when the goal is flexibility.
+If readiness indicates soreness or restriction:
+- avoid aggressive loading and aggressive end-range work for restricted areas
+- where possible, shift focus away from sore areas instead of hammering them
+- if the only selected focus area is sore, keep the work gentle, recovery-biased, and non-provocative
+- if modification mode is recovery, keep the full session restorative and conservative
 
 Respond ONLY in valid JSON (no markdown):
 {

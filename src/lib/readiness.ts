@@ -8,6 +8,22 @@ export type ReadinessQuestion = {
   options: { value: number; label: string }[]
 }
 
+export type ReadinessMode = 'normal' | 'modified' | 'avoid_sore_areas' | 'recovery'
+
+export type ReadinessAdjustmentSnapshot = {
+  checked_at: string
+  readinessScore: number
+  readinessLabel: string
+  readinessRecommendation: string
+  sorenessAreas: string[]
+  sorenessSeverity: number
+  sorenessNotes: string | null
+  restrictedAreas: string[]
+  modificationMode: ReadinessMode
+  userMessage: string
+  answers: Record<string, number>
+}
+
 export const READINESS_QUESTIONS: ReadinessQuestion[] = [
   {
     id: 'sleep',
@@ -103,5 +119,64 @@ export function readinessLabel(score: number): { label: string; color: string; r
     label: 'REST OR RECOVER',
     color: '#e74c3c',
     recommendation: 'Your body is asking for recovery. A gentle release session may serve you better than a hard training day.',
+  }
+}
+
+function mapSorenessArea(area: string) {
+  const normalized = area.trim().toLowerCase()
+
+  if (normalized === 'shoulders') return 'shoulders'
+  if (normalized === 'neck' || normalized === 'upper back' || normalized === 'lower back') return 'spine'
+  if (normalized === 'hips' || normalized === 'knees' || normalized === 'ankles') return 'hips'
+  return null
+}
+
+export function buildReadinessAdjustmentSnapshot({
+  answers,
+  sorenessAreas,
+  sorenessSeverity,
+  sorenessNotes,
+  checkedAt = new Date().toISOString(),
+}: {
+  answers: Record<string, number>
+  sorenessAreas: string[]
+  sorenessSeverity: number
+  sorenessNotes: string
+  checkedAt?: string
+}): ReadinessAdjustmentSnapshot {
+  const score = readinessScore(answers)
+  const label = readinessLabel(score)
+  const restrictedAreas = [...new Set(sorenessAreas.map(mapSorenessArea).filter(Boolean))] as string[]
+
+  let modificationMode: ReadinessMode = 'normal'
+  if (score < 40 || sorenessSeverity >= 8) {
+    modificationMode = 'recovery'
+  } else if (sorenessSeverity >= 5 || (answers.soreness ?? 4) <= 2) {
+    modificationMode = 'avoid_sore_areas'
+  } else if (score < 60 || sorenessAreas.length > 0) {
+    modificationMode = 'modified'
+  }
+
+  const userMessage =
+    modificationMode === 'recovery'
+      ? 'Today should stay recovery-focused. Keep the session light and avoid pushing sore areas.'
+      : modificationMode === 'avoid_sore_areas'
+        ? `Today’s workout will ease off ${sorenessAreas.join(', ')} and bias away from those sore areas where possible.`
+        : modificationMode === 'modified'
+          ? 'Today’s workout will stay slightly lighter and more controlled based on your readiness check.'
+          : 'You are good to go. Today’s workout can stay close to the original plan.'
+
+  return {
+    checked_at: checkedAt,
+    readinessScore: score,
+    readinessLabel: label.label,
+    readinessRecommendation: label.recommendation,
+    sorenessAreas,
+    sorenessSeverity,
+    sorenessNotes: sorenessNotes.trim() || null,
+    restrictedAreas,
+    modificationMode,
+    userMessage,
+    answers,
   }
 }

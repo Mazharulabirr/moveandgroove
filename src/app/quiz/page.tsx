@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Header from '@/components/Header'
 import PreSessionReadinessModal from '@/components/PreSessionReadinessModal'
 import { Icon, type IconName } from '@/components/Icons'
+import { readTodayPreSessionReadiness } from '@/lib/readiness-storage'
 import { createClient } from '@/lib/supabase/client'
 import { hasPreSessionCheckinToday } from '@/lib/session-flow'
 
@@ -57,6 +58,7 @@ export default function QuizPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [showReadinessGate, setShowReadinessGate] = useState(false)
+  const readinessSnapshot = readTodayPreSessionReadiness()
 
   const progress = { 1: 20, '2a': 40, '2b': 40, 3: 60, 4: 80, 5: 95 }[step] || 20
 
@@ -78,6 +80,7 @@ export default function QuizPage() {
       duration,
       goal,
       includeFoamRoll: includeFoamRoll === true,
+      readiness: readinessSnapshot,
     }
 
     try {
@@ -110,6 +113,7 @@ export default function QuizPage() {
           areas,
           duration,
           goal,
+          readiness: readinessSnapshot,
         }),
       )
 
@@ -426,6 +430,11 @@ export default function QuizPage() {
               {error && (
                 <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: '#e74c3c', marginBottom: 16, padding: '10px 14px', borderLeft: '2px solid #e74c3c', background: 'rgba(231,76,60,0.06)' }}>
                   {error}
+                </div>
+              )}
+              {readinessSnapshot && (
+                <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 14, color: 'var(--silver2)', marginBottom: 16, padding: '12px 14px', borderLeft: '2px solid var(--cyan)', background: 'rgba(0,180,216,0.06)', lineHeight: 1.65 }}>
+                  {readinessSnapshot.userMessage}
                 </div>
               )}
 

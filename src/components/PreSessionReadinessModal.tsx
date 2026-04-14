@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { readinessScore } from '@/lib/readiness'
+import { buildReadinessAdjustmentSnapshot } from '@/lib/readiness'
+import { writeStoredPreSessionReadiness } from '@/lib/readiness-storage'
 
 const UC = 'uppercase' as const
 
@@ -95,28 +96,38 @@ export default function PreSessionReadinessModal({ open, allowClose = false, onC
         throw new Error('Sign in required')
       }
 
+      const checkedAt = new Date().toISOString()
       const responses = {
         ...answers,
         sorenessAreas,
         sorenessSeverity,
         sorenessNotes: sorenessNotes.trim() || null,
       }
+      const snapshot = buildReadinessAdjustmentSnapshot({
+        answers,
+        sorenessAreas,
+        sorenessSeverity,
+        sorenessNotes,
+        checkedAt,
+      })
+
+      writeStoredPreSessionReadiness(snapshot)
 
       const { error: insertError } = await supabase.from('readiness_logs').insert([
         {
           user_id: uid,
           responses,
-          readiness_score: readinessScore(answers),
+          readiness_score: snapshot.readinessScore,
           checkin_type: 'pre',
-          checked_at: new Date().toISOString(),
+          checked_at: checkedAt,
         },
       ])
 
       if (insertError) {
-        throw insertError
+        console.warn('[pre-session-readiness.insert]', insertError)
       }
 
-      window.localStorage.setItem('mg_pre_session_ready_at', new Date().toISOString())
+      window.localStorage.setItem('mg_pre_session_ready_at', checkedAt)
       setStep(0)
       setAnswers({})
       setSorenessAreas([])
@@ -125,7 +136,26 @@ export default function PreSessionReadinessModal({ open, allowClose = false, onC
       onComplete?.()
     } catch (err: unknown) {
       console.error('[pre-session-readiness]', err)
-      setError(err instanceof Error ? err.message : 'Could not save readiness check')
+      try {
+        const checkedAt = new Date().toISOString()
+        const snapshot = buildReadinessAdjustmentSnapshot({
+          answers,
+          sorenessAreas,
+          sorenessSeverity,
+          sorenessNotes,
+          checkedAt,
+        })
+        writeStoredPreSessionReadiness(snapshot)
+        window.localStorage.setItem('mg_pre_session_ready_at', checkedAt)
+        setStep(0)
+        setAnswers({})
+        setSorenessAreas([])
+        setSorenessSeverity(0)
+        setSorenessNotes('')
+        onComplete?.()
+      } catch {
+        setError(err instanceof Error ? err.message : 'Could not save readiness check')
+      }
     } finally {
       setSaving(false)
     }

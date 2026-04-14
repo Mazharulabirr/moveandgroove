@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { readTodayPreSessionReadiness } from '@/lib/readiness-storage'
 
 function startOfTodayIso() {
   const now = new Date()
@@ -18,8 +19,12 @@ export async function hasPreSessionCheckinToday(supabase: SupabaseClient, userId
     .maybeSingle()
 
   if (error) {
+    const localSnapshot = readTodayPreSessionReadiness()
+    if (localSnapshot) {
+      return true
+    }
     throw error
   }
 
-  return Boolean(data)
+  return Boolean(data) || Boolean(readTodayPreSessionReadiness())
 }

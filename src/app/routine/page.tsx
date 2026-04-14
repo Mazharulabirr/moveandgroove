@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Header from '@/components/Header'
 import PreSessionReadinessModal from '@/components/PreSessionReadinessModal'
 import { getExerciseVideo, getExerciseVideoEmbedUrl, getExerciseVideoWatchUrl } from '@/lib/exercise-videos'
+import type { ReadinessAdjustmentSnapshot } from '@/lib/readiness'
 import { createClient } from '@/lib/supabase/client'
 import { hasPreSessionCheckinToday } from '@/lib/session-flow'
 
@@ -44,6 +45,7 @@ type RoutineMeta = {
   duration?: number
   goal?: string | null
   source?: 'recovery' | string
+  readiness?: ReadinessAdjustmentSnapshot | null
 }
 
 const PHASE_STYLES: Record<Phase['pillar'], { label: string; color: string; border: string; bg: string }> = {
@@ -364,6 +366,16 @@ export default function RoutinePage() {
               <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 16, color: 'var(--silver2)', lineHeight: 1.7, maxWidth: 560 }}>
                 {routine.summary}
               </div>
+              {storedMeta?.readiness && storedMeta.readiness.modificationMode !== 'normal' && (
+                <div style={{ marginTop: 16, maxWidth: 620, border: '1px solid rgba(0,180,216,0.18)', background: 'rgba(0,180,216,0.06)', padding: '14px 16px' }}>
+                  <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 3, color: 'var(--cyan)', marginBottom: 8, textTransform: 'uppercase' }}>
+                    {'// Today’s Readiness Adjustment'}
+                  </div>
+                  <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 14, color: 'var(--silver2)', lineHeight: 1.7 }}>
+                    {storedMeta.readiness.userMessage}
+                  </div>
+                </div>
+              )}
               <div className="mg-mobile-stack" style={{ marginTop: 18, alignItems: 'center' }}>
                 <button className="btn-primary" onClick={() => setShowReadinessModal(true)}>
                   PRE TRAINING READINESS CHECK
