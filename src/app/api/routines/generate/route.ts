@@ -443,7 +443,11 @@ Respond ONLY in valid JSON (no markdown):
 
       return NextResponse.json(routine)
     } catch (error) {
-      console.error('[generate.ai]', error)
+      if (error instanceof Error && error.message === 'Anthropic request timed out') {
+        console.warn('[generate.ai] Anthropic timed out, returning fallback routine')
+      } else {
+        console.error('[generate.ai]', error)
+      }
       return NextResponse.json(fallbackRoutine)
     }
 
