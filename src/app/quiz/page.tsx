@@ -81,11 +81,15 @@ export default function QuizPage() {
     }
 
     try {
+      const controller = new AbortController()
+      const timeoutId = window.setTimeout(() => controller.abort(), 25000)
       const response = await fetch(`${API}/routines/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
+        signal: controller.signal,
       })
+      window.clearTimeout(timeoutId)
 
       if (!response.ok) {
         const text = await response.text()
@@ -112,7 +116,8 @@ export default function QuizPage() {
       router.push('/routine')
     } catch (err: unknown) {
       console.error('Generation error:', err)
-      setError(err instanceof Error ? err.message : 'Failed to connect to server')
+      const message = err instanceof Error ? err.message : 'Failed to connect to server'
+      setError(message === 'This operation was aborted' ? 'Routine generation took too long. Please try again.' : message)
       setLoading(false)
     }
   }

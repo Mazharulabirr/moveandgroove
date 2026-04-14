@@ -17,6 +17,7 @@ import {
   IconSquat,
 } from '@/components/Icons'
 import { createClient } from '@/lib/supabase/client'
+import { getIsPro } from '@/lib/profiles'
 import { readStoredScreening } from '@/lib/screening-storage'
 
 const UC = 'uppercase' as const
@@ -149,6 +150,7 @@ export default function ResultsPage() {
   const supabase = createClient()
   const [screeningHistory, setScreeningHistory] = useState<ScreeningResult[]>([])
   const [batteryHistory, setBatteryHistory] = useState<BatteryResult[]>([])
+  const [isPro, setIsPro] = useState(false)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -160,9 +162,10 @@ export default function ResultsPage() {
       }
       const uid = session.user.id
 
-      const [{ data: screening }, { data: battery }] = await Promise.all([
+      const [{ data: screening }, { data: battery }, pro] = await Promise.all([
         supabase.from('screening_questionnaires').select('*').eq('user_id', uid).order('created_at', { ascending: false }).limit(10),
         supabase.from('test_results').select('*').eq('user_id', uid).order('created_at', { ascending: false }).limit(10),
+        getIsPro(supabase as never, uid),
       ])
 
       setScreeningHistory(
@@ -188,6 +191,7 @@ export default function ResultsPage() {
         }
       }
       setBatteryHistory(battery || [])
+      setIsPro(pro)
       setLoading(false)
     }
 
@@ -238,6 +242,13 @@ export default function ResultsPage() {
   }
 
   const hasNoData = !latestScreening && !latestBattery
+  const showBattery = isPro || Boolean(latestBattery)
+  const resultsIntro = showBattery
+    ? 'Your mobility screening and movement battery scores over time.'
+    : 'Your mobility screening scores and baseline progress.'
+  const emptyStateCopy = showBattery
+    ? 'Complete your mobility screening and movement battery to see your scores here.'
+    : 'Complete your mobility screening to see your mobility score here.'
 
   return (
     <div style={{ minHeight: '100vh' }}>
@@ -252,7 +263,7 @@ export default function ResultsPage() {
           <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 15, letterSpacing: 6, color: 'var(--cyan)', marginBottom: 32, textTransform: UC }}>Mobility Profile</p>
           <p style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 'clamp(40px, 10vw, 72px)', fontWeight: 700, letterSpacing: 2, color: 'var(--white)', lineHeight: 1.05, marginBottom: 16 }}>YOUR RESULTS</p>
           <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 'clamp(18px, 4vw, 22px)', color: 'var(--silver2)', marginBottom: 64, lineHeight: 1.6 }}>
-            Your mobility screening and movement battery scores over time.
+            {resultsIntro}
           </p>
 
           {hasNoData && (
@@ -260,11 +271,11 @@ export default function ResultsPage() {
               <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 24 }}><IconResults size={42} color="var(--cyan)" /></div>
               <p style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 20, fontWeight: 700, letterSpacing: 2, color: 'var(--white)', marginBottom: 16 }}>NO DATA YET</p>
               <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 18, color: 'var(--silver2)', marginBottom: 40, lineHeight: 1.6 }}>
-                Complete your mobility screening and movement battery to see your scores here.
+                {emptyStateCopy}
               </p>
               <div style={{ display: 'flex', gap: 16, justifyContent: CA, flexWrap: 'wrap' }}>
                 <button className="btn-primary" onClick={() => router.push('/screening')}>START SCREENING</button>
-                <button className="btn-outline" onClick={() => router.push('/battery')}>MOVEMENT BATTERY</button>
+                {showBattery && <button className="btn-outline" onClick={() => router.push('/battery')}>MOVEMENT BATTERY</button>}
               </div>
             </div>
           )}
@@ -406,7 +417,7 @@ export default function ResultsPage() {
               <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
                 <button className="btn-primary" onClick={() => router.push('/quiz')}>BUILD ROUTINE</button>
                 <button className="btn-outline" onClick={() => router.push('/screening')}>RETAKE SCREENING</button>
-                <button className="btn-outline" onClick={() => router.push('/battery')}>RETAKE BATTERY</button>
+                {showBattery && <button className="btn-outline" onClick={() => router.push('/battery')}>RETAKE BATTERY</button>}
                 <button className="btn-outline" onClick={() => router.push('/dashboard')}>DASHBOARD</button>
               </div>
             </>

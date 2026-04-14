@@ -159,6 +159,7 @@ export default function DashboardPage() {
   const [isPro, setIsPro] = useState(false)
   const [previewMode, setPreviewMode] = useState<'basic' | 'pro' | null>(() => getPreviewModeFromLocation())
   const [showWhyFirst, setShowWhyFirst] = useState(false)
+  const [showPremiumTeaser, setShowPremiumTeaser] = useState(false)
 
   const loadData = useCallback(async (userId: string) => {
     try {
@@ -885,19 +886,37 @@ export default function DashboardPage() {
               <div className="mg-split-section" style={{ alignItems: 'center' }}>
                 <div>
                   <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: 'var(--cyan)', textTransform: UC, marginBottom: 10 }}>
-                    {'// Premium Journey'}
+                    {'// Premium Coming Soon'}
                   </div>
                   <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 18, fontWeight: 700, letterSpacing: 2, color: 'var(--white)', marginBottom: 8 }}>
-                    UNLOCK BATTERY + PROGRAMS
+                    PREMIUM IS COMING
                   </div>
                   <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: 'var(--silver2)', lineHeight: 1.7 }}>
-                    Premium continues from screening into the movement battery, then into programs and calendar planning.
+                    Basic stays lean for beta. Premium will add the deeper testing and longer-term planning layer next.
                   </div>
                 </div>
-                <button className="btn-primary" onClick={() => router.push('/upgrade')}>
-                  UPGRADE
+                <button className="btn-primary" onClick={() => setShowPremiumTeaser((current) => !current)}>
+                  {showPremiumTeaser ? 'HIDE TEASER' : 'SEE WHAT IS COMING'}
                 </button>
               </div>
+              {showPremiumTeaser && (
+                <div style={{ marginTop: 18, display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))' }}>
+                  {[
+                    { title: 'Movement Battery', sub: 'A premium-only second layer that scores movement quality, not just mobility.' },
+                    { title: '4 / 8 / 12 Week Blocks', sub: 'Structured training plans built from your profile instead of one-off sessions.' },
+                    { title: 'Calendar Flow', sub: 'A clearer weekly training rhythm with planned sessions and progression.' },
+                  ].map((item) => (
+                    <div key={item.title} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.08)', padding: '16px 16px 14px' }}>
+                      <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 12, fontWeight: 700, letterSpacing: 2, color: 'var(--white)', marginBottom: 8 }}>
+                        {item.title}
+                      </div>
+                      <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 14, color: 'var(--silver2)', lineHeight: 1.65 }}>
+                        {item.sub}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
