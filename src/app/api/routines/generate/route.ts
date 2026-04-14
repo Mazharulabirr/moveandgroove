@@ -176,6 +176,24 @@ function goalBalancedPillars(goal: string) {
   return ['release', 'activation', 'range', 'activation'] as const
 }
 
+function releaseSetCount(goal: string) {
+  return goal === 'flexibility' ? 2 : 1
+}
+
+function normalizeRoutineForGoal(routine: GeneratedRoutine, goal: string): GeneratedRoutine {
+  return {
+    ...routine,
+    phases: routine.phases.map((phase) => ({
+      ...phase,
+      exercises: phase.exercises.map((exercise) => (
+        phase.pillar === 'release'
+          ? { ...exercise, sets: releaseSetCount(goal) }
+          : exercise
+      )),
+    })),
+  }
+}
+
 function buildFallbackRoutine({
   mode,
   sport,
@@ -238,7 +256,14 @@ function buildFallbackRoutine({
     summary: 'This routine was assembled from the in-app exercise library so you still get a usable session immediately. It follows the same release, activation, and range structure as the AI flow.',
     difficultyLevel: goal === 'performance' ? 'Intermediate' : 'Beginner',
     totalExercises,
-    phases: filteredPhases,
+    phases: filteredPhases.map((phase) => ({
+      ...phase,
+      exercises: phase.exercises.map((exercise) => (
+        phase.pillar === 'release'
+          ? { ...exercise, sets: releaseSetCount(goal) }
+          : exercise
+      )),
+    })),
     evidenceSummary: 'This session uses the app fallback library built from common mobility, control, and end-range strength patterns so routine generation stays reliable when the AI call is slow or unavailable.',
   }
 }
@@ -332,6 +357,7 @@ PILLAR WEIGHTING BY GOAL:
 
 Create ${exerciseCount} total exercises. Cite REAL peer-reviewed studies (JOSPT, BJSM, JSCR, IJSPT).
 Release phase must contain ONLY stretching — no foam rolling.
+Unless the goal is flexibility, release exercises should default to 1 set each so the session can cover more surrounding structures. Only use 2 sets for release when the goal is flexibility.
 
 Respond ONLY in valid JSON (no markdown):
 {
@@ -379,7 +405,7 @@ Respond ONLY in valid JSON (no markdown):
       if (jsonStart === -1 || jsonEnd === -1) {
         throw new Error(`AI returned non-JSON response: ${cleaned.slice(0, 200)}`)
       }
-      const routine = JSON.parse(cleaned.slice(jsonStart, jsonEnd + 1)) as GeneratedRoutine
+      const routine = normalizeRoutineForGoal(JSON.parse(cleaned.slice(jsonStart, jsonEnd + 1)) as GeneratedRoutine, goal)
 
       if (prepPhase) {
         routine.phases.unshift(prepPhase)

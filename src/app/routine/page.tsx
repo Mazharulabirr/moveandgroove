@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Header from '@/components/Header'
 import PreSessionReadinessModal from '@/components/PreSessionReadinessModal'
+import { getExerciseVideo, getExerciseVideoEmbedUrl, getExerciseVideoWatchUrl } from '@/lib/exercise-videos'
 import { createClient } from '@/lib/supabase/client'
 import { hasPreSessionCheckinToday } from '@/lib/session-flow'
 
@@ -197,6 +198,7 @@ export default function RoutinePage() {
   const [sessionFinished, setSessionFinished] = useState(false)
   const [showReadinessModal, setShowReadinessModal] = useState(false)
   const [hasTodayReadiness, setHasTodayReadiness] = useState(false)
+  const [completedSets, setCompletedSets] = useState<Record<number, number>>({})
 
   useEffect(() => {
     if (!routine) {
@@ -207,6 +209,7 @@ export default function RoutinePage() {
   useEffect(() => {
     setActiveExerciseIndex(0)
     setSessionFinished(false)
+    setCompletedSets({})
   }, [routine])
 
   useEffect(() => {
@@ -294,19 +297,27 @@ export default function RoutinePage() {
     }
   }
 
-  function completeExercise(index: number) {
+  function completeExerciseSet(index: number, totalSets: number) {
     if (index !== activeExerciseIndex) {
       return
     }
 
-    const nextIndex = index + 1
-    if (nextIndex >= totalExerciseCount) {
-      setSessionFinished(true)
-      setActiveExerciseIndex(nextIndex)
-      return
-    }
+    setCompletedSets((prev) => {
+      const nextCompleted = Math.min((prev[index] || 0) + 1, totalSets)
+      const next = { ...prev, [index]: nextCompleted }
 
-    setActiveExerciseIndex(nextIndex)
+      if (nextCompleted >= totalSets) {
+        const nextIndex = index + 1
+        if (nextIndex >= totalExerciseCount) {
+          setSessionFinished(true)
+          setActiveExerciseIndex(nextIndex)
+        } else {
+          setActiveExerciseIndex(nextIndex)
+        }
+      }
+
+      return next
+    })
   }
 
   if (!routine) {
@@ -418,6 +429,8 @@ export default function RoutinePage() {
                   const isCurrent = flatIndex === activeExerciseIndex && !sessionFinished
                   const isDone = flatIndex < activeExerciseIndex || sessionFinished
                   const isLocked = flatIndex > activeExerciseIndex && !sessionFinished
+                  const completedSetCount = Math.min(completedSets[flatIndex] || 0, exercise.sets)
+                  const mappedVideo = exercise.isFoamRoll ? null : getExerciseVideo(exercise.name)
 
                   return (
                   <div
@@ -434,14 +447,39 @@ export default function RoutinePage() {
                     onMouseLeave={(event) => { event.currentTarget.style.background = isLocked ? 'rgba(255,255,255,0.015)' : 'var(--black)' }}
                   >
                     <div className="mg-routine-exercise-row">
-                      <div className="mg-routine-media" style={{ background: 'var(--black3)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, borderRight: '1px solid var(--border)' }}>
-                        <svg viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" strokeWidth="1" style={{ width: 28, opacity: 0.12 }}>
-                          <rect x="2" y="4" width="20" height="16" rx="1" />
-                          <polygon points="10,9 16,12 10,15" fill="currentColor" stroke="none" opacity="0.5" />
-                        </svg>
-                        <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, letterSpacing: 3, color: 'var(--silver4)', textTransform: 'uppercase' }}>
-                          {exercise.isFoamRoll ? 'FOAM ROLL' : 'VIDEO'}
-                        </div>
+                      <div className="mg-routine-media" style={{ background: 'var(--black3)', display: 'flex', flexDirection: 'column', alignItems: 'stretch', justifyContent: 'center', gap: 12, borderRight: '1px solid var(--border)', overflow: 'hidden' }}>
+                        {mappedVideo ? (
+                          <>
+                            <iframe
+                              src={getExerciseVideoEmbedUrl(mappedVideo.youtubeVideoId)}
+                              title={mappedVideo.title}
+                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                              allowFullScreen
+                              style={{ width: '100%', minHeight: 180, border: 'none', display: 'block' }}
+                            />
+                            <a
+                              href={getExerciseVideoWatchUrl(mappedVideo.youtubeVideoId)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '10px 12px', textDecoration: 'none', borderTop: '1px solid var(--border)', fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 2, color: 'var(--cyan)', textTransform: 'uppercase' }}
+                            >
+                              Watch on YouTube
+                            </a>
+                          </>
+                        ) : (
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, padding: '18px', minHeight: 180, textAlign: 'center' }}>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" strokeWidth="1" style={{ width: 28, opacity: 0.12 }}>
+                              <rect x="2" y="4" width="20" height="16" rx="1" />
+                              <polygon points="10,9 16,12 10,15" fill="currentColor" stroke="none" opacity="0.5" />
+                            </svg>
+                            <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, letterSpacing: 3, color: 'var(--silver4)', textTransform: 'uppercase' }}>
+                              {exercise.isFoamRoll ? 'FOAM ROLL' : 'VIDEO'}
+                            </div>
+                            <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 13, lineHeight: 1.6, color: 'var(--silver3)', maxWidth: 180 }}>
+                              {exercise.isFoamRoll ? 'Map this foam-roll drill to your unlisted YouTube library when ready.' : 'No linked exercise video yet. Add a YouTube mapping for this exercise.'}
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       <div style={{ padding: '24px 28px', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 8, minWidth: 0 }}>
@@ -470,6 +508,43 @@ export default function RoutinePage() {
                           )}
                         </div>
 
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+                          {Array.from({ length: exercise.sets }).map((_, setIndex) => {
+                            const checked = isDone || setIndex < completedSetCount
+                            return (
+                              <span
+                                key={setIndex}
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 7,
+                                  borderRadius: 999,
+                                  padding: '6px 10px',
+                                  border: `1px solid ${checked ? 'rgba(67,209,122,0.35)' : 'rgba(255,255,255,0.1)'}`,
+                                  background: checked ? 'rgba(67,209,122,0.08)' : 'rgba(255,255,255,0.03)',
+                                  fontFamily: "'DM Mono',monospace",
+                                  fontSize: 9,
+                                  letterSpacing: 2,
+                                  color: checked ? '#43d17a' : 'var(--silver3)',
+                                  textTransform: 'uppercase',
+                                }}
+                              >
+                                <span
+                                  style={{
+                                    width: 12,
+                                    height: 12,
+                                    borderRadius: 3,
+                                    border: `1px solid ${checked ? '#43d17a' : 'var(--silver4)'}`,
+                                    background: checked ? '#43d17a' : 'transparent',
+                                    display: 'inline-block',
+                                  }}
+                                />
+                                {`Set ${setIndex + 1}`}
+                              </span>
+                            )
+                          })}
+                        </div>
+
                         {exercise.holdSeconds && <ExerciseTimer sets={exercise.sets} holdSeconds={exercise.holdSeconds} />}
 
                         <div className="mg-mobile-stack" style={{ marginTop: 10 }}>
@@ -479,9 +554,16 @@ export default function RoutinePage() {
                             </span>
                           )}
                           {isCurrent && (
-                            <button className="btn-primary" onClick={() => completeExercise(flatIndex)}>
-                              CONFIRM EXERCISE DONE
-                            </button>
+                            <>
+                              <button className="btn-primary" onClick={() => completeExerciseSet(flatIndex, exercise.sets)}>
+                                {exercise.sets === 1 ? 'TICK SET COMPLETE' : `TICK SET ${completedSetCount + 1} COMPLETE`}
+                              </button>
+                              <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 14, color: 'var(--silver2)', lineHeight: 1.65 }}>
+                                {exercise.sets === 1
+                                  ? 'Tick the box once you finish this exercise.'
+                                  : `${completedSetCount} of ${exercise.sets} sets completed. The next exercise unlocks after all sets are ticked.`}
+                              </span>
+                            </>
                           )}
                           {isLocked && (
                             <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 3, color: 'var(--silver3)', textTransform: 'uppercase' }}>
@@ -504,7 +586,7 @@ export default function RoutinePage() {
             <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 16, color: 'var(--silver2)', lineHeight: 1.7 }}>
               {sessionFinished
                 ? 'All exercises confirmed. Finish with your post-session check-in.'
-                : `Exercise ${Math.min(activeExerciseIndex + 1, totalExerciseCount)} of ${totalExerciseCount} is live now. Confirm each exercise to unlock the next one.`}
+                : `Exercise ${Math.min(activeExerciseIndex + 1, totalExerciseCount)} of ${totalExerciseCount} is live now. Tick off each working set to unlock the next exercise.`}
             </div>
             {sessionFinished && (
               <div style={{ marginTop: 16 }}>
