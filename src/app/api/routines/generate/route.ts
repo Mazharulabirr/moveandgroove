@@ -217,6 +217,45 @@ function normalizeRoutineForGoal(routine: GeneratedRoutine, goal: string): Gener
   }
 }
 
+function formatAreaLabel(area: string) {
+  if (area === 'spine') return 'spine and trunk'
+  return area
+}
+
+function joinLabels(labels: string[]) {
+  if (labels.length <= 1) return labels[0] || ''
+  if (labels.length === 2) return `${labels[0]} and ${labels[1]}`
+  return `${labels.slice(0, -1).join(', ')}, and ${labels[labels.length - 1]}`
+}
+
+function buildRoutineSummary(goal: string, chosenAreas: string[], sport: string | null, mode: 'sport' | 'area') {
+  const areaText = joinLabels(chosenAreas.map(formatAreaLabel))
+  if (mode === 'sport' && sport) {
+    return `This ${goal} ${sport.toLowerCase()} session starts by opening the ${areaText}, then layers control and strength-through-range work so the mobility carries over into how you move and train.`
+  }
+
+  return `This ${goal} mobility session starts by opening the ${areaText}, then layers control and strength-through-range work so the mobility carries over into usable movement quality rather than passive flexibility alone.`
+}
+
+function buildRoutineEvidenceSummary(goal: string, chosenAreas: string[], readiness: ReadinessAdjustmentSnapshot | null | undefined) {
+  const areaText = joinLabels(chosenAreas.map(formatAreaLabel))
+  const goalLead =
+    goal === 'flexibility'
+      ? 'The session leans heavily into release first, because flexibility responds best when surrounding tissues are given enough time to down-regulate before active work.'
+      : goal === 'performance'
+        ? 'The session keeps the opening work efficient, then shifts quickly into activation and end-range strength so the new range is immediately expressed under control.'
+        : goal === 'strength'
+          ? 'The session uses enough release to free up the target joints, then prioritizes activation and loaded range so mobility is reinforced with strength.'
+          : 'The session balances release, activation, and range-strength work so the joints are first opened, then actively controlled, then reinforced under load.'
+
+  const readinessNote =
+    readiness && readiness.modificationMode !== 'normal'
+      ? ` It also biases away from irritated areas when possible, so the ${areaText} can still be trained without forcing the sore regions.`
+      : ''
+
+  return `${goalLead} Covering the ${areaText} this way is more effective than isolated stretching, because the session improves tissue tolerance, motor control, and usable range together.${readinessNote}`
+}
+
 function getRoutineAreas(targetAreas: string[], readiness: ReadinessAdjustmentSnapshot | null | undefined) {
   const base = targetAreas.length > 0 ? targetAreas : ['hips', 'shoulders', 'spine']
   if (!readiness || (readiness.modificationMode !== 'avoid_sore_areas' && readiness.modificationMode !== 'recovery')) {
@@ -289,7 +328,7 @@ function buildFallbackRoutine({
 
   return {
     routineTitle: titleFocus,
-    summary: 'This session is structured to open the target joints first, build control through the new range, and then finish with strength-through-range work that helps the mobility stick.',
+    summary: buildRoutineSummary(goal, chosenAreas, sport, mode),
     difficultyLevel: readiness?.modificationMode === 'recovery' ? 'Beginner' : goal === 'performance' ? 'Intermediate' : 'Beginner',
     totalExercises,
     phases: filteredPhases.map((phase) => ({
@@ -300,7 +339,7 @@ function buildFallbackRoutine({
           : exercise
       )),
     })),
-    evidenceSummary: 'This session combines release, activation, and range work so the new mobility is not just opened up, but also controlled and reinforced. The goal is to improve usable movement quality around the target joints rather than simply stretching and moving on.',
+    evidenceSummary: buildRoutineEvidenceSummary(goal, chosenAreas, readiness),
   }
 }
 

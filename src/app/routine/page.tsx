@@ -196,7 +196,7 @@ export default function RoutinePage() {
   const [savedId, setSavedId] = useState<number | null>(() => storedMeta?.routine?.savedId ?? null)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
-  const [activeExerciseIndex, setActiveExerciseIndex] = useState(0)
+  const [activePhaseIndex, setActivePhaseIndex] = useState(0)
   const [sessionFinished, setSessionFinished] = useState(false)
   const [showReadinessModal, setShowReadinessModal] = useState(false)
   const [hasTodayReadiness, setHasTodayReadiness] = useState(false)
@@ -209,7 +209,7 @@ export default function RoutinePage() {
   }, [routine, router])
 
   useEffect(() => {
-    setActiveExerciseIndex(0)
+    setActivePhaseIndex(0)
     setSessionFinished(false)
     setCompletedSets({})
   }, [routine])
@@ -239,11 +239,41 @@ export default function RoutinePage() {
   const builderLabel = storedMeta?.source === 'recovery' ? 'REGENERATE RECOVERY' : 'GENERATE NEW ROUTINE'
   const isSaved = savedId !== null
   const totalExerciseCount = routine ? routine.phases.reduce((sum, phase) => sum + phase.exercises.length, 0) : 0
+  const totalCompletedSets = routine
+    ? routine.phases.reduce((sum, phase, phaseIndex) => {
+        let runningIndexBeforePhase = 0
+        for (let i = 0; i < phaseIndex; i += 1) {
+          runningIndexBeforePhase += routine.phases[i].exercises.length
+        }
+
+        return sum + phase.exercises.reduce((phaseSum, exercise, exerciseIndex) => {
+          const flatIndex = runningIndexBeforePhase + exerciseIndex
+          return phaseSum + Math.min(completedSets[flatIndex] || 0, exercise.sets)
+        }, 0)
+      }, 0)
+    : 0
+  const totalSetCount = routine
+    ? routine.phases.reduce((sum, phase) => sum + phase.exercises.reduce((phaseSum, exercise) => phaseSum + exercise.sets, 0), 0)
+    : 0
 
   const studies = useMemo(
     () => (routine ? [...new Set(routine.phases.flatMap((phase) => phase.exercises).map((exercise) => exercise.study).filter(Boolean))] : []),
     [routine],
   )
+
+  function isPhaseComplete(phaseIndex: number) {
+    if (!routine) return false
+
+    let runningIndexBeforePhase = 0
+    for (let i = 0; i < phaseIndex; i += 1) {
+      runningIndexBeforePhase += routine.phases[i].exercises.length
+    }
+
+    return routine.phases[phaseIndex].exercises.every((exercise, exerciseIndex) => {
+      const flatIndex = runningIndexBeforePhase + exerciseIndex
+      return (completedSets[flatIndex] || 0) >= exercise.sets
+    })
+  }
 
   async function saveRoutine() {
     if (!storedMeta?.routine || isSaved || saving) {
@@ -299,22 +329,37 @@ export default function RoutinePage() {
     }
   }
 
-  function completeExerciseSet(index: number, totalSets: number) {
-    if (index !== activeExerciseIndex) {
+  function completeExerciseSet(phaseIndex: number, index: number, totalSets: number) {
+    if (phaseIndex !== activePhaseIndex || sessionFinished) {
       return
     }
 
     setCompletedSets((prev) => {
+      if ((prev[index] || 0) >= totalSets) {
+        return prev
+      }
+
       const nextCompleted = Math.min((prev[index] || 0) + 1, totalSets)
       const next = { ...prev, [index]: nextCompleted }
 
-      if (nextCompleted >= totalSets) {
-        const nextIndex = index + 1
-        if (nextIndex >= totalExerciseCount) {
+      const phaseExercises = routine?.phases[phaseIndex].exercises || []
+      let runningIndexBeforePhase = 0
+      for (let i = 0; i < phaseIndex; i += 1) {
+        runningIndexBeforePhase += routine?.phases[i].exercises.length || 0
+      }
+
+      const phaseDone = phaseExercises.every((exercise, exerciseIndex) => {
+        const flatIndex = runningIndexBeforePhase + exerciseIndex
+        const completed = flatIndex === index ? nextCompleted : (next[flatIndex] || 0)
+        return completed >= exercise.sets
+      })
+
+      if (phaseDone) {
+        const nextPhaseIndex = phaseIndex + 1
+        if (!routine || nextPhaseIndex >= routine.phases.length) {
           setSessionFinished(true)
-          setActiveExerciseIndex(nextIndex)
         } else {
-          setActiveExerciseIndex(nextIndex)
+          setActivePhaseIndex(nextPhaseIndex)
         }
       }
 
@@ -438,17 +483,17 @@ export default function RoutinePage() {
 
                 {phase.exercises.map((exercise, exerciseIndex) => {
                   const flatIndex = runningIndexBeforePhase + exerciseIndex
-                  const isCurrent = flatIndex === activeExerciseIndex && !sessionFinished
-                  const isDone = flatIndex < activeExerciseIndex || sessionFinished
-                  const isLocked = flatIndex > activeExerciseIndex && !sessionFinished
+                  const isCurrentPhase = phaseIndex === activePhaseIndex && !sessionFinished
                   const completedSetCount = Math.min(completedSets[flatIndex] || 0, exercise.sets)
+                  const isDone = completedSetCount >= exercise.sets
+                  const isLocked = phaseIndex > activePhaseIndex && !sessionFinished
                   const mappedVideo = exercise.isFoamRoll ? null : getExerciseVideo(exercise.name)
 
                   return (
                   <div
                     key={exerciseIndex}
                     style={{
-                      border: isCurrent ? '1px solid rgba(0,180,216,0.28)' : '1px solid var(--border)',
+                      border: isCurrentPhase ? '1px solid rgba(0,180,216,0.28)' : '1px solid var(--border)',
                       marginBottom: 2,
                       background: isLocked ? 'rgba(255,255,255,0.015)' : 'var(--black)',
                       borderRadius: 4,
@@ -523,22 +568,31 @@ export default function RoutinePage() {
                         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
                           {Array.from({ length: exercise.sets }).map((_, setIndex) => {
                             const checked = isDone || setIndex < completedSetCount
+                            const isNextSet = !checked && setIndex === completedSetCount
+                            const canTickSet = !sessionFinished && isCurrentPhase && isNextSet
                             return (
-                              <span
+                              <button
                                 key={setIndex}
+                                type="button"
+                                onClick={() => {
+                                  if (canTickSet) completeExerciseSet(phaseIndex, flatIndex, exercise.sets)
+                                }}
+                                disabled={!canTickSet}
                                 style={{
                                   display: 'inline-flex',
                                   alignItems: 'center',
                                   gap: 7,
                                   borderRadius: 999,
                                   padding: '6px 10px',
-                                  border: `1px solid ${checked ? 'rgba(67,209,122,0.35)' : 'rgba(255,255,255,0.1)'}`,
-                                  background: checked ? 'rgba(67,209,122,0.08)' : 'rgba(255,255,255,0.03)',
+                                  border: `1px solid ${checked ? 'rgba(67,209,122,0.35)' : canTickSet ? 'rgba(0,180,216,0.4)' : 'rgba(255,255,255,0.1)'}`,
+                                  background: checked ? 'rgba(67,209,122,0.08)' : canTickSet ? 'rgba(0,180,216,0.08)' : 'rgba(255,255,255,0.03)',
                                   fontFamily: "'DM Mono',monospace",
                                   fontSize: 9,
                                   letterSpacing: 2,
-                                  color: checked ? '#43d17a' : 'var(--silver3)',
+                                  color: checked ? '#43d17a' : canTickSet ? 'var(--cyan)' : 'var(--silver3)',
                                   textTransform: 'uppercase',
+                                  cursor: canTickSet ? 'pointer' : 'default',
+                                  opacity: isLocked ? 0.55 : 1,
                                 }}
                               >
                                 <span
@@ -546,13 +600,13 @@ export default function RoutinePage() {
                                     width: 12,
                                     height: 12,
                                     borderRadius: 3,
-                                    border: `1px solid ${checked ? '#43d17a' : 'var(--silver4)'}`,
+                                    border: `1px solid ${checked ? '#43d17a' : canTickSet ? 'var(--cyan)' : 'var(--silver4)'}`,
                                     background: checked ? '#43d17a' : 'transparent',
                                     display: 'inline-block',
                                   }}
                                 />
                                 {`Set ${setIndex + 1}`}
-                              </span>
+                              </button>
                             )
                           })}
                         </div>
@@ -565,21 +619,21 @@ export default function RoutinePage() {
                               COMPLETED
                             </span>
                           )}
-                          {isCurrent && (
+                          {!isDone && isCurrentPhase && (
                             <>
-                              <button className="btn-primary" onClick={() => completeExerciseSet(flatIndex, exercise.sets)}>
+                              <button className="btn-primary" onClick={() => completeExerciseSet(phaseIndex, flatIndex, exercise.sets)}>
                                 {exercise.sets === 1 ? 'TICK SET COMPLETE' : `TICK SET ${completedSetCount + 1} COMPLETE`}
                               </button>
                               <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 14, color: 'var(--silver2)', lineHeight: 1.65 }}>
                                 {exercise.sets === 1
-                                  ? 'Tick the box once you finish this exercise.'
-                                  : `${completedSetCount} of ${exercise.sets} sets completed. The next exercise unlocks after all sets are ticked.`}
+                                  ? 'Tick the set chip or button once you finish this exercise.'
+                                  : `${completedSetCount} of ${exercise.sets} sets completed. You can tick the next set chip on any exercise in this block and run it like a circuit.`}
                               </span>
                             </>
                           )}
                           {isLocked && (
                             <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 3, color: 'var(--silver3)', textTransform: 'uppercase' }}>
-                              VISIBLE NOW / STARTS AFTER THE CURRENT EXERCISE IS COMPLETED
+                              LOCKED / UNLOCKS WHEN THE CURRENT BLOCK IS COMPLETED
                             </span>
                           )}
                         </div>
@@ -598,8 +652,13 @@ export default function RoutinePage() {
             <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 16, color: 'var(--silver2)', lineHeight: 1.7 }}>
               {sessionFinished
                 ? 'All exercises confirmed. Finish with your post-session check-in.'
-                : `Exercise ${Math.min(activeExerciseIndex + 1, totalExerciseCount)} of ${totalExerciseCount} is live now. Tick off each working set to unlock the next exercise.`}
+                : `${PHASE_STYLES[routine.phases[activePhaseIndex]?.pillar || 'release'].label} block is live. Tick sets across the exercises in any order, then the next block unlocks.`}
             </div>
+            {!sessionFinished && (
+              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 3, color: 'var(--cyan)', marginTop: 10, textTransform: 'uppercase' }}>
+                {totalCompletedSets} / {totalSetCount} total sets completed
+              </div>
+            )}
             {sessionFinished && (
               <div style={{ marginTop: 16 }}>
                 <button className="btn-primary" onClick={() => router.push('/session-checkin?type=post&autostart=1')}>
