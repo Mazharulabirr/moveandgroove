@@ -289,7 +289,7 @@ function buildFallbackRoutine({
 
   return {
     routineTitle: titleFocus,
-    summary: 'This routine was assembled from the in-app exercise library so you still get a usable session immediately. It follows the same release, activation, and range structure as the AI flow.',
+    summary: 'This session is structured to open the target joints first, build control through the new range, and then finish with strength-through-range work that helps the mobility stick.',
     difficultyLevel: readiness?.modificationMode === 'recovery' ? 'Beginner' : goal === 'performance' ? 'Intermediate' : 'Beginner',
     totalExercises,
     phases: filteredPhases.map((phase) => ({
@@ -300,7 +300,7 @@ function buildFallbackRoutine({
           : exercise
       )),
     })),
-    evidenceSummary: 'This session uses the app fallback library built from common mobility, control, and end-range strength patterns so routine generation stays reliable when the AI call is slow or unavailable.',
+    evidenceSummary: 'This session combines release, activation, and range work so the new mobility is not just opened up, but also controlled and reinforced. The goal is to improve usable movement quality around the target joints rather than simply stretching and moving on.',
   }
 }
 
