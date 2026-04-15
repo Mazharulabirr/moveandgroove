@@ -568,11 +568,11 @@ export default function ScreeningPage() {
 
               <div style={{ borderLeft: `6px solid ${saveConfirmed ? '#00b4d8' : '#e74c3c'}`, border: `1px solid ${saveConfirmed ? 'rgba(0,180,216,0.25)' : 'rgba(231,76,60,0.25)'}`, background: 'var(--black2)', padding: '22px 28px', marginBottom: 24 }}>
                 <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, letterSpacing: 4, color: saveConfirmed ? 'var(--cyan)' : '#ff8f8f', marginBottom: 10, textTransform: UC }}>
-                  {saveConfirmed ? 'Saved On This Device' : 'Profile Save Failed'}
+                  {saveConfirmed ? 'Score Saved' : 'Profile Save Failed'}
                 </p>
                 <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 17, color: 'var(--silver2)', lineHeight: 1.7 }}>
                   {saveConfirmed
-                    ? 'Your screening is stored locally on this device and will now drive dashboard and results recommendations while the live screening schema is being aligned.'
+                    ? 'Your mobility score is saved and will now drive your dashboard and results view.'
                     : saveError || 'Your score was calculated, but we could not save it to your profile. Please retake the screening or try again.'}
                 </p>
               </div>
