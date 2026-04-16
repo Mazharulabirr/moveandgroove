@@ -441,7 +441,7 @@ export async function POST(req: NextRequest) {
     const prompt = `You are an expert sports physiotherapist and strength and conditioning coach building an evidence-based joint mobility routine.
 
 USER PROFILE:
-- Mode: ${mode === 'sport' ? 'Sport-specific' : 'Body area focus'}
+- Mode: ${mode === 'sport' ? 'Sport relevant' : 'Body area focus'}
 ${sportFocus ? `- Sport: ${sport} (key demands: ${sportFocus})` : ''}
 - Focus Areas: ${areasText}
 - Session Duration: ${aiDuration} minutes
@@ -477,9 +477,9 @@ Release phase must contain ONLY stretching — no foam rolling.
 Unless the goal is flexibility, release exercises should default to 1 set each so the session can cover more surrounding structures. Only use 2 sets for release when the goal is flexibility.
 Do not use or mention PAILs or RAILs in this standard routine builder.
 For balanced and flexibility sessions, release must be substantial rather than token. Cover multiple structures around the joint, not just one stretch per region.
-For sport-specific balanced sessions, release should usually contain at least 3 exercises when the session length allows it.
+For sport relevant balanced sessions, release should usually contain at least 3 exercises when the session length allows it.
 Do not give a balanced session just one pec stretch and one hip stretch and call release covered.
-If mode is sport-specific, bias the session toward the top biomechanical demands of that sport instead of spreading attention evenly across every joint. Around 60-70% of the session should support the primary sport demands.
+If mode is sport relevant, bias the session toward the top biomechanical demands of that sport instead of spreading attention evenly across every joint. Around 60-70% of the session should support the primary sport demands.
 If readiness indicates soreness or restriction:
 - avoid aggressive loading and aggressive end-range work for restricted areas
 - where possible, shift focus away from sore areas instead of hammering them

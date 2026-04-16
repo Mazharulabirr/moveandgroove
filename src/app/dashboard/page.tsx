@@ -256,7 +256,7 @@ export default function DashboardPage() {
     {
       label: 'Choose Your Goal',
       done: hasScreening,
-      detail: hasScreening ? 'Sport-specific or general mobility focus' : 'Unlocks after your screening',
+      detail: hasScreening ? 'Sport relevant or general mobility focus' : 'Unlocks after your screening',
       Icon: IconRoutine,
       href: '/quiz',
     },
@@ -288,7 +288,7 @@ export default function DashboardPage() {
   if (hasScreening && !effectiveIsPro) {
     stageLabel = 'Basic path unlocked'
     stageTitle = 'CHOOSE YOUR FOCUS'
-    stageBody = 'Your screening is saved to your profile. Next, choose either sport-specific guidance or a body-area focus to build your next routine.'
+    stageBody = 'Your screening is saved to your profile. Next, choose either sport relevant guidance or a body-area focus to build your next routine.'
     stageStatement = null
     primaryAction = { label: 'CHOOSE SPORT OR BODY AREA', href: '/quiz' }
     secondaryAction = { label: 'VIEW MOBILITY SCORES', href: '/results', mode: 'route' as const }
@@ -568,7 +568,7 @@ export default function DashboardPage() {
                       },
                       {
                         title: 'CREATE YOUR OWN WORKOUT',
-                        sub: 'Build a new sport-specific or general mobility session.',
+                        sub: 'Build a new sport relevant or general mobility session.',
                         href: '/quiz',
                         Icon: IconRoutine,
                       },

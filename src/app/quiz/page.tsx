@@ -223,10 +223,10 @@ export default function QuizPage() {
           {step === 1 && (
             <div>
               <Q>SPORT OR<br />BODY AREA?</Q>
-              <Sub>Select your sport for a targeted routine, or choose specific joints to work on.</Sub>
+              <Sub>Select your sport for a sport relevant routine, or choose specific joints to work on.</Sub>
               <div className="mg-grid-2" style={{ gap: 1, background: 'var(--border)', border: '1px solid var(--border)' }}>
                 {[
-                  { id: 'sport', icon: 'sport' as IconName, label: 'Sport-Specific', sub: "Tailored to your sport's biomechanical demands" },
+                  { id: 'sport', icon: 'sport' as IconName, label: 'Sport Relevant', sub: "Tailored to your sport's biomechanical demands" },
                   { id: 'area', icon: 'focus' as IconName, label: 'Body Area Focus', sub: 'Choose which joints you want to work on' },
                 ].map((option) => (
                   <div
