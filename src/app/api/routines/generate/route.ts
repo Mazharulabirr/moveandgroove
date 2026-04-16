@@ -36,6 +36,23 @@ const SPORTS: Record<string, string> = {
   muaythai:      'Hip flexors, hip rotation, thoracic spine, shoulder, knee, ankle',
 }
 
+const SPORT_AREA_PRIORITY: Record<string, string[]> = {
+  golf: ['hips', 'spine', 'shoulders'],
+  afl: ['hips', 'spine', 'shoulders'],
+  rugby: ['spine', 'hips', 'shoulders'],
+  soccer: ['hips', 'spine', 'shoulders'],
+  wrestling: ['shoulders', 'spine', 'hips'],
+  weightlifting: ['shoulders', 'spine', 'hips'],
+  cricket: ['shoulders', 'spine', 'hips'],
+  tennis: ['shoulders', 'spine', 'hips'],
+  basketball: ['hips', 'spine', 'shoulders'],
+  volleyball: ['shoulders', 'spine', 'hips'],
+  netball: ['hips', 'shoulders', 'spine'],
+  bjj: ['hips', 'spine', 'shoulders'],
+  kickboxing: ['hips', 'spine', 'shoulders'],
+  muaythai: ['hips', 'spine', 'shoulders'],
+}
+
 type FoamRollExercise = {
   name: string
   area: string
@@ -256,6 +273,18 @@ function buildRoutineEvidenceSummary(goal: string, chosenAreas: string[], readin
   return `${goalLead} Covering the ${areaText} this way is more effective than isolated stretching, because the session improves tissue tolerance, motor control, and usable range together.${readinessNote}`
 }
 
+function resolveTargetAreas(mode: 'sport' | 'area', sport: string | null, areas: string[] | null) {
+  if (areas && areas.length > 0) {
+    return areas
+  }
+
+  if (mode === 'sport' && sport && SPORT_AREA_PRIORITY[sport]) {
+    return SPORT_AREA_PRIORITY[sport]
+  }
+
+  return ['hips', 'shoulders', 'spine']
+}
+
 function getRoutineAreas(targetAreas: string[], readiness: ReadinessAdjustmentSnapshot | null | undefined) {
   const base = targetAreas.length > 0 ? targetAreas : ['hips', 'shoulders', 'spine']
   if (!readiness || (readiness.modificationMode !== 'avoid_sore_areas' && readiness.modificationMode !== 'recovery')) {
@@ -356,7 +385,7 @@ export async function POST(req: NextRequest) {
   try {
     ;({ userId, mode, sport, areas, duration, goal, includeFoamRoll, readiness = null } = await req.json() as GenerateRequest)
 
-    const targetAreas = areas && areas.length > 0 ? areas : ['hips', 'shoulders', 'spine']
+    const targetAreas = resolveTargetAreas(mode, sport, areas)
     const sportFocus  = sport ? SPORTS[sport] : null
     const areasText   = targetAreas.join(', ')
 
@@ -450,6 +479,7 @@ Do not use or mention PAILs or RAILs in this standard routine builder.
 For balanced and flexibility sessions, release must be substantial rather than token. Cover multiple structures around the joint, not just one stretch per region.
 For sport-specific balanced sessions, release should usually contain at least 3 exercises when the session length allows it.
 Do not give a balanced session just one pec stretch and one hip stretch and call release covered.
+If mode is sport-specific, bias the session toward the top biomechanical demands of that sport instead of spreading attention evenly across every joint. Around 60-70% of the session should support the primary sport demands.
 If readiness indicates soreness or restriction:
 - avoid aggressive loading and aggressive end-range work for restricted areas
 - where possible, shift focus away from sore areas instead of hammering them
