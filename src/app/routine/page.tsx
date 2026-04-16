@@ -273,7 +273,7 @@ export default function RoutinePage() {
               study: exercise.study,
             })))
         .filter((item, index, items) => items.findIndex((entry) => entry.study === item.study) === index)
-        .slice(0, 4)
+        .slice(0, 2)
       : []),
     [routine],
   )
@@ -701,26 +701,26 @@ export default function RoutinePage() {
               <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 'clamp(20px,3vw,28px)', letterSpacing: 2, color: 'var(--white)', marginBottom: 16 }}>
                 PAPERS BEHIND THIS SESSION
               </div>
-              <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 17, color: 'var(--silver)', lineHeight: 1.85, marginBottom: 24, maxWidth: 900 }}>
+              <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: 'var(--silver)', lineHeight: 1.8, marginBottom: 20, maxWidth: 820 }}>
                 {routine.evidenceSummary}
+              </div>
+              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 2.5, color: 'var(--silver4)', marginBottom: 24, textTransform: 'uppercase' }}>
+                Evidence-backed programming. Trusted by practitioners. References available if you want them.
               </div>
 
               {featuredEvidence.length > 0 && (
-                <div className="mg-grid-2" style={{ gap: 16, marginBottom: 26 }}>
+                <div className="mg-grid-2" style={{ gap: 14, marginBottom: 22 }}>
                   {featuredEvidence.map((item, index) => (
                     <div
                       key={`${item.study}-${index}`}
                       style={{
                         border: '1px solid rgba(255,255,255,0.08)',
                         background: 'linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(10,12,16,0.96) 100%)',
-                        padding: '18px 18px 16px',
+                        padding: '16px 16px 14px',
                       }}
                     >
                       <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, letterSpacing: 3, color: 'var(--cyan)', textTransform: 'uppercase', marginBottom: 10 }}>
                         {PHASE_STYLES[item.pillar]?.label || item.pillar} / {item.exerciseName}
-                      </div>
-                      <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 14, color: 'var(--silver2)', lineHeight: 1.7, marginBottom: 12 }}>
-                        {item.rationale}
                       </div>
                       <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, color: 'var(--silver3)', lineHeight: 1.8 }}>
                         {item.study}
@@ -731,22 +731,21 @@ export default function RoutinePage() {
               )}
 
               {studies.length > 0 && (
-                <>
-                  <div
+                <details style={{ marginTop: 6, borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 18 }}>
+                  <summary
                     style={{
                       fontFamily: "'DM Mono',monospace",
-                      fontSize: 8,
+                      fontSize: 9,
                       letterSpacing: 3,
-                      color: 'var(--silver4)',
-                      marginBottom: 14,
+                      color: 'var(--silver3)',
                       textTransform: 'uppercase',
-                      paddingTop: 18,
-                      borderTop: '1px solid rgba(255,255,255,0.08)',
+                      cursor: 'pointer',
+                      listStyle: 'none',
                     }}
                   >
-                    Full Reference List
-                  </div>
-                  <div style={{ display: 'grid', gap: 10 }}>
+                    View Full Reference List ({studies.length})
+                  </summary>
+                  <div style={{ display: 'grid', gap: 10, marginTop: 16 }}>
                     {studies.map((study, index) => (
                       <div
                         key={index}
@@ -765,7 +764,7 @@ export default function RoutinePage() {
                       </div>
                     ))}
                   </div>
-                </>
+                </details>
               )}
             </div>
           )}
