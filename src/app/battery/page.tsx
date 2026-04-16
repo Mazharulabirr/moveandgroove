@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Header from '@/components/Header'
 import { IconBalance, IconCheckin, IconHinge, IconLunge, IconPerformance, IconSquat } from '@/components/Icons'
+import { getAssessmentMedia } from '@/lib/assessment-media'
 import { createClient } from '@/lib/supabase/client'
 import { getIsPro } from '@/lib/profiles'
 
@@ -175,6 +176,7 @@ export default function BatteryPage() {
   }, [supabase])
 
   const test = TESTS[step - 1]
+  const testMedia = test ? getAssessmentMedia(test.id) : null
   const progress = step === 0 ? 0 : Math.round((step / TESTS.length) * 100)
   const isDone = step > TESTS.length
 
@@ -316,12 +318,12 @@ export default function BatteryPage() {
                     <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 13, letterSpacing: 3, color: 'var(--cyan)', marginBottom: 18, textTransform: UC }}>How to perform</p>
                     <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 'clamp(16px, 4vw, 20px)', lineHeight: 1.85, color: 'var(--silver)' }}>{test.instruction}</p>
                   </div>
-                  {test.photo ? (
+                  {testMedia?.image ? (
                     <div>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={test.photo} alt={test.label} style={{ width: '100%', display: 'block', opacity: 0.88 }} />
-                      {test.ytSearch && (
-                        <a href={`https://www.youtube.com/results?search_query=${test.ytSearch}`} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', justifyContent: CA, gap: 12, background: 'rgba(255,0,0,0.12)', border: '1px solid rgba(255,0,0,0.3)', padding: '16px 20px', textDecoration: 'none', marginTop: 2 }}>
+                      <img src={testMedia.image} alt={test.label} style={{ width: '100%', display: 'block', opacity: 0.88 }} />
+                      {testMedia.youtubeSearch && (
+                        <a href={`https://www.youtube.com/results?search_query=${testMedia.youtubeSearch}`} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', justifyContent: CA, gap: 12, background: 'rgba(255,0,0,0.12)', border: '1px solid rgba(255,0,0,0.3)', padding: '16px 20px', textDecoration: 'none', marginTop: 2 }}>
                           <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 13, letterSpacing: 2, color: '#ff6b6b' }}>FIND DEMO VIDEO</span>
                         </a>
                       )}

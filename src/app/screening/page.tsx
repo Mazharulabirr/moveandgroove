@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Header from '@/components/Header'
 import { IconCheckin, IconGeneral, IconHips, IconShoulders, IconSpine } from '@/components/Icons'
+import { getAssessmentMedia } from '@/lib/assessment-media'
 import { createClient } from '@/lib/supabase/client'
 import { getIsPro } from '@/lib/profiles'
 import { readStoredScreening, writeStoredScreening } from '@/lib/screening-storage'
@@ -289,7 +290,8 @@ export default function ScreeningPage() {
   const question = QUESTIONS[step - 1]
   const progress = step === 0 ? 0 : Math.round((step / TOTAL) * 100)
   const regionColor = question ? REGION_COLORS[question.region] : 'var(--cyan)'
-  const isGeneral = question && question.photo === null
+  const questionMedia = question ? getAssessmentMedia(question.id) : null
+  const isGeneral = question && questionMedia?.image === null
   const latestScreeningDate = getScreeningDate(latestScreening)
   const screeningEligibilityDate = addDays(latestScreeningDate, 30)
   const screeningLocked = screeningEligibilityDate !== null && screeningEligibilityDate > new Date()
@@ -500,12 +502,12 @@ export default function ScreeningPage() {
                       <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 13, letterSpacing: 3, color: regionColor, marginBottom: 18, textTransform: UC }}>How to test yourself</p>
                       <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 'clamp(16px, 4vw, 20px)', lineHeight: 1.85, color: 'var(--silver)' }}>{question.instruction}</p>
                     </div>
-                    {question.photo && (
+                    {questionMedia?.image && (
                       <div>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={question.photo} alt={question.regionLabel} style={{ width: '100%', display: 'block', opacity: 0.88 }} />
-                        {question.ytSearch && (
-                          <a href={`https://www.youtube.com/results?search_query=${question.ytSearch}`} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, background: 'rgba(255,0,0,0.12)', border: '1px solid rgba(255,0,0,0.3)', padding: '16px 20px', textDecoration: 'none', marginTop: 2 }}>
+                        <img src={questionMedia.image} alt={question.regionLabel} style={{ width: '100%', display: 'block', opacity: 0.88 }} />
+                        {questionMedia.youtubeSearch && (
+                          <a href={`https://www.youtube.com/results?search_query=${questionMedia.youtubeSearch}`} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, background: 'rgba(255,0,0,0.12)', border: '1px solid rgba(255,0,0,0.3)', padding: '16px 20px', textDecoration: 'none', marginTop: 2 }}>
                             <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 13, letterSpacing: 2, color: '#ff6b6b' }}>FIND DEMO VIDEO</span>
                           </a>
                         )}
