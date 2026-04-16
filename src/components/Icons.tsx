@@ -47,6 +47,11 @@ export type IconName =
   | 'bjj'
   | 'kickboxing'
   | 'muaythai'
+  | 'waterpolo'
+  | 'highjump'
+  | 'hurdles'
+  | 'handball'
+  | 'padel'
 
 type IconProps = {
   name: IconName
@@ -173,6 +178,16 @@ export function Icon({ name, size = 26, color = 'var(--silver)', strokeWidth = 1
       return <Svg {...shared}><path d="M7 15c2-3 5-5 9-5" /><path d="M11 9 9 6" /><path d="M16 10l2 2" /><path d="M6 17h6" /></Svg>
     case 'muaythai':
       return <Svg {...shared}><path d="M8 16c3-4 5-6 8-8" /><path d="M11 8 9 5" /><path d="M15 12h4" /><path d="M5 18h7" /></Svg>
+    case 'waterpolo':
+      return <Svg {...shared}><path d="M4 17c1.8-1.6 3.8-1.6 5.6 0s3.8 1.6 5.6 0 3.8-1.6 5.6 0" /><circle cx="15.5" cy="7.5" r="2.2" /><path d="M9 11c1.5-1.8 3.2-2.7 5-2.7" /><path d="M11 12.5 8.5 15" /></Svg>
+    case 'highjump':
+      return <Svg {...shared}><path d="M4 18h16" /><path d="M16 6v10" /><path d="M8 8.5h8" /><circle cx="8" cy="7" r="1.5" /><path d="M8 8.5l2.5 3.5" /><path d="M10.5 12 7 16" /></Svg>
+    case 'hurdles':
+      return <Svg {...shared}><path d="M4 18h16" /><path d="M7 18v-6h5" /><path d="M16 18v-6h4" /><circle cx="9" cy="6.5" r="1.4" /><path d="M9 8l2 3 3-.5" /><path d="M11 11 8 16" /></Svg>
+    case 'handball':
+      return <Svg {...shared}><circle cx="15.5" cy="6.5" r="2" /><path d="M11 10c2-2.2 3.6-3.2 5.5-3.5" /><path d="M11 10 8 14l2.5 3.5" /><path d="M13 11.5l4 2.5" /></Svg>
+    case 'padel':
+      return <Svg {...shared}><path d="M9 6a4 4 0 0 1 4 4v4H9a3 3 0 0 1 0-6Z" /><path d="M13 14l4 4" /><circle cx="10.5" cy="10.5" r="0.8" fill="currentColor" stroke="none" /></Svg>
     default:
       return <Svg {...shared}><circle cx="12" cy="12" r="8" /></Svg>
   }

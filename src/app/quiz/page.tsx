@@ -6,25 +6,15 @@ import Header from '@/components/Header'
 import PreSessionReadinessModal from '@/components/PreSessionReadinessModal'
 import { Icon, type IconName } from '@/components/Icons'
 import { readTodayPreSessionReadiness } from '@/lib/readiness-storage'
+import { SPORT_PROFILES } from '@/lib/sports'
 import { createClient } from '@/lib/supabase/client'
 import { hasPreSessionCheckinToday } from '@/lib/session-flow'
 
-const SPORTS: { id: string; label: string; icon: IconName }[] = [
-  { id: 'golf', label: 'Golf', icon: 'golf' },
-  { id: 'afl', label: 'AFL', icon: 'afl' },
-  { id: 'rugby', label: 'Rugby', icon: 'rugby' },
-  { id: 'soccer', label: 'Soccer', icon: 'soccer' },
-  { id: 'wrestling', label: 'Wrestling', icon: 'wrestling' },
-  { id: 'weightlifting', label: 'Weightlifting', icon: 'weightlifting' },
-  { id: 'cricket', label: 'Cricket', icon: 'cricket' },
-  { id: 'tennis', label: 'Tennis', icon: 'tennis' },
-  { id: 'basketball', label: 'Basketball', icon: 'basketball' },
-  { id: 'volleyball', label: 'Volleyball', icon: 'volleyball' },
-  { id: 'netball', label: 'Netball', icon: 'netball' },
-  { id: 'bjj', label: 'BJJ', icon: 'bjj' },
-  { id: 'kickboxing', label: 'Kickboxing', icon: 'kickboxing' },
-  { id: 'muaythai', label: 'Muay Thai', icon: 'muaythai' },
-]
+const SPORTS: { id: string; label: string; icon: IconName }[] = SPORT_PROFILES.map((sport) => ({
+  id: sport.id,
+  label: sport.label,
+  icon: sport.icon,
+}))
 
 const AREAS: { id: string; label: string; icon: IconName; sub: string }[] = [
   { id: 'hips', label: 'HIPS', icon: 'hips', sub: 'Hip flexors / Adductors / Glutes / Piriformis' },

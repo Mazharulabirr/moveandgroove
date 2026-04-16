@@ -1,6 +1,7 @@
 ﻿import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import type { ReadinessAdjustmentSnapshot } from '@/lib/readiness'
+import { SPORT_PROFILE_MAP } from '@/lib/sports'
 
 function readRequiredEnv(name: string) {
   const raw = process.env[name]
@@ -17,40 +18,6 @@ function readRequiredEnv(name: string) {
 
 function createAnthropicClient() {
   return new Anthropic({ apiKey: readRequiredEnv('ANTHROPIC_API_KEY') })
-}
-
-const SPORTS: Record<string, string> = {
-  golf:          'Hip rotation, thoracic spine mobility, shoulder turn, lateral flexion',
-  afl:           'Hip mobility, ankle dorsiflexion, shoulder overhead, thoracic rotation',
-  rugby:         'Neck mobility, thoracic spine, hip flexors, shoulder internal rotation',
-  soccer:        'Hip adductors, ankle dorsiflexion, thoracic rotation, hip flexors',
-  wrestling:     'Shoulder internal rotation, thoracic spine, hip mobility, neck',
-  weightlifting: 'Thoracic extension, ankle dorsiflexion, shoulder overhead, hip flexion',
-  cricket:       'Hip rotation, thoracic spine, shoulder external rotation, wrist',
-  tennis:        'Hip mobility, shoulder external rotation, thoracic rotation, ankle',
-  basketball:    'Hip flexor, ankle dorsiflexion, thoracic extension, shoulder',
-  volleyball:    'Shoulder overhead, thoracic extension, hip mobility, ankle',
-  netball:       'Hip mobility, ankle dorsiflexion, shoulder, knee',
-  bjj:           'Hip mobility, spinal rotation, shoulder internal rotation, neck, wrist',
-  kickboxing:    'Hip flexors, hip rotation, thoracic spine, shoulder, ankle dorsiflexion',
-  muaythai:      'Hip flexors, hip rotation, thoracic spine, shoulder, knee, ankle',
-}
-
-const SPORT_AREA_PRIORITY: Record<string, string[]> = {
-  golf: ['hips', 'spine', 'shoulders'],
-  afl: ['hips', 'spine', 'shoulders'],
-  rugby: ['spine', 'hips', 'shoulders'],
-  soccer: ['hips', 'spine', 'shoulders'],
-  wrestling: ['shoulders', 'spine', 'hips'],
-  weightlifting: ['shoulders', 'spine', 'hips'],
-  cricket: ['shoulders', 'spine', 'hips'],
-  tennis: ['shoulders', 'spine', 'hips'],
-  basketball: ['hips', 'spine', 'shoulders'],
-  volleyball: ['shoulders', 'spine', 'hips'],
-  netball: ['hips', 'shoulders', 'spine'],
-  bjj: ['hips', 'spine', 'shoulders'],
-  kickboxing: ['hips', 'spine', 'shoulders'],
-  muaythai: ['hips', 'spine', 'shoulders'],
 }
 
 type FoamRollExercise = {
@@ -247,8 +214,9 @@ function joinLabels(labels: string[]) {
 
 function buildRoutineSummary(goal: string, chosenAreas: string[], sport: string | null, mode: 'sport' | 'area') {
   const areaText = joinLabels(chosenAreas.map(formatAreaLabel))
+  const sportProfile = sport ? SPORT_PROFILE_MAP[sport] : null
   if (mode === 'sport' && sport) {
-    return `This ${goal} ${sport.toLowerCase()} session starts by opening the ${areaText}, then layers control and strength-through-range work so the mobility carries over into how you move and train.`
+    return `This ${goal} ${(sportProfile?.label || sport).toLowerCase()} session starts by opening the ${areaText}, then layers control and strength-through-range work so the mobility carries over into how you move and train.`
   }
 
   return `This ${goal} mobility session starts by opening the ${areaText}, then layers control and strength-through-range work so the mobility carries over into usable movement quality rather than passive flexibility alone.`
@@ -278,8 +246,8 @@ function resolveTargetAreas(mode: 'sport' | 'area', sport: string | null, areas:
     return areas
   }
 
-  if (mode === 'sport' && sport && SPORT_AREA_PRIORITY[sport]) {
-    return SPORT_AREA_PRIORITY[sport]
+  if (mode === 'sport' && sport && SPORT_PROFILE_MAP[sport]) {
+    return SPORT_PROFILE_MAP[sport].targetAreas
   }
 
   return ['hips', 'shoulders', 'spine']
@@ -353,7 +321,8 @@ function buildFallbackRoutine({
   }
 
   const totalExercises = filteredPhases.reduce((sum, phase) => sum + phase.exercises.length, 0)
-  const titleFocus = mode === 'sport' && sport ? `${sport.toUpperCase()} MOBILITY FLOW` : `${chosenAreas[0].toUpperCase()} MOBILITY FLOW`
+  const sportLabel = sport ? SPORT_PROFILE_MAP[sport]?.label : null
+  const titleFocus = mode === 'sport' && sport ? `${(sportLabel || sport).toUpperCase()} MOBILITY FLOW` : `${chosenAreas[0].toUpperCase()} MOBILITY FLOW`
 
   return {
     routineTitle: titleFocus,
@@ -385,9 +354,11 @@ export async function POST(req: NextRequest) {
   try {
     ;({ userId, mode, sport, areas, duration, goal, includeFoamRoll, readiness = null } = await req.json() as GenerateRequest)
 
+    const sportProfile = sport ? SPORT_PROFILE_MAP[sport] : null
     const targetAreas = resolveTargetAreas(mode, sport, areas)
-    const sportFocus  = sport ? SPORTS[sport] : null
-    const areasText   = targetAreas.join(', ')
+    const sportFocus = sportProfile ? sportProfile.keyDemands.join(', ') : null
+    const sportRisks = sportProfile ? sportProfile.mobilityRisks.join('; ') : null
+    const areasText = targetAreas.join(', ')
 
     // Build PREP phase from local library
     let prepPhase: RoutinePhase | null = null
@@ -442,7 +413,11 @@ export async function POST(req: NextRequest) {
 
 USER PROFILE:
 - Mode: ${mode === 'sport' ? 'Sport relevant' : 'Body area focus'}
-${sportFocus ? `- Sport: ${sport} (key demands: ${sportFocus})` : ''}
+${sportProfile ? `- Sport: ${sportProfile.label}` : ''}
+${sportFocus ? `- Key Demands: ${sportFocus}` : ''}
+${sportRisks ? `- Mobility Risks: ${sportRisks}` : ''}
+${sportProfile ? `- Routine Bias: ${sportProfile.routineBias}` : ''}
+${sportProfile ? `- Last Reviewed: ${sportProfile.lastReviewed}` : ''}
 - Focus Areas: ${areasText}
 - Session Duration: ${aiDuration} minutes
 - Primary Goal: ${goal}
