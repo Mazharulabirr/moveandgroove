@@ -260,6 +260,23 @@ export default function RoutinePage() {
     () => (routine ? [...new Set(routine.phases.flatMap((phase) => phase.exercises).map((exercise) => exercise.study).filter(Boolean))] : []),
     [routine],
   )
+  const featuredEvidence = useMemo(
+    () => (routine
+      ? routine.phases
+        .flatMap((phase) =>
+          phase.exercises
+            .filter((exercise) => exercise.study)
+            .map((exercise) => ({
+              pillar: phase.pillar,
+              exerciseName: exercise.name,
+              rationale: exercise.rationale,
+              study: exercise.study,
+            })))
+        .filter((item, index, items) => items.findIndex((entry) => entry.study === item.study) === index)
+        .slice(0, 4)
+      : []),
+    [routine],
+  )
 
   function isPhaseComplete(phaseIndex: number) {
     if (!routine) return false
@@ -669,24 +686,85 @@ export default function RoutinePage() {
           </div>
 
           {routine.evidenceSummary && (
-            <div style={{ border: '1px solid var(--border)', padding: '28px 32px', marginTop: 40, background: 'var(--black2)', borderLeft: '2px solid var(--cyan3)', borderRadius: 4 }}>
-              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 4, color: 'var(--cyan3)', marginBottom: 16, textTransform: 'uppercase' }}>
-                {'// Evidence Base'}
+            <div
+              style={{
+                border: '1px solid rgba(0,180,216,0.2)',
+                padding: '32px 34px',
+                marginTop: 40,
+                background: 'linear-gradient(180deg, rgba(14,18,24,0.98) 0%, rgba(5,7,10,0.98) 100%)',
+                boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04)',
+              }}
+            >
+              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 4, color: 'var(--cyan3)', marginBottom: 10, textTransform: 'uppercase' }}>
+                Research Rationale
               </div>
-              <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 16, color: 'var(--silver)', lineHeight: 1.8, marginBottom: 20 }}>
+              <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 'clamp(20px,3vw,28px)', letterSpacing: 2, color: 'var(--white)', marginBottom: 16 }}>
+                PAPERS BEHIND THIS SESSION
+              </div>
+              <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 17, color: 'var(--silver)', lineHeight: 1.85, marginBottom: 24, maxWidth: 900 }}>
                 {routine.evidenceSummary}
               </div>
-              {studies.length > 0 && (
-                <>
-                  <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, letterSpacing: 3, color: 'var(--silver4)', marginBottom: 12, textTransform: 'uppercase', paddingTop: 16, borderTop: '1px solid var(--border2)' }}>
-                    {'// References'}
-                  </div>
-                  {studies.map((study, index) => (
-                    <div key={index} style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: 'var(--silver3)', lineHeight: 1.8, letterSpacing: 0.3, paddingLeft: 16, position: 'relative', marginBottom: 4 }}>
-                      <span style={{ position: 'absolute', left: 0, color: 'var(--cyan3)' }}>-</span>
-                      {study}
+
+              {featuredEvidence.length > 0 && (
+                <div className="mg-grid-2" style={{ gap: 16, marginBottom: 26 }}>
+                  {featuredEvidence.map((item, index) => (
+                    <div
+                      key={`${item.study}-${index}`}
+                      style={{
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        background: 'linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(10,12,16,0.96) 100%)',
+                        padding: '18px 18px 16px',
+                      }}
+                    >
+                      <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, letterSpacing: 3, color: 'var(--cyan)', textTransform: 'uppercase', marginBottom: 10 }}>
+                        {PHASE_STYLES[item.pillar]?.label || item.pillar} / {item.exerciseName}
+                      </div>
+                      <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 14, color: 'var(--silver2)', lineHeight: 1.7, marginBottom: 12 }}>
+                        {item.rationale}
+                      </div>
+                      <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, color: 'var(--silver3)', lineHeight: 1.8 }}>
+                        {item.study}
+                      </div>
                     </div>
                   ))}
+                </div>
+              )}
+
+              {studies.length > 0 && (
+                <>
+                  <div
+                    style={{
+                      fontFamily: "'DM Mono',monospace",
+                      fontSize: 8,
+                      letterSpacing: 3,
+                      color: 'var(--silver4)',
+                      marginBottom: 14,
+                      textTransform: 'uppercase',
+                      paddingTop: 18,
+                      borderTop: '1px solid rgba(255,255,255,0.08)',
+                    }}
+                  >
+                    Full Reference List
+                  </div>
+                  <div style={{ display: 'grid', gap: 10 }}>
+                    {studies.map((study, index) => (
+                      <div
+                        key={index}
+                        style={{
+                          fontFamily: "'DM Mono',monospace",
+                          fontSize: 11,
+                          color: 'var(--silver3)',
+                          lineHeight: 1.8,
+                          letterSpacing: 0.2,
+                          padding: '10px 12px',
+                          border: '1px solid rgba(255,255,255,0.06)',
+                          background: 'rgba(255,255,255,0.02)',
+                        }}
+                      >
+                        {study}
+                      </div>
+                    ))}
+                  </div>
                 </>
               )}
             </div>
