@@ -68,15 +68,15 @@ export const mobilityScreeningTests: MobilityScreeningTest[] = [
   {
     id: 'spine-seated-rotation',
     region: 'spine',
-    name: 'Seated trunk rotation',
-    subtitle: 'Tests thoracic spine mobility - where rotation should come from',
+    name: 'Quadruped T rotation',
+    subtitle: 'Tests thoracic spine rotation and upper-back control',
     steps: [
-      'Sit upright on a chair, feet together, cross arms over your chest.',
-      'Rotate your upper body left as far as you comfortably can. Hold 1 second.',
-      'Rotate right. Compare how far you turn each way.',
+      'Start on all fours with one hand lightly behind your head.',
+      'Rotate your chest open, bringing the elbow toward the ceiling without shifting your hips.',
+      'Return under control and repeat on both sides. Compare how far and how smoothly you rotate.',
     ],
-    pass: 'You can turn roughly 45 degrees each way and both sides feel equal.',
-    flag: 'One side is significantly stiffer, or you feel pain rather than a stretch.',
+    pass: 'Rotation is smooth on both sides, chest opens clearly, and hips stay steady.',
+    flag: 'One side is clearly stiffer, you cannot open through the upper back, or pain appears.',
   },
   {
     id: 'spine-toe-touch',

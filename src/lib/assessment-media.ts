@@ -4,12 +4,12 @@ export type AssessmentMediaEntry = {
 }
 
 export const ASSESSMENT_MEDIA: Record<string, AssessmentMediaEntry> = {
-  'shoulder-back-scratch': { image: null, youtubeSearch: 'back+scratch+test+shoulder+self+assessment' },
-  'shoulder-wall-angel': { image: null, youtubeSearch: 'wall+angel+shoulder+mobility+self+test' },
-  'hip-single-leg-squat': { image: null, youtubeSearch: 'single+leg+balance+squat+hip+control+self+test' },
-  'hip-seated-rotation': { image: null, youtubeSearch: 'seated+hip+rotation+self+test' },
-  'spine-seated-rotation': { image: '/movement-tests/seated-rotation.png', youtubeSearch: 'seated+trunk+rotation+self+test' },
-  'spine-toe-touch': { image: null, youtubeSearch: 'toe+touch+test+posterior+chain+self+assessment' },
+  'shoulder-back-scratch': { image: '/movement-tests/shoulder-back-scratch.webp', youtubeSearch: 'back+scratch+test+shoulder+self+assessment' },
+  'shoulder-wall-angel': { image: '/movement-tests/shoulder-wall-angel.jpg', youtubeSearch: 'wall+angel+shoulder+mobility+self+test' },
+  'hip-single-leg-squat': { image: '/movement-tests/hip-single-leg-squat.jpg', youtubeSearch: 'single+leg+balance+squat+hip+control+self+test' },
+  'hip-seated-rotation': { image: '/movement-tests/hip-seated-rotation.jpg', youtubeSearch: 'seated+hip+rotation+self+test' },
+  'spine-seated-rotation': { image: '/movement-tests/spine-quadruped-t-rotation.jpg', youtubeSearch: 'quadruped+t+rotation+thoracic+self+test' },
+  'spine-toe-touch': { image: '/movement-tests/spine-toe-touch.webp', youtubeSearch: 'toe+touch+test+posterior+chain+self+assessment' },
   deep_squat: {
     image: '/movement-tests/deep-squat.jpg',
     youtubeSearch: 'deep+squat+FMS+movement+screen+how+to+score',
