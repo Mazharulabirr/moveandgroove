@@ -296,30 +296,15 @@ export default function ScreeningClient() {
                   {testMedia?.image && (
                     <div>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={testMedia.image} alt={test.name} style={{ width: '100%', display: 'block', opacity: 0.9 }} />
-                      {testMedia.youtubeSearch && (
-                        <a href={`https://www.youtube.com/results?search_query=${testMedia.youtubeSearch}`} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, background: 'rgba(255,0,0,0.12)', border: '1px solid rgba(255,0,0,0.3)', padding: '16px 20px', textDecoration: 'none', marginTop: 2 }}>
-                          <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 13, letterSpacing: 2, color: '#ff6b6b' }}>FIND DEMO VIDEO</span>
-                        </a>
-                      )}
+                      <img src={testMedia.image} alt={test.name} style={{ width: '100%', display: 'block', opacity: 0.94 }} />
                     </div>
                   )}
-
-                  <div style={{ border: '1px solid rgba(67,209,122,0.35)', background: 'rgba(67,209,122,0.08)', padding: '18px 18px 16px' }}>
-                    <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 3, color: '#43d17a', marginBottom: 10, textTransform: UC }}>Pass</div>
-                    <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: 'var(--silver2)', lineHeight: 1.7 }}>{test.pass}</div>
-                  </div>
-
-                  <div style={{ border: '1px solid rgba(231,76,60,0.35)', background: 'rgba(231,76,60,0.08)', padding: '18px 18px 16px' }}>
-                    <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 3, color: '#ff8f8f', marginBottom: 10, textTransform: UC }}>Flag</div>
-                    <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: 'var(--silver2)', lineHeight: 1.7 }}>{test.flag}</div>
-                  </div>
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2, background: 'var(--border)' }}>
                   {SCREENING_RESULT_OPTIONS.map((option, index) => {
                     const selected = answers[test.id] === option.value
-                    const accent = option.id === 'pass' ? '#43d17a' : option.id === 'flag' ? '#ff8f8f' : 'var(--silver3)'
+                    const accent = selected ? regionMeta.color : 'var(--silver3)'
                     return (
                       <div
                         key={option.id}
@@ -330,7 +315,7 @@ export default function ScreeningClient() {
                           padding: '28px 24px',
                           cursor: 'pointer',
                           transition: 'background 0.2s',
-                          borderLeft: selected ? `6px solid ${accent}` : '6px solid transparent',
+                          borderLeft: selected ? `6px solid ${regionMeta.color}` : '6px solid transparent',
                         }}
                         className="mg-assessment-option-row"
                       >
