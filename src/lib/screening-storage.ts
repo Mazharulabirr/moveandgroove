@@ -1,4 +1,4 @@
-export type StoredScreeningSnapshot = {
+﻿export type StoredScreeningSnapshot = {
   overall_score: number
   hip_score: number
   shoulder_score: number

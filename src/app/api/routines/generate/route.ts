@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { buildApprovedExercisePoolText, CURATED_ROUTINE_LIBRARY } from '@/lib/curated-mobility'
 import type { ReadinessAdjustmentSnapshot } from '@/lib/readiness'

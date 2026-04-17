@@ -1,4 +1,4 @@
-import type { ReadinessAdjustmentSnapshot } from '@/lib/readiness'
+﻿import type { ReadinessAdjustmentSnapshot } from '@/lib/readiness'
 
 const PRE_SESSION_READINESS_KEY = 'mg_pre_session_readiness'
 

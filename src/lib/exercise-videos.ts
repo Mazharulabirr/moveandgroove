@@ -1,4 +1,4 @@
-export type ExerciseVideoEntry = {
+﻿export type ExerciseVideoEntry = {
   slug: string
   title: string
   youtubeVideoId: string

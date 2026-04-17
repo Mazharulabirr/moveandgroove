@@ -1,4 +1,4 @@
-import type { IconName } from '@/components/Icons'
+﻿import type { IconName } from '@/components/Icons'
 
 export type ReadinessQuestion = {
   id: string

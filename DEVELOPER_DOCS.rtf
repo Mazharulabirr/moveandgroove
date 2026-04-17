@@ -1,0 +1,615 @@
+﻿{\rtf1\ansi\deff0
+{\fonttbl{\f0 Calibri;}{\f1 Consolas;}}
+\viewkind4\uc1\pard\sa160\sl240\slmult1\f0\fs22
+\pard\sa220\sl260\slmult1\b\fs32 Move & Groove v2 - Developer Documentation\b0\fs22\par
+\par
+\pard\li360\sa120\i Last updated: April 6, 2026\i0\par
+\pard\li360\sa120\i Repo: https://github.com/marcomastrorocco/move-and-groove-v2\i0\par
+\pard\li360\sa120\i Status: MVP mostly built, integration hardening still in progress\i0\par
+\par
+---\par
+\par
+\pard\sa200\sl250\slmult1\b\fs28 1. Project Overview\b0\fs22\par
+\par
+Move & Groove is a Next.js mobility application for athletes. It combines:\par
+\par
+\pard\li360\sa80 \95\tab AI-generated mobility routines\par
+\pard\li360\sa80 \95\tab self-screening and movement assessment\par
+\pard\li360\sa80 \95\tab readiness and session check-ins\par
+\pard\li360\sa80 \95\tab saved routines and results history\par
+\pard\li360\sa80 \95\tab recovery sessions\par
+\pard\li360\sa80 \95\tab weekly planning and gated Pro features\par
+\par
+The product is designed around a dark editorial aesthetic with high-contrast typography, inline styles, and a custom SVG icon system.\par
+\par
+---\par
+\par
+\pard\sa200\sl250\slmult1\b\fs28 2. Current Product Status\b0\fs22\par
+\par
+\pard\sa180\sl240\slmult1\b\fs24 Built and working in the codebase\b0\fs22\par
+\par
+\pard\li360\sa80 \95\tab Landing page\par
+\pard\li360\sa80 \95\tab Email auth page\par
+\pard\li360\sa80 \95\tab Password reset route\par
+\pard\li360\sa80 \95\tab Dashboard\par
+\pard\li360\sa80 \95\tab AI routine quiz\par
+\pard\li360\sa80 \95\tab Routine display page\par
+\pard\li360\sa80 \95\tab Mobility screening\par
+\pard\li360\sa80 \95\tab Movement battery\par
+\pard\li360\sa80 \95\tab Results page\par
+\pard\li360\sa80 \95\tab Daily readiness page\par
+\pard\li360\sa80 \95\tab Session check-in page\par
+\pard\li360\sa80 \95\tab Recovery session page\par
+\pard\li360\sa80 \95\tab Programs and calendar page\par
+\pard\li360\sa80 \95\tab Upgrade page\par
+\pard\li360\sa80 \95\tab Pro gate component\par
+\pard\li360\sa80 \95\tab Shared SVG icon system\par
+\pard\li360\sa80 \95\tab Mobile responsiveness pass\par
+\par
+\pard\sa180\sl240\slmult1\b\fs24 Built but still needs real-world integration validation\b0\fs22\par
+\par
+\pard\li360\sa80 \95\tab Forgot password and reset-password end-to-end flow\par
+\pard\li360\sa80 \95\tab Supabase auth email delivery\par
+\pard\li360\sa80 \95\tab Supabase security hardening\par
+\pard\li360\sa80 \95\tab Pro gating against live `profiles.is_pro`\par
+\pard\li360\sa80 \95\tab Local/dev and production auth redirect configuration\par
+\par
+\pard\sa180\sl240\slmult1\b\fs24 Present but effectively placeholders / not implemented\b0\fs22\par
+\par
+\pard\li360\sa80 \95\tab `src/app/api/progress/route.ts`\par
+\pard\li360\sa80 \95\tab `src/app/api/routines/[id]/route.ts`\par
+\par
+---\par
+\par
+\pard\sa200\sl250\slmult1\b\fs28 3. Tech Stack\b0\fs22\par
+\par
+\pard\sa80\f1 | Layer | Technology |\f0\par
+\pard\sa80\f1 |---|---|\f0\par
+\pard\sa80\f1 | Framework | Next.js 16.2.1 App Router |\f0\par
+\pard\sa80\f1 | Language | TypeScript |\f0\par
+\pard\sa80\f1 | UI | React 19 |\f0\par
+\pard\sa80\f1 | Styling | Inline styles + `globals.css` utility/design tokens |\f0\par
+\pard\sa80\f1 | Auth + DB | Supabase |\f0\par
+\pard\sa80\f1 | AI | Anthropic SDK |\f0\par
+\pard\sa80\f1 | Build tooling | Turbopack in dev |\f0\par
+\pard\sa80\f1 | Linting | ESLint 9 |\f0\par
+\pard\sa80\f1 | Target hosting | Vercel |\f0\par
+\par
+---\par
+\par
+\pard\sa200\sl250\slmult1\b\fs28 4. Current Architecture\b0\fs22\par
+\par
+\pard\sa120\sl220\slmult1\f1\fs18\cb1
+Browser\par
+  -> Next.js App Router pages\par
+    -> Supabase browser client for auth + user data\par
+    -> API routes for server-side generation / protected writes\par
+\par
+Core user flows\par
+  Auth\par
+    -> Supabase Auth\par
+    -> profiles table lookup for Pro state\par
+\par
+  Quiz / Recovery\par
+    -> POST /api/routines/generate\par
+    -> Anthropic model\par
+    -> Save routines + routine_items to Supabase\par
+    -> Store generated routine in localStorage\par
+    -> Render in /routine\par
+\par
+  Screening\par
+    -> calculate regional scores client-side\par
+    -> save questionnaire + results to Supabase\par
+\par
+  Battery\par
+    -> score movement tests client-side\par
+    -> save test_results to Supabase\par
+\par
+  Readiness / Session Check-in / Programs preflight\par
+    -> readiness question model in src/lib/readiness.ts\par
+    -> save readiness_logs to Supabase\par
+\par
+  Results / Programs\par
+    -> read prior user rows from Supabase\par
+    -> derive summary cards and recommendations client-side\par
+\pard\sa160\sl240\slmult1\f0\fs22
+\par
+---\par
+\par
+\pard\sa200\sl250\slmult1\b\fs28 5. Directory Structure\b0\fs22\par
+\par
+\pard\sa120\sl220\slmult1\f1\fs18\cb1
+move-and-groove-v2/\par
+|-- DEVELOPER_DOCS.md\par
+|-- package.json\par
+|-- next.config.ts\par
+|-- tsconfig.json\par
+|-- src/\par
+|   |-- app/\par
+|   |   |-- favicon.ico\par
+|   |   |-- globals.css\par
+|   |   |-- layout.tsx\par
+|   |   |-- page.tsx\par
+|   |   |-- api/\par
+|   |   |   |-- progress/\par
+|   |   |   |   `-- route.ts\par
+|   |   |   `-- routines/\par
+|   |   |       |-- generate/\par
+|   |   |       |   `-- route.ts\par
+|   |   |       `-- [id]/\par
+|   |   |           `-- route.ts\par
+|   |   |-- auth/\par
+|   |   |   |-- page.tsx\par
+|   |   |   `-- reset/\par
+|   |   |       `-- page.tsx\par
+|   |   |-- battery/\par
+|   |   |   `-- page.tsx\par
+|   |   |-- dashboard/\par
+|   |   |   `-- page.tsx\par
+|   |   |-- programs/\par
+|   |   |   `-- page.tsx\par
+|   |   |-- quiz/\par
+|   |   |   `-- page.tsx\par
+|   |   |-- readiness/\par
+|   |   |   `-- page.tsx\par
+|   |   |-- recovery/\par
+|   |   |   `-- page.tsx\par
+|   |   |-- results/\par
+|   |   |   `-- page.tsx\par
+|   |   |-- routine/\par
+|   |   |   `-- page.tsx\par
+|   |   |-- screening/\par
+|   |   |   `-- page.tsx\par
+|   |   `-- session-checkin/\par
+|   |       `-- page.tsx\par
+|   |-- components/\par
+|   |   |-- Header.tsx\par
+|   |   |-- Icons.tsx\par
+|   |   `-- ProGate.tsx\par
+|   `-- lib/\par
+|       |-- profiles.ts\par
+|       |-- readiness.ts\par
+|       `-- supabase/\par
+|           `-- client.ts\par
+`-- public/\par
+\pard\sa160\sl240\slmult1\f0\fs22
+\par
+---\par
+\par
+\pard\sa200\sl250\slmult1\b\fs28 6. Routes and Purpose\b0\fs22\par
+\par
+\pard\sa80\f1 | Route | File | Purpose | Current status |\f0\par
+\pard\sa80\f1 |---|---|---|---|\f0\par
+\pard\sa80\f1 | `/` | `src/app/page.tsx` | Marketing landing page and recovery hash handoff | Built |\f0\par
+\pard\sa80\f1 | `/auth` | `src/app/auth/page.tsx` | Sign in, sign up, forgot password | Built, needs more auth UX hardening |\f0\par
+\pard\sa80\f1 | `/auth/reset` | `src/app/auth/reset/page.tsx` | Reset password after recovery email | Built locally, still being validated |\f0\par
+\pard\sa80\f1 | `/dashboard` | `src/app/dashboard/page.tsx` | User hub, stats, quick actions, upgrade prompt | Built |\f0\par
+\pard\sa80\f1 | `/quiz` | `src/app/quiz/page.tsx` | Main routine builder | Built |\f0\par
+\pard\sa80\f1 | `/routine` | `src/app/routine/page.tsx` | Generated routine viewer | Built |\f0\par
+\pard\sa80\f1 | `/screening` | `src/app/screening/page.tsx` | 11-question mobility screen | Built |\f0\par
+\pard\sa80\f1 | `/battery` | `src/app/battery/page.tsx` | 5-test movement battery | Built |\f0\par
+\pard\sa80\f1 | `/results` | `src/app/results/page.tsx` | Latest results, trends, recommendations | Built |\f0\par
+\pard\sa80\f1 | `/readiness` | `src/app/readiness/page.tsx` | Standalone readiness check-in | Built |\f0\par
+\pard\sa80\f1 | `/session-checkin` | `src/app/session-checkin/page.tsx` | Pre/post session check-in | Built |\f0\par
+\pard\sa80\f1 | `/recovery` | `src/app/recovery/page.tsx` | Duration-based foam roll + release generator | Built |\f0\par
+\pard\sa80\f1 | `/programs` | `src/app/programs/page.tsx` | Weekly calendar, blocks, session start check-in | Built |\f0\par
+\pard\sa80\f1 | `/upgrade` | `src/app/upgrade/page.tsx` | Pro upsell / gating destination | Built |\f0\par
+\par
+---\par
+\par
+\pard\sa200\sl250\slmult1\b\fs28 7. API Routes\b0\fs22\par
+\par
+\pard\sa180\sl240\slmult1\b\fs24 `POST /api/routines/generate`\b0\fs22\par
+File: `src/app/api/routines/generate/route.ts`\par
+\par
+Responsibilities:\par
+\par
+\pard\li360\sa80 \95\tab accepts quiz or recovery generation input\par
+\pard\li360\sa80 \95\tab maps sports to biomechanical demands\par
+\pard\li360\sa80 \95\tab selects PREP / foam roll content locally\par
+\pard\li360\sa80 \95\tab prompts Anthropic for RELEASE, ACTIVATION, and RANGE phases\par
+\pard\li360\sa80 \95\tab parses model JSON safely\par
+\pard\li360\sa80 \95\tab saves `routines` and `routine_items`\par
+\pard\li360\sa80 \95\tab returns a routine payload to the client\par
+\par
+Notes:\par
+\par
+\pard\li360\sa80 \95\tab uses `SUPABASE_SERVICE_KEY` when present\par
+\pard\li360\sa80 \95\tab falls back to `NEXT_PUBLIC_SUPABASE_ANON_KEY` if missing\par
+\pard\li360\sa80 \95\tab depends on `ANTHROPIC_API_KEY`\par
+\par
+\pard\sa180\sl240\slmult1\b\fs24 `GET/POST /api/progress`\b0\fs22\par
+File: `src/app/api/progress/route.ts`\par
+\par
+Current status:\par
+\par
+\pard\li360\sa80 \95\tab file exists but is empty\par
+\pard\li360\sa80 \95\tab should be treated as unimplemented\par
+\par
+\pard\sa180\sl240\slmult1\b\fs24 `/api/routines/[id]`\b0\fs22\par
+File: `src/app/api/routines/[id]/route.ts`\par
+\par
+Current status:\par
+\par
+\pard\li360\sa80 \95\tab file exists but is empty\par
+\pard\li360\sa80 \95\tab should be treated as unimplemented\par
+\par
+---\par
+\par
+\pard\sa200\sl250\slmult1\b\fs28 8. Current Supabase Data Model\b0\fs22\par
+\par
+The codebase currently expects these tables and relationships:\par
+\par
+\pard\sa180\sl240\slmult1\b\fs24 Core routine tables\b0\fs22\par
+\par
+\pard\li360\sa80 \95\tab `routines`\par
+  - `id`\par
+  - `user_id`\par
+  - `title`\par
+  - `sport`\par
+  - `areas`\par
+  - `goal`\par
+  - `duration_minutes`\par
+  - `difficulty`\par
+  - `summary`\par
+  - `evidence_summary`\par
+  - `created_at`\par
+\par
+\pard\li360\sa80 \95\tab `routine_items`\par
+  - `id`\par
+  - `routine_id`\par
+  - `video_id`\par
+  - `pillar`\par
+  - `exercise_name`\par
+  - `target_area`\par
+  - `sets`\par
+  - `reps`\par
+  - `hold_seconds`\par
+  - `rationale`\par
+  - `study_citation`\par
+  - `order_index`\par
+\par
+\pard\sa180\sl240\slmult1\b\fs24 Assessment / check-in tables\b0\fs22\par
+\par
+\pard\li360\sa80 \95\tab `screening_questionnaires`\par
+\pard\li360\sa80 \95\tab `screening_results`\par
+\pard\li360\sa80 \95\tab `test_results`\par
+\pard\li360\sa80 \95\tab `readiness_logs`\par
+\pard\li360\sa80 \95\tab `progress`\par
+\par
+\pard\sa180\sl240\slmult1\b\fs24 Subscription / profile tables\b0\fs22\par
+\par
+\pard\li360\sa80 \95\tab `profiles`\par
+  - `id`\par
+  - `is_pro`\par
+  - `created_at`\par
+\par
+\pard\sa180\sl240\slmult1\b\fs24 Planning tables flagged by Supabase Security Advisor\b0\fs22\par
+\par
+\pard\li360\sa80 \95\tab `programmes`\par
+\pard\li360\sa80 \95\tab `programme_sessions`\par
+\pard\li360\sa80 \95\tab `videos`\par
+\par
+These appear in security warnings, but current app pages do not deeply rely on them yet.\par
+\par
+---\par
+\par
+\pard\sa200\sl250\slmult1\b\fs28 9. Core Business Logic\b0\fs22\par
+\par
+\pard\sa180\sl240\slmult1\b\fs24 Routine generation\b0\fs22\par
+\par
+Routine generation is split into phases:\par
+\par
+\pard\li360\sa80 \95\tab `prep`\par
+\pard\li360\sa80 \95\tab `release`\par
+\pard\li360\sa80 \95\tab `activation`\par
+\pard\li360\sa80 \95\tab `range`\par
+\par
+Recovery mode uses:\par
+\par
+\pard\li360\sa80 \95\tab `goal = flexibility`\par
+\pard\li360\sa80 \95\tab `includeFoamRoll = true`\par
+\pard\li360\sa80 \95\tab focus areas of `hips`, `shoulders`, and `spine`\par
+\par
+\pard\sa180\sl240\slmult1\b\fs24 Readiness logic\b0\fs22\par
+\par
+Source: `src/lib/readiness.ts`\par
+\par
+\pard\li360\sa80 \95\tab 5 questions\par
+\pard\li360\sa80 \95\tab each scored 1-4\par
+\pard\li360\sa80 \95\tab converted to a 0-100 readiness score\par
+\pard\li360\sa80 \95\tab score maps to label + recommendation\par
+\par
+\pard\sa180\sl240\slmult1\b\fs24 Screening logic\b0\fs22\par
+\par
+\pard\li360\sa80 \95\tab 11 total questions\par
+\pard\li360\sa80 \95\tab regions: hips, shoulders, spine\par
+\pard\li360\sa80 \95\tab scores normalized to percentage\par
+\pard\li360\sa80 \95\tab overall score derived client-side and saved\par
+\par
+\pard\sa180\sl240\slmult1\b\fs24 Battery logic\b0\fs22\par
+\par
+\pard\li360\sa80 \95\tab 5 movement tests\par
+\pard\li360\sa80 \95\tab each scored 0-3\par
+\pard\li360\sa80 \95\tab total out of 15\par
+\par
+\pard\sa180\sl240\slmult1\b\fs24 Programs logic\b0\fs22\par
+\par
+\pard\li360\sa80 \95\tab reads routine history from Supabase\par
+\pard\li360\sa80 \95\tab builds derived weekly calendar locally\par
+\pard\li360\sa80 \95\tab builds 4-week block summary locally\par
+\pard\li360\sa80 \95\tab includes a readiness overlay before sending the user to `/quiz`\par
+\par
+---\par
+\par
+\pard\sa200\sl250\slmult1\b\fs28 10. UI / Design System\b0\fs22\par
+\par
+\pard\sa180\sl240\slmult1\b\fs24 Main tokens\b0\fs22\par
+\par
+Defined in `src/app/globals.css`\par
+\par
+\pard\sa120\sl220\slmult1\f1\fs18\cb1
+--black\par
+--black2\par
+--black3\par
+--black4\par
+--white\par
+--silver\par
+--silver2\par
+--silver3\par
+--silver4\par
+--cyan\par
+--cyan2\par
+--cyan3\par
+--border\par
+--border2\par
+\pard\sa160\sl240\slmult1\f0\fs22
+\par
+\pard\sa180\sl240\slmult1\b\fs24 Fonts\b0\fs22\par
+\par
+\pard\li360\sa80 \95\tab Syncopate\par
+\pard\li360\sa80 \95\tab DM Mono\par
+\pard\li360\sa80 \95\tab DM Sans\par
+\pard\li360\sa80 \95\tab Cormorant Garamond\par
+\par
+\pard\sa180\sl240\slmult1\b\fs24 Styling conventions\b0\fs22\par
+\par
+\pard\li360\sa80 \95\tab predominantly inline style objects\par
+\pard\li360\sa80 \95\tab `const UC = 'uppercase' as const` pattern used across pages\par
+\pard\li360\sa80 \95\tab shared button classes:\par
+  - `btn-primary`\par
+  - `btn-outline`\par
+  - `btn-ghost`\par
+\par
+\pard\sa180\sl240\slmult1\b\fs24 SVG icons\b0\fs22\par
+\par
+Source: `src/components/Icons.tsx`\par
+\par
+The app now uses a shared stroke-based SVG icon system instead of emojis, including:\par
+\par
+\pard\li360\sa80 \95\tab body-region icons\par
+\pard\li360\sa80 \95\tab app section icons\par
+\pard\li360\sa80 \95\tab movement test icons\par
+\pard\li360\sa80 \95\tab readiness icons\par
+\pard\li360\sa80 \95\tab utility icons\par
+\par
+---\par
+\par
+\pard\sa200\sl250\slmult1\b\fs28 11. Environment Variables\b0\fs22\par
+\par
+Required locally:\par
+\par
+\pard\sa120\sl220\slmult1\f1\fs18\cb1
+NEXT_PUBLIC_SUPABASE_URL=\par
+NEXT_PUBLIC_SUPABASE_ANON_KEY=\par
+SUPABASE_SERVICE_KEY=\par
+ANTHROPIC_API_KEY=\par
+\pard\sa160\sl240\slmult1\f0\fs22
+\par
+Notes:\par
+\par
+\pard\li360\sa80 \95\tab `NEXT_PUBLIC_SUPABASE_URL` must be the actual project URL\par
+\pard\li360\sa80 \95\tab `NEXT_PUBLIC_SUPABASE_ANON_KEY` must be the anon public key for the same project\par
+\pard\li360\sa80 \95\tab `SUPABASE_SERVICE_KEY` is required for secure server-side writes in the generator route\par
+\pard\li360\sa80 \95\tab `ANTHROPIC_API_KEY` is required for AI routine generation\par
+\par
+---\par
+\par
+\pard\sa200\sl250\slmult1\b\fs28 12. Local Development\b0\fs22\par
+\par
+\pard\sa120\sl220\slmult1\f1\fs18\cb1
+npm install\par
+npm run dev\par
+\pard\sa160\sl240\slmult1\f0\fs22
+\par
+App URL:\par
+\par
+\pard\sa120\sl220\slmult1\f1\fs18\cb1
+http://localhost:3000\par
+\pard\sa160\sl240\slmult1\f0\fs22
+\par
+Notes from recent setup work:\par
+\par
+\pard\li360\sa80 \95\tab malformed env values were a frequent cause of startup/auth failures\par
+\pard\li360\sa80 \95\tab local auth recovery currently depends on correct Supabase URL config\par
+\pard\li360\sa80 \95\tab forgot-password email testing hits Supabase default email rate limits very quickly without custom SMTP\par
+\par
+---\par
+\par
+\pard\sa200\sl250\slmult1\b\fs28 13. Deployment Notes\b0\fs22\par
+\par
+Target platform:\par
+\par
+\pard\li360\sa80 \95\tab Vercel\par
+\par
+Minimum deployment requirements:\par
+\par
+\pard\li360\sa80 \95\tab all env vars configured\par
+\pard\li360\sa80 \95\tab Supabase Auth URL config set for deployed domain\par
+\pard\li360\sa80 \95\tab Supabase redirect URLs allowlisted\par
+\pard\li360\sa80 \95\tab Supabase security issues addressed\par
+\pard\li360\sa80 \95\tab custom SMTP configured if password reset emails are expected to work reliably\par
+\par
+---\par
+\par
+\pard\sa200\sl250\slmult1\b\fs28 14. Main Issues To Solve\b0\fs22\par
+\par
+This is the most important section for anyone continuing the project.\par
+\par
+\pard\sa180\sl240\slmult1\b\fs24 1. Supabase security hardening\b0\fs22\par
+\par
+Current concern:\par
+\par
+\pard\li360\sa80 \95\tab Security Advisor reports RLS disabled on multiple public tables\par
+\pard\li360\sa80 \95\tab `handle_new_user` function search path warning was previously flagged\par
+\pard\li360\sa80 \95\tab leaked-password protection and auth configuration still need to be verified\par
+\par
+What needs to happen:\par
+\par
+\pard\li360\sa80 \95\tab enable RLS on all user-owned tables\par
+\pard\li360\sa80 \95\tab add policies for `select`, `insert`, `update`, and `delete`\par
+\pard\li360\sa80 \95\tab validate that auth hooks and profile creation still work\par
+\par
+\pard\sa180\sl240\slmult1\b\fs24 2. Auth and password recovery flow\b0\fs22\par
+\par
+Current concern:\par
+\par
+\pard\li360\sa80 \95\tab local reset flow has been patched, but it still needs end-to-end validation with Supabase\par
+\pard\li360\sa80 \95\tab Supabase may return either query-code or hash-token recovery links depending on configuration\par
+\pard\li360\sa80 \95\tab redirect URLs and Site URL must be set correctly in Supabase\par
+\par
+What needs to happen:\par
+\par
+\pard\li360\sa80 \95\tab validate `/auth/reset` with a fresh recovery email\par
+\pard\li360\sa80 \95\tab confirm localhost and deployed redirect URLs in Supabase\par
+\pard\li360\sa80 \95\tab confirm the reset flow no longer bounces to `/`\par
+\par
+\pard\sa180\sl240\slmult1\b\fs24 3. Email delivery / SMTP\b0\fs22\par
+\par
+Current concern:\par
+\par
+\pard\li360\sa80 \95\tab Supabase default mailer quickly hit password-reset rate limits during testing\par
+\par
+What needs to happen:\par
+\par
+\pard\li360\sa80 \95\tab configure custom SMTP, likely via Resend\par
+\pard\li360\sa80 \95\tab verify sender domain / sender address\par
+\pard\li360\sa80 \95\tab retest signup and forgot password\par
+\par
+\pard\sa180\sl240\slmult1\b\fs24 4. Empty API routes\b0\fs22\par
+\par
+Current concern:\par
+\par
+\pard\li360\sa80 \95\tab `src/app/api/progress/route.ts` is empty\par
+\pard\li360\sa80 \95\tab `src/app/api/routines/[id]/route.ts` is empty\par
+\par
+What needs to happen:\par
+\par
+\pard\li360\sa80 \95\tab either implement them or remove them\par
+\pard\li360\sa80 \95\tab document intended consumers\par
+\par
+\pard\sa180\sl240\slmult1\b\fs24 5. End-to-end Pro gating validation\b0\fs22\par
+\par
+Current concern:\par
+\par
+\pard\li360\sa80 \95\tab UI-level Pro gating exists\par
+\pard\li360\sa80 \95\tab must still validate against real `profiles.is_pro` rows for new and existing users\par
+\par
+What needs to happen:\par
+\par
+\pard\li360\sa80 \95\tab verify new signup profile creation\par
+\pard\li360\sa80 \95\tab verify existing users with pre-existing auth rows\par
+\pard\li360\sa80 \95\tab verify Programs and Results gating behavior\par
+\par
+\pard\sa180\sl240\slmult1\b\fs24 6. Production readiness\b0\fs22\par
+\par
+Current concern:\par
+\par
+\pard\li360\sa80 \95\tab app is feature-rich but still in integration / hardening mode\par
+\par
+What needs to happen:\par
+\par
+\pard\li360\sa80 \95\tab run full local walkthrough\par
+\pard\li360\sa80 \95\tab test auth, generation, save flows, results, programs, readiness, and password reset\par
+\pard\li360\sa80 \95\tab deploy to preview\par
+\pard\li360\sa80 \95\tab re-test against deployed domain\par
+\par
+---\par
+\par
+\pard\sa200\sl250\slmult1\b\fs28 15. Roadmap\b0\fs22\par
+\par
+\pard\sa180\sl240\slmult1\b\fs24 Short-term roadmap\b0\fs22\par
+\par
+1. Finish Supabase security configuration\par
+2. Finish auth reset flow validation\par
+3. Configure custom SMTP\par
+4. Validate all saved-data flows against RLS\par
+5. Deploy preview build\par
+\par
+\pard\sa180\sl240\slmult1\b\fs24 Medium-term roadmap\b0\fs22\par
+\par
+1. Implement real progress API route\par
+2. Implement routine-by-id API route\par
+3. Add block review page\par
+4. Improve programs data model beyond derived local summaries\par
+5. Add deeper score trend charts\par
+\par
+\pard\sa180\sl240\slmult1\b\fs24 Longer-term roadmap\b0\fs22\par
+\par
+1. Stripe billing\par
+2. Coach / staff dashboard\par
+3. Video hosting and proper exercise media\par
+4. Notifications / reminders\par
+5. Wearable integrations\par
+6. Native mobile app\par
+\par
+---\par
+\par
+\pard\sa200\sl250\slmult1\b\fs28 16. Current File Ownership Summary\b0\fs22\par
+\par
+\pard\sa180\sl240\slmult1\b\fs24 Main app pages\b0\fs22\par
+\par
+\pard\li360\sa80 \95\tab landing: `src/app/page.tsx`\par
+\pard\li360\sa80 \95\tab auth: `src/app/auth/page.tsx`\par
+\pard\li360\sa80 \95\tab reset password: `src/app/auth/reset/page.tsx`\par
+\pard\li360\sa80 \95\tab dashboard: `src/app/dashboard/page.tsx`\par
+\pard\li360\sa80 \95\tab quiz: `src/app/quiz/page.tsx`\par
+\pard\li360\sa80 \95\tab routine: `src/app/routine/page.tsx`\par
+\pard\li360\sa80 \95\tab screening: `src/app/screening/page.tsx`\par
+\pard\li360\sa80 \95\tab battery: `src/app/battery/page.tsx`\par
+\pard\li360\sa80 \95\tab results: `src/app/results/page.tsx`\par
+\pard\li360\sa80 \95\tab readiness: `src/app/readiness/page.tsx`\par
+\pard\li360\sa80 \95\tab session check-in: `src/app/session-checkin/page.tsx`\par
+\pard\li360\sa80 \95\tab recovery: `src/app/recovery/page.tsx`\par
+\pard\li360\sa80 \95\tab programs: `src/app/programs/page.tsx`\par
+\pard\li360\sa80 \95\tab upgrade: `src/app/upgrade/page.tsx`\par
+\par
+\pard\sa180\sl240\slmult1\b\fs24 Shared helpers\b0\fs22\par
+\par
+\pard\li360\sa80 \95\tab supabase client: `src/lib/supabase/client.ts`\par
+\pard\li360\sa80 \95\tab readiness model: `src/lib/readiness.ts`\par
+\pard\li360\sa80 \95\tab profile Pro lookup: `src/lib/profiles.ts`\par
+\par
+\pard\sa180\sl240\slmult1\b\fs24 Shared components\b0\fs22\par
+\par
+\pard\li360\sa80 \95\tab header/nav: `src/components/Header.tsx`\par
+\pard\li360\sa80 \95\tab icon library: `src/components/Icons.tsx`\par
+\pard\li360\sa80 \95\tab Pro wrapper: `src/components/ProGate.tsx`\par
+\par
+---\par
+\par
+\pard\sa200\sl250\slmult1\b\fs28 17. Practical Handoff Notes\b0\fs22\par
+\par
+If another developer picks this up, start in this order:\par
+\par
+1. verify `.env.local`\par
+2. verify Supabase Auth URL Configuration\par
+3. verify custom SMTP\par
+4. verify RLS and policies\par
+5. run full auth flow\par
+6. run full routine-generation flow\par
+7. run full results / programs flow\par
+\par
+That sequence will remove the current biggest sources of failure fastest.\par
+}
+

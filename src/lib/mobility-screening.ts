@@ -1,4 +1,4 @@
-import { IconHips, IconShoulders, IconSpine } from '@/components/Icons'
+﻿import { IconHips, IconShoulders, IconSpine } from '@/components/Icons'
 
 export type MobilityRegion = 'shoulders' | 'hips' | 'spine'
 

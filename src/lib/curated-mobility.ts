@@ -1,4 +1,4 @@
-export type CuratedPillar = 'release' | 'activation' | 'range'
+﻿export type CuratedPillar = 'release' | 'activation' | 'range'
 export type CuratedArea = 'hips' | 'shoulders' | 'spine'
 
 export type CuratedRoutineExerciseTemplate = {

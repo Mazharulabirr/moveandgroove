@@ -1,4 +1,4 @@
-export type AssessmentMediaEntry = {
+﻿export type AssessmentMediaEntry = {
   image: string | null
   youtubeSearch: string | null
 }
