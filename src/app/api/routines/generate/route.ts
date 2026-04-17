@@ -124,14 +124,15 @@ const FALLBACK_LIBRARY: Record<string, Record<'release' | 'activation' | 'range'
     release: [
       { videoId: null, name: 'Open Book Rotation', targetArea: 'spine', sets: 2, reps: 6, holdSeconds: 5, rationale: 'Restores thoracic rotation and ribcage motion for cleaner trunk mechanics.', study: 'Page (2012). Current concepts in muscle stretching for exercise and rehabilitation. IJSPT.' },
       { videoId: null, name: 'Childs Pose Reach', targetArea: 'spine', sets: 2, reps: null, holdSeconds: 40, rationale: 'Reduces global trunk stiffness while opening lats and thoracic segments.', study: 'Behm et al. (2016). Acute effects of muscle stretching on physical performance. Applied Physiology, Nutrition, and Metabolism.' },
+      { videoId: null, name: 'Segmental Cat-Camel', targetArea: 'spine', sets: 1, reps: 6, holdSeconds: null, rationale: 'Improves spinal segmentation and reduces stiffness before stronger loading or active control work.', study: 'McGill (2010). Core training: evidence translating to better performance and injury prevention. Strength and Conditioning Journal.' },
     ],
     activation: [
       { videoId: null, name: 'Quadruped T-Spine Rotation', targetArea: 'spine', sets: 2, reps: 6, holdSeconds: null, rationale: 'Trains thoracic rotation while keeping the lumbar spine controlled.', study: 'Cook et al. (2014). Movement: functional movement systems. On Target Publications.' },
       { videoId: null, name: 'Dead Bug Iso Press', targetArea: 'spine', sets: 3, reps: null, holdSeconds: 20, rationale: 'Builds trunk stability so mobility gains do not leak through the lower back.', study: 'McGill (2010). Core training: evidence translating to better performance and injury prevention. Strength and Conditioning Journal.' },
     ],
     range: [
-      { videoId: null, name: 'Segmental Cat-Camel', targetArea: 'spine', sets: 2, reps: 6, holdSeconds: null, rationale: 'Improves spinal segmentation and usable flexion-extension range.', study: 'McGill (2010). Core training: evidence translating to better performance and injury prevention. Strength and Conditioning Journal.' },
       { videoId: null, name: 'Half-Kneeling Windmill', targetArea: 'spine', sets: 2, reps: 5, holdSeconds: 5, rationale: 'Integrates thoracic rotation and hip control under light load.', study: 'Cook et al. (2014). Movement: functional movement systems. On Target Publications.' },
+      { videoId: null, name: 'Side Plank Reach-Through', targetArea: 'spine', sets: 2, reps: 6, holdSeconds: null, rationale: 'Builds trunk strength and rotation control while loading the new spinal range under tension.', study: 'McGill (2010). Core training: evidence translating to better performance and injury prevention. Strength and Conditioning Journal.' },
     ],
   },
 }
@@ -440,6 +441,7 @@ SESSION STRUCTURE — THREE PHASES ONLY:
 
 3. RANGE — Integrate strength and flexibility at end range.
    Use: loaded end-range holds, controlled end-range isometrics, active mobility, and simple strength-through-range work.
+   This block must include a real strength element. Do not place pure mobility segmentation drills like Cat-Camel in RANGE.
 
 PILLAR WEIGHTING BY GOAL:
 - flexibility  → 50% release, 25% activation, 25% range
