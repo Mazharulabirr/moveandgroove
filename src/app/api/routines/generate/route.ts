@@ -1,5 +1,6 @@
-﻿import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
+import { buildApprovedExercisePoolText, CURATED_ROUTINE_LIBRARY } from '@/lib/curated-mobility'
 import type { ReadinessAdjustmentSnapshot } from '@/lib/readiness'
 import { SPORT_PROFILE_MAP } from '@/lib/sports'
 
@@ -64,6 +65,8 @@ type GenerateRequest = {
   readiness?: ReadinessAdjustmentSnapshot | null
 }
 
+type CuratedPillar = 'release' | 'activation' | 'range'
+
 type MessageBlock = {
   type: string
   text?: string
@@ -71,23 +74,23 @@ type MessageBlock = {
 
 const FOAM_ROLL_LIBRARY: Record<string, FoamRollExercise[]> = {
   hips: [
-    { name: 'IT Band Roll',            area: 'hips',      notes: 'Side lying, roll hip to knee — pause on tender spots 5–10s.' },
-    { name: 'Glute / Piriformis Roll', area: 'hips',      notes: 'Figure 4 position on roller — cross leg for deeper pressure.' },
-    { name: 'Hip Flexor Roll',         area: 'hips',      notes: 'Prone, roller under anterior hip — TFL and iliopsoas.' },
-    { name: 'Hamstring Roll',          area: 'hips',      notes: 'Seated on roller — proximal to distal, cross leg for more pressure.' },
-    { name: 'Quad Roll',               area: 'hips',      notes: 'Prone, roller under thigh — rectus femoris and vastus lateralis.' },
+    { name: 'IT Band Roll',            area: 'hips',      notes: 'Side lying, roll hip to knee â€” pause on tender spots 5â€“10s.' },
+    { name: 'Glute / Piriformis Roll', area: 'hips',      notes: 'Figure 4 position on roller â€” cross leg for deeper pressure.' },
+    { name: 'Hip Flexor Roll',         area: 'hips',      notes: 'Prone, roller under anterior hip â€” TFL and iliopsoas.' },
+    { name: 'Hamstring Roll',          area: 'hips',      notes: 'Seated on roller â€” proximal to distal, cross leg for more pressure.' },
+    { name: 'Quad Roll',               area: 'hips',      notes: 'Prone, roller under thigh â€” rectus femoris and vastus lateralis.' },
   ],
   shoulders: [
-    { name: 'Thoracic Spine Roll',     area: 'shoulders', notes: 'Slow roll T1 to T12 — pause on tender spots, arms crossed.' },
-    { name: 'Lat Roll',                area: 'shoulders', notes: 'Side lying arm overhead — latissimus dorsi and teres major.' },
-    { name: 'Pec Minor Roll',          area: 'shoulders', notes: 'Prone, roller near shoulder — rotate to find pec minor.' },
-    { name: 'Posterior Shoulder Roll', area: 'shoulders', notes: 'Side lying, roller on posterior capsule — gentle rotation.' },
+    { name: 'Thoracic Spine Roll',     area: 'shoulders', notes: 'Slow roll T1 to T12 â€” pause on tender spots, arms crossed.' },
+    { name: 'Lat Roll',                area: 'shoulders', notes: 'Side lying arm overhead â€” latissimus dorsi and teres major.' },
+    { name: 'Pec Minor Roll',          area: 'shoulders', notes: 'Prone, roller near shoulder â€” rotate to find pec minor.' },
+    { name: 'Posterior Shoulder Roll', area: 'shoulders', notes: 'Side lying, roller on posterior capsule â€” gentle rotation.' },
   ],
   spine: [
-    { name: 'Thoracic Spine Roll',    area: 'spine', notes: 'Slow roll T1 to T12 — pause on tender spots, breathe into each segment.' },
-    { name: 'Thoracic Rotation Roll', area: 'spine', notes: 'T-spine rotation over roller — lateral thoracic and rib cage release.' },
-    { name: 'Lumbar Paraspinal Roll', area: 'spine', notes: 'Feet flat, hips up — roll slowly along paraspinals.' },
-    { name: 'QL / Hip Roll',          area: 'spine', notes: 'Side lying at 45° — quadratus lumborum and iliolumbar fascia.' },
+    { name: 'Thoracic Spine Roll',    area: 'spine', notes: 'Slow roll T1 to T12 â€” pause on tender spots, breathe into each segment.' },
+    { name: 'Thoracic Rotation Roll', area: 'spine', notes: 'T-spine rotation over roller â€” lateral thoracic and rib cage release.' },
+    { name: 'Lumbar Paraspinal Roll', area: 'spine', notes: 'Feet flat, hips up â€” roll slowly along paraspinals.' },
+    { name: 'QL / Hip Roll',          area: 'spine', notes: 'Side lying at 45Â° â€” quadratus lumborum and iliolumbar fascia.' },
   ],
 }
 
@@ -265,6 +268,27 @@ function getRoutineAreas(targetAreas: string[], readiness: ReadinessAdjustmentSn
   return filtered.length > 0 ? filtered : base
 }
 
+function getCuratedLibrary(area: string, pillar: CuratedPillar) {
+  if (area in CURATED_ROUTINE_LIBRARY) {
+    return CURATED_ROUTINE_LIBRARY[area as keyof typeof CURATED_ROUTINE_LIBRARY][pillar]
+  }
+
+  return []
+}
+
+function toRoutineExercise(template: (typeof CURATED_ROUTINE_LIBRARY)['hips']['release'][number]): RoutineExercise {
+  return {
+    videoId: null,
+    name: template.name,
+    targetArea: template.targetArea,
+    sets: template.sets,
+    reps: template.reps,
+    holdSeconds: template.holdSeconds,
+    rationale: template.rationale,
+    study: template.study,
+  }
+}
+
 function buildFallbackRoutine({
   mode,
   sport,
@@ -300,12 +324,12 @@ function buildFallbackRoutine({
   for (let index = 0; index < exerciseTarget; index += 1) {
     const area = chosenAreas[index % chosenAreas.length]
     const pillar = phaseSlots[index % phaseSlots.length]
-    const library = FALLBACK_LIBRARY[area]?.[pillar]
+    const library = getCuratedLibrary(area, pillar)
     const pick = library?.[Math.floor(index / chosenAreas.length) % library.length]
     if (!pick) continue
     const phase = phases.find((item) => item.pillar === pillar)
     if (phase && !phase.exercises.some((exercise) => exercise.name === pick.name)) {
-      phase.exercises.push(pick)
+      phase.exercises.push(toRoutineExercise(pick))
     }
   }
 
@@ -313,7 +337,10 @@ function buildFallbackRoutine({
     const phase = phases.find((item) => item.pillar === pillar)
     if (!phase || phase.exercises.length > 0) continue
     const area = chosenAreas[0]
-    phase.exercises.push(FALLBACK_LIBRARY[area][pillar][0])
+    const fallbackPick = getCuratedLibrary(area, pillar)[0]
+    if (fallbackPick) {
+      phase.exercises.push(toRoutineExercise(fallbackPick))
+    }
   }
 
   const filteredPhases = phases.filter((phase) => phase.exercises.length > 0)
@@ -357,6 +384,7 @@ export async function POST(req: NextRequest) {
 
     const sportProfile = sport ? SPORT_PROFILE_MAP[sport] : null
     const targetAreas = resolveTargetAreas(mode, sport, areas)
+    const approvedExercisePool = buildApprovedExercisePoolText(targetAreas)
     const sportFocus = sportProfile ? sportProfile.keyDemands.join(', ') : null
     const sportRisks = sportProfile ? sportProfile.mobilityRisks.join('; ') : null
     const areasText = targetAreas.join(', ')
@@ -420,6 +448,8 @@ ${sportRisks ? `- Mobility Risks: ${sportRisks}` : ''}
 ${sportProfile ? `- Routine Bias: ${sportProfile.routineBias}` : ''}
 ${sportProfile ? `- Last Reviewed: ${sportProfile.lastReviewed}` : ''}
 - Focus Areas: ${areasText}
+- Approved Exercise Pool:
+${approvedExercisePool}
 - Session Duration: ${aiDuration} minutes
 - Primary Goal: ${goal}
 ${readiness ? `- Readiness Score: ${readiness.readinessScore}
@@ -430,27 +460,28 @@ ${readiness ? `- Readiness Score: ${readiness.readinessScore}
 - Modification Mode: ${readiness.modificationMode}
 - Readiness Note: ${readiness.sorenessNotes || 'none'}` : ''}
 
-SESSION STRUCTURE — THREE PHASES ONLY:
+SESSION STRUCTURE â€” THREE PHASES ONLY:
 
-1. RELEASE — Loosen soft tissue surrounding target joints.
+1. RELEASE â€” Loosen soft tissue surrounding target joints.
    Use: Static stretches, dynamic stretches, PNF, passive holds, joint distractions.
    DO NOT include foam rolling or roller-based exercises.
 
-2. ACTIVATION — Build neuromuscular control through the released range.
+2. ACTIVATION â€” Build neuromuscular control through the released range.
    Use: Isometric holds, eccentric loading, CARs, lift-offs, and controlled active mobility.
 
-3. RANGE — Integrate strength and flexibility at end range.
+3. RANGE â€” Integrate strength and flexibility at end range.
    Use: loaded end-range holds, controlled end-range isometrics, active mobility, and simple strength-through-range work.
    This block must include a real strength element. Do not place pure mobility segmentation drills like Cat-Camel in RANGE.
 
 PILLAR WEIGHTING BY GOAL:
-- flexibility  → 50% release, 25% activation, 25% range
-- strength     → 25% release, 50% activation, 25% range
-- balanced     → meaningful release first, then activation and range
-- performance  → 25% release, 25% activation, 50% range
+- flexibility  â†’ 50% release, 25% activation, 25% range
+- strength     â†’ 25% release, 50% activation, 25% range
+- balanced     â†’ meaningful release first, then activation and range
+- performance  â†’ 25% release, 25% activation, 50% range
 
 Create ${exerciseCount} total exercises. Cite REAL peer-reviewed studies (JOSPT, BJSM, JSCR, IJSPT).
-Release phase must contain ONLY stretching — no foam rolling.
+Prioritize the approved exercise pool before inventing new exercise names. Stay close to that movement language and phase logic.
+Release phase must contain ONLY stretching â€” no foam rolling.
 Unless the goal is flexibility, release exercises should default to 1 set each so the session can cover more surrounding structures. Only use 2 sets for release when the goal is flexibility.
 Do not use or mention PAILs or RAILs in this standard routine builder.
 For balanced and flexibility sessions, release must be substantial rather than token. Cover multiple structures around the joint, not just one stretch per region.
