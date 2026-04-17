@@ -7,10 +7,10 @@ import { IconCheckin } from '@/components/Icons'
 import { getAssessmentMedia } from '@/lib/assessment-media'
 import {
   calculateMobilityScreeningScores,
+  getMobilityScreeningAdvice,
   MOBILITY_REGION_META,
   MOBILITY_REGION_ORDER,
   mobilityScreeningTests,
-  SCREENING_RESULT_OPTIONS,
 } from '@/lib/mobility-screening'
 import { createClient } from '@/lib/supabase/client'
 import { getIsPro } from '@/lib/profiles'
@@ -82,6 +82,7 @@ export default function ScreeningClient() {
       })),
     [],
   )
+  const screeningAdvice = scores ? getMobilityScreeningAdvice(scores) : null
 
   useEffect(() => {
     async function loadEligibility() {
@@ -302,7 +303,7 @@ export default function ScreeningClient() {
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2, background: 'var(--border)' }}>
-                  {SCREENING_RESULT_OPTIONS.map((option, index) => {
+                  {test.options.map((option, index) => {
                     const selected = answers[test.id] === option.value
                     const accent = selected ? regionMeta.color : 'var(--silver3)'
                     return (
@@ -399,6 +400,34 @@ export default function ScreeningClient() {
                   )
                 })}
               </div>
+
+              {screeningAdvice && (
+                <div style={{ display: 'grid', gap: 18, marginBottom: 48 }}>
+                  <div style={{ borderLeft: `6px solid ${scoreLabel(scores.overall.pct).color}`, border: '1px solid rgba(255,255,255,0.08)', background: 'var(--black2)', padding: '28px 30px' }}>
+                    <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, letterSpacing: 4, color: 'var(--silver3)', marginBottom: 12, textTransform: UC }}>
+                      What this score means
+                    </p>
+                    <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 'clamp(18px, 4vw, 23px)', color: 'var(--silver2)', lineHeight: 1.8 }}>
+                      {screeningAdvice.overall}
+                    </p>
+                  </div>
+
+                  <div style={{ borderLeft: `6px solid ${MOBILITY_REGION_META[screeningAdvice.weakestRegion].color}`, border: '1px solid rgba(255,255,255,0.08)', background: 'var(--black2)', padding: '28px 30px' }}>
+                    <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, letterSpacing: 4, color: MOBILITY_REGION_META[screeningAdvice.weakestRegion].color, marginBottom: 12, textTransform: UC }}>
+                      Main focus
+                    </p>
+                    <p style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 'clamp(20px, 4.5vw, 28px)', fontWeight: 700, letterSpacing: 2, color: 'var(--white)', marginBottom: 16 }}>
+                      {screeningAdvice.weakestTitle}
+                    </p>
+                    <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 17, color: 'var(--silver2)', lineHeight: 1.8, marginBottom: 14 }}>
+                      {screeningAdvice.weakestSummary}
+                    </p>
+                    <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 17, color: 'var(--silver)', lineHeight: 1.8 }}>
+                      {screeningAdvice.nextStep}
+                    </p>
+                  </div>
+                </div>
+              )}
 
               <div style={{ background: 'var(--black2)', padding: '40px 36px', marginBottom: 48 }}>
                 <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, letterSpacing: 4, color: 'var(--silver3)', marginBottom: 16, textTransform: UC }}>
