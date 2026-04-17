@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -13,6 +13,7 @@ import {
   IconRoutine,
 } from '@/components/Icons'
 import { createClient } from '@/lib/supabase/client'
+import { calculateMobilityScreeningScores } from '@/lib/mobility-screening'
 import { getIsPro } from '@/lib/profiles'
 import { readStoredScreening } from '@/lib/screening-storage'
 
@@ -98,31 +99,6 @@ function getAssessmentDate(entry: { assessed_at?: string | null; created_at?: st
   return entry?.assessed_at || entry?.created_at || null
 }
 
-function calcScreeningScoresFromResponses(responses: Record<string, number> | null | undefined) {
-  const safe = responses || {}
-  const regions = {
-    hips: ['hip_flexion', 'hip_rotation', 'hip_stiffness'],
-    shoulders: ['shoulder_overhead', 'shoulder_rotation', 'shoulder_stability'],
-    spine: ['thoracic_rotation', 'lumbar_flexion', 'spine_pain'],
-  } as const
-
-  const scoreFor = (keys: readonly string[]) => {
-    const raw = keys.reduce((sum, key) => sum + (safe[key] ?? 0), 0)
-    return Math.round((raw / (keys.length * 3)) * 100)
-  }
-
-  const hip = scoreFor(regions.hips)
-  const shoulder = scoreFor(regions.shoulders)
-  const spine = scoreFor(regions.spine)
-
-  return {
-    hip_score: hip,
-    shoulder_score: shoulder,
-    spine_score: spine,
-    overall_score: Math.round((hip + shoulder + spine) / 3),
-  }
-}
-
 function getPreviewModeFromLocation() {
   if (typeof window === 'undefined') {
     return null
@@ -188,10 +164,13 @@ export default function DashboardPage() {
       }
 
       if (screening) {
-        const scores = calcScreeningScoresFromResponses(screening.responses as Record<string, number> | undefined)
+        const scores = calculateMobilityScreeningScores((screening.responses as Record<string, number> | undefined) || {})
         setLatestScreening({
           id: screening.id,
-          ...scores,
+          overall_score: scores.overall.pct,
+          hip_score: scores.hips.pct,
+          shoulder_score: scores.shoulders.pct,
+          spine_score: scores.spine.pct,
           created_at: screening.created_at || null,
           completed_at: screening.completed_at || null,
         })
@@ -683,7 +662,7 @@ export default function DashboardPage() {
                                     fontWeight: 700,
                                   }}
                                 >
-                                  {item.done ? '✓' : '·'}
+                                  {item.done ? 'OK' : '...'}
                                 </span>
                                 <span style={{ display: 'flex', marginTop: 1, opacity: item.done ? 1 : 0.65 }}>
                                   <item.Icon size={16} color={item.done ? '#43d17a' : 'var(--silver3)'} />

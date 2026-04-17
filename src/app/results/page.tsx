@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -16,6 +16,7 @@ import {
   IconSpine,
   IconSquat,
 } from '@/components/Icons'
+import { calculateMobilityScreeningScores } from '@/lib/mobility-screening'
 import { createClient } from '@/lib/supabase/client'
 import { getIsPro } from '@/lib/profiles'
 import { readStoredScreening } from '@/lib/screening-storage'
@@ -62,31 +63,6 @@ function formatDate(dateStr: string) {
 
 function getAssessmentDate(entry: { assessed_at?: string | null; created_at?: string | null }) {
   return entry.assessed_at || entry.created_at || new Date().toISOString()
-}
-
-function calcScreeningScoresFromResponses(responses: Record<string, number> | null | undefined) {
-  const safe = responses || {}
-  const groups = {
-    hips: ['hip_flexion', 'hip_rotation', 'hip_stiffness'],
-    shoulders: ['shoulder_overhead', 'shoulder_rotation', 'shoulder_stability'],
-    spine: ['thoracic_rotation', 'lumbar_flexion', 'spine_pain'],
-  } as const
-
-  const scoreFor = (keys: readonly string[]) => {
-    const raw = keys.reduce((sum, key) => sum + (safe[key] ?? 0), 0)
-    return Math.round((raw / (keys.length * 3)) * 100)
-  }
-
-  const hip_score = scoreFor(groups.hips)
-  const shoulder_score = scoreFor(groups.shoulders)
-  const spine_score = scoreFor(groups.spine)
-
-  return {
-    hip_score,
-    shoulder_score,
-    spine_score,
-    overall_score: Math.round((hip_score + shoulder_score + spine_score) / 3),
-  }
 }
 
 function getScreeningDate(entry: ScreeningResult) {
@@ -169,12 +145,18 @@ export default function ResultsPage() {
       ])
 
       setScreeningHistory(
-        (screening || []).map((item: { id: string; responses?: Record<string, number>; created_at?: string | null; completed_at?: string | null }) => ({
-          id: item.id,
-          ...calcScreeningScoresFromResponses(item.responses),
-          created_at: item.created_at || null,
-          completed_at: item.completed_at || null,
-        }))
+        (screening || []).map((item: { id: string; responses?: Record<string, number>; created_at?: string | null; completed_at?: string | null }) => {
+          const scores = calculateMobilityScreeningScores(item.responses || {})
+          return {
+            id: item.id,
+            overall_score: scores.overall.pct,
+            hip_score: scores.hips.pct,
+            shoulder_score: scores.shoulders.pct,
+            spine_score: scores.spine.pct,
+            created_at: item.created_at || null,
+            completed_at: item.completed_at || null,
+          }
+        })
       )
       if ((!screening || screening.length === 0)) {
         const localSnapshot = readStoredScreening()
