@@ -268,7 +268,25 @@ export default function DashboardPage() {
       href: '/quiz',
     },
   ]
-  const basicProcessComplete = basicChecklist.every((item) => item.done)
+  const showBasicProcess = !effectiveIsPro && !hasScreening
+  const basicCoreActions = [
+    ...(canRetakeScreening
+      ? [{
+          title: 'MOBILITY SCORE',
+          sub: latestScreening
+            ? `Latest score ${latestScreening.overall_score}%${latestScreeningDate ? ` / ${formatDate(latestScreeningDate)}` : ''}`
+            : 'Review or retake your mobility baseline',
+          href: '/screening',
+          Icon: IconScreening,
+        }]
+      : []),
+    {
+      title: 'CREATE YOUR OWN WORKOUT',
+      sub: 'Build a new sport relevant or general mobility session.',
+      href: '/quiz',
+      Icon: IconRoutine,
+    },
+  ]
   const railStats = [
     { val: stats.totalSessions, label: 'Sessions Done' },
     { val: stats.totalMinutes, label: 'Minutes Moved' },
@@ -488,7 +506,7 @@ export default function DashboardPage() {
                   </div>
                 )}
               </div>
-              ) : !basicProcessComplete ? (
+              ) : showBasicProcess ? (
                 <div style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(8,10,14,0.98) 100%)', border: '1px solid rgba(255,255,255,0.08)', padding: '24px 26px' }}>
                   <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 26, fontWeight: 700, letterSpacing: 3, color: 'var(--white)', marginBottom: 18 }}>
                     YOUR PROCESS
@@ -557,22 +575,7 @@ export default function DashboardPage() {
                     KEEP MOVING
                   </div>
                   <div style={{ display: 'grid', gap: 12 }}>
-                    {[
-                      {
-                        title: 'MOBILITY SCORE',
-                        sub: latestScreening
-                          ? `Latest score ${latestScreening.overall_score}%${latestScreeningDate ? ` / ${formatDate(latestScreeningDate)}` : ''}`
-                          : 'Review or retake your mobility baseline',
-                        href: '/screening',
-                        Icon: IconScreening,
-                      },
-                      {
-                        title: 'CREATE YOUR OWN WORKOUT',
-                        sub: 'Build a new sport relevant or general mobility session.',
-                        href: '/quiz',
-                        Icon: IconRoutine,
-                      },
-                    ].map((action) => (
+                    {basicCoreActions.map((action) => (
                       <button
                         key={action.title}
                         onClick={() => router.push(action.href)}
