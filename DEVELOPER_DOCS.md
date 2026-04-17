@@ -1,482 +1,611 @@
-﻿# Move & Groove v2 - Developer Documentation
+# Move & Groove v2 - Developer Docs
 
-> Last updated: April 8, 2026
+> Last updated: April 17, 2026
 > Repo: https://github.com/marcomastrorocco/move-and-groove-v2
-> Branch: `main`
-> Status: working MVP with live routine generation, restored auth flow, guided dashboard onboarding, and local screening schema compatibility fixes
+> Primary branch: `main`
+> Hosting: Vercel
+> App type: Next.js athlete mobility platform with Supabase auth/data and Anthropic-powered routine generation
+> Current focus: ship a strong Basic-tier beta first, then layer Premium back in carefully
 
 ---
 
-## 1. Project Overview
+## Overview
 
-Move & Groove is a Next.js mobility app for athletes. The product currently combines:
+Move & Groove is a mobility and readiness app for athletes. The product currently combines:
 
-- AI-generated mobility routines
+- guided onboarding
 - mobility screening
-- movement battery testing
-- readiness and session check-ins
-- saved routines and results history
-- recovery sessions
-- basic programs/calendar views
-- subscription-gated flows for Basic vs Premium
+- premium movement battery testing
+- AI-generated routines
+- session check-ins
+- results/profile views
+- saved routine/program surfaces
+- early premium planning flows
 
-The UI direction is dark, editorial, and sport-focused, using inline styles, strong typography, and a shared custom SVG icon system.
-
----
-
-## 2. Current Product Status
-
-### Working now
-
-- Email auth flow is usable again
-- Sign-in works
-- Dashboard loads
-- Password visibility toggle exists on auth page
-- Resend confirmation support exists on auth page
-- Password reset flow was stabilized enough to get back into the app
-- Live Anthropic routine generation works again on Vercel
-- Mobility screening runs locally against the current Supabase schema
-- Movement battery page works locally
-- Results page works using questionnaire-derived screening history
-- Guided dashboard flow now exists
-- Local dashboard preview supports Basic vs Full/Premium views
-
-### Implemented recently in this batch
-
-- Guided first-user dashboard instead of a wall of options
-- Shared first step for all users: mobility screening
-- Screening retake window messaging for once every 30 days
-- Basic path guidance after screening
-- Premium path guidance after screening into movement battery
-- Previous mobility score access from dashboard/results
-- Metallic headline treatment and stronger hover states on dashboard cards
-- Screening save flow hardened for mismatched Supabase schema
-- Screening/result reads shifted to `screening_questionnaires` as the source of truth for mobility region scores
-- Dashboard preview mode via querystring for Basic vs Premium comparison
-
-### Still incomplete / future work
-
-- 4 / 8 / 12 week program setup flow
-- true random daily routine mode as a productized option
-- real scheduled workout calendar persistence
-- 30-minute email reminders before workouts
-- deeper readiness pain logic that asks *where* the problem is
-- automatic session-end follow-up that influences next-day recovery or modifications
-- fully normalized and documented Supabase schema for screening summary tables
+The current visual direction is dark, editorial, metallic, and sport-focused, with inline React styles plus a custom icon set.
 
 ---
 
-## 3. Tech Stack
+## Current Product Direction
 
-| Layer | Technology |
-|---|---|
-| Framework | Next.js 16.2.1 App Router |
-| Language | TypeScript |
-| UI | React 19 |
-| Styling | Inline styles + `globals.css` tokens/utilities |
-| Auth + DB | Supabase |
-| AI | Anthropic SDK |
-| Hosting | Vercel |
-| Local dev | `next dev` / Turbopack |
-| Linting | ESLint 9 |
+The most important product decision right now is:
 
----
+- nail the Basic tier first
 
-## 4. High-Level Architecture
+That means:
 
-```text
-Browser
-  -> Next.js App Router pages
-    -> Supabase browser client for auth + user data
-    -> API routes for server-side generation
+- Basic must feel complete on its own
+- Basic should not feel like a broken Premium preview
+- the dashboard should be compact, clear, and onboarding-first
+- Premium should be visible, but secondary
+- selected testers should be able to try a clean Basic beta before subscription rollout
 
-Core flows
-  Auth
-    -> Supabase Auth
-    -> profiles.is_pro check
+Recent direction changes that reflect that:
 
-  Quiz / Recovery
-    -> POST /api/routines/generate
-    -> Anthropic
-    -> save routines + routine_items
-
-  Screening
-    -> calculate region scores client-side
-    -> save raw questionnaire responses to screening_questionnaires
-    -> optionally save minimal summary row to screening_results
-    -> dashboard/results derive mobility profile from questionnaire responses
-
-  Battery
-    -> score tests client-side
-    -> save test_results
-
-  Programs / Session start
-    -> readiness questions
-    -> save readiness_logs
-    -> route to quiz
-```
-
-Important current note:
-
-- The app originally assumed a richer `screening_results` schema with columns like `assessed_at`, `raw_scores`, and region scores.
-- The real Supabase schema in this project does not currently match those assumptions.
-- The current code now treats `screening_questionnaires` as the reliable source for screening history and derives the score summary from stored responses.
+- the Basic dashboard now uses a full black background
+- the Basic dashboard is more compact and process-first
+- bulky duplicate Basic panels were removed
+- the right rail is slimmer and profile/stats-focused
+- Premium messaging is now framed more as `coming soon` than as constant clutter
+- Basic results should not push movement-battery actions unless that battery data is actually relevant
 
 ---
 
-## 5. Directory Structure
+## What Works Now
 
-```text
-move-and-groove-v2/
-|-- DEVELOPER_DOCS.md
-|-- DEVELOPER_DOCS.rtf
-|-- package.json
-|-- next.config.ts
-|-- tsconfig.json
-|-- src/
-|   |-- app/
-|   |   |-- page.tsx
-|   |   |-- auth/
-|   |   |   |-- page.tsx
-|   |   |   `-- reset/page.tsx
-|   |   |-- dashboard/page.tsx
-|   |   |-- quiz/page.tsx
-|   |   |-- routine/page.tsx
-|   |   |-- screening/page.tsx
-|   |   |-- battery/page.tsx
-|   |   |-- results/page.tsx
-|   |   |-- readiness/page.tsx
-|   |   |-- session-checkin/page.tsx
-|   |   |-- recovery/page.tsx
-|   |   |-- programs/page.tsx
-|   |   |-- upgrade/page.tsx
-|   |   `-- api/
-|   |       |-- progress/route.ts
-|   |       `-- routines/
-|   |           |-- generate/route.ts
-|   |           `-- [id]/route.ts
-|   |-- components/
-|   |   |-- Header.tsx
-|   |   |-- Icons.tsx
-|   |   `-- ProGate.tsx
-|   `-- lib/
-|       |-- profiles.ts
-|       |-- readiness.ts
-|       `-- supabase/client.ts
-`-- public/
-```
+- auth is working again
+- dashboard access works
+- sign-in / sign-up / resend confirmation / reset are usable
+- live routine generation works in production again
+- mobility screening now uses 6 simplified at-home self-assessments
+- screening score can still appear through a device-local fallback
+- screening images are now local app assets instead of generic stock placeholders
+- results page works for screening
+- Basic dashboard is visually much cleaner and more compact
+- Premium battery no longer repeats the mobility baseline as closely as before
+- routine generation has a fallback routine path if the AI request is slow/unavailable
+- routine generation is now biased toward a curated internal exercise library built from real gym programming
+- balanced routines now have a phase-coverage guardrail so they cannot collapse into weak one-phase outputs
 
 ---
 
-## 6. Main Routes and Current Purpose
+## Deployed State on `main`
 
-| Route | Purpose | Current status |
-|---|---|---|
-| `/` | landing page and auth recovery handoff | built |
-| `/auth` | sign in, sign up, resend confirmation, forgot password | working |
-| `/auth/reset` | reset password after email recovery | working well enough for local use |
-| `/dashboard` | guided user hub and next-step logic | recently refactored |
-| `/quiz` | routine builder | working |
-| `/routine` | generated routine viewer | working |
-| `/screening` | mobility screening | working locally after schema compatibility fixes |
-| `/battery` | movement battery | working |
-| `/results` | screening and battery history view | now derives screening history from questionnaires |
-| `/readiness` | standalone readiness page | present |
-| `/session-checkin` | pre / post session check-in | present |
-| `/recovery` | recovery session flow | working |
-| `/programs` | basic weekly calendar / block view | present but not fully productized |
-| `/upgrade` | upgrade / Pro upsell | working |
+The currently deployed app includes these important fixes:
+
+### Screening save/score workaround
+
+The real Supabase schema does not match the older assumptions used by the codebase.
+
+Missing/unsafe assumptions that were causing live failures:
+
+- `screening_questionnaires.completed_at`
+- `screening_questionnaires.responses`
+
+Current safe workaround:
+
+- the screening flow stores a local snapshot in browser storage
+- dashboard/results can read that local snapshot
+- the score can still be shown to the user on that device/browser
+- screening queries now use `created_at` instead of `completed_at`
+
+Important limitation:
+
+- this is a beta workaround, not the final durable screening persistence model
+- until schema alignment is done, screening score persistence is not fully cloud-backed in the intended way
+
+### Routine generation hardening
+
+The generator now behaves better when Anthropic is slow or unavailable:
+
+- client-side generation request times out instead of spinning forever
+- server-side generation has a built-in fallback routine library
+- if Anthropic errors or times out, the API still returns a usable routine
+
+### Curated routine quality layer
+
+The app now has a curated internal exercise library in:
+
+- `src/lib/curated-mobility.ts`
+
+That library is built from real gym programming and groups exercises by:
+
+- `hips`
+- `shoulders`
+- `spine`
+
+Then by:
+
+- `release`
+- `activation`
+- `range`
+
+Current generation behavior:
+
+- fallback routines now draw from this curated library instead of generic defaults
+- the Anthropic prompt is given an approved exercise pool and told to stay close to that movement language
+- if AI returns a weak balanced routine, the app rejects it and returns a properly phased curated fallback routine instead
+
+### Basic results cleanup
+
+Basic users should not be prompted to retake a Premium-only movement battery unnecessarily.
+
+Current behavior:
+
+- Basic results focus on mobility score language
+- battery CTAs are only shown when battery is actually relevant or available
+
+### Basic dashboard premium teaser
+
+Basic now keeps Premium lighter:
+
+- instead of a heavy upgrade push, the dashboard shows a compact `Premium coming soon` teaser
+- clicking it expands a small explanation of what Premium is expected to include
 
 ---
 
-## 7. API Routes
+## Current Basic Path
 
-### `POST /api/routines/generate`
-File: `src/app/api/routines/generate/route.ts`
+The intended Basic flow is:
 
-Responsibilities:
+1. user lands on the dashboard
+2. completes mobility screening
+3. chooses a goal / sport or body-area focus
+4. generates a workout
+5. views mobility score/results
+6. continues using the app through the compact dashboard actions
 
-- accepts quiz/recovery inputs
-- builds the Anthropic prompt
-- calls Anthropic
-- parses structured output
-- saves routines and routine items to Supabase
-- returns routine payload to the client
+Once onboarding is complete:
 
-Recent stability work:
+- the dashboard should stop emphasizing the initial 3-step process
+- it should instead surface the ongoing core actions:
+  - `Mobility Score`
+  - `Create Your Own Workout`
 
-- Anthropic key usage is sanitized before client creation
-- live Vercel generation has been verified working again
-- temporary diagnostics used during the key-fix process were already removed
+Basic should stay intentionally limited:
 
-### Placeholder routes
-
-- `src/app/api/progress/route.ts`
-- `src/app/api/routines/[id]/route.ts`
-
-These still exist only as placeholder `501`-style modules / stubs and are not real product endpoints yet.
+- no movement battery
+- no heavy routine-library emphasis
+- no confusing Premium-only dead ends
 
 ---
 
-## 8. Current Supabase Tables the App Depends On
+## Current Premium Path
 
-### Auth / profile
+The intended Premium flow is still:
+
+1. user completes mobility screening
+2. user completes movement battery
+3. user gets access to deeper planning/program direction
+
+Premium is not the primary polish target right now.
+
+Still true:
+
+- Premium battery should measure movement quality
+- it should not just repeat the mobility baseline
+
+---
+
+## Current UX Notes
+
+### Dashboard
+
+Basic dashboard has been heavily refactored.
+
+Current intended structure:
+
+- main area:
+  - compact onboarding/process actions
+  - then ongoing core actions after onboarding is complete
+- side/profile rail:
+  - mobility scores
+  - sessions done
+  - total minutes moved
+- bottom strip:
+  - Premium teaser / coming soon
+
+Key recent decisions:
+
+- less clutter is better
+- dead space is bad
+- giant side columns are bad
+- big duplicate `account tier` cards are unnecessary for Basic
+- the process needs to be obvious
+- checklist state should only tick when real data exists
+
+### Results
+
+For Basic:
+
+- the page should primarily feel like a mobility score/profile page
+- it should not aggressively advertise the Premium movement battery
+
+### Mobile
+
+Mobile hardening has started, but not every page is fully polished yet.
+
+Known reality:
+
+- dashboard improved significantly
+- other pages still need continued screen-by-screen mobile refinement
+
+---
+
+## Main Routes
+
+### Public / auth
+
+- `/`
+  - landing page
+- `/auth`
+  - sign in / sign up / resend confirmation
+- `/auth/reset`
+  - password reset flow
+
+### Core app
+
+- `/dashboard`
+  - Basic-first guided dashboard
+- `/screening`
+  - mobility baseline screen
+- `/battery`
+  - Premium movement battery
+- `/quiz`
+  - routine builder
+- `/routine`
+  - generated routine view
+- `/results`
+  - score/profile results
+- `/session-checkin`
+  - pre/post session check-in
+- `/recovery`
+  - recovery routine flow
+- `/programs`
+  - premium planning/program surface
+- `/upgrade`
+  - premium upsell surface
+
+---
+
+## Key Files
+
+### Core pages
+
+- `src/app/dashboard/page.tsx`
+- `src/app/screening/page.tsx`
+- `src/app/screening/ScreeningClient.tsx`
+- `src/app/quiz/page.tsx`
+- `src/app/routine/page.tsx`
+- `src/app/results/page.tsx`
+- `src/app/battery/page.tsx`
+- `src/app/programs/page.tsx`
+- `src/app/session-checkin/page.tsx`
+
+### Core components
+
+- `src/components/Header.tsx`
+- `src/components/Icons.tsx`
+- `src/components/ProGate.tsx`
+- `src/components/PreSessionReadinessModal.tsx`
+
+### Shared logic
+
+- `src/lib/profiles.ts`
+- `src/lib/readiness.ts`
+- `src/lib/session-flow.ts`
+- `src/lib/supabase/client.ts`
+- `src/lib/screening-storage.ts`
+- `src/lib/mobility-screening.ts`
+- `src/lib/assessment-media.ts`
+- `src/lib/curated-mobility.ts`
+
+### API
+
+- `src/app/api/routines/generate/route.ts`
+
+---
+
+## Current Data Reality
+
+### Tables the app uses
 
 - `profiles`
-  - `id`
-  - `is_pro`
-  - `created_at`
-
-### Routines
-
+- `progress`
 - `routines`
 - `routine_items`
-
-### Assessments / logs
-
 - `screening_questionnaires`
 - `screening_results`
 - `test_results`
 - `readiness_logs`
-- `progress`
 
-### Planning / future-facing tables seen in earlier project notes
+### Important schema truth
 
-- `programmes`
-- `programme_sessions`
-- `videos`
+The app was originally built as if screening-related tables had richer columns than the real Supabase project actually exposes.
 
-Important schema caveat:
+The most important practical truth right now is:
 
-- The existing codebase was originally written as if `screening_results` contained richer summary columns.
-- Actual runtime testing showed missing columns such as:
-  - `assessed_at`
-  - `raw_scores`
-  - `spine_score`
-- The current implementation now avoids relying on those missing columns for the user-facing mobility history.
+- do not assume `screening_questionnaires` contains `completed_at` or `responses` in production-safe form
+- do not assume `screening_results` is a reliable rich summary table
+
+Current safe behavior is a workaround, not the final architecture.
 
 ---
 
-## 9. Current Business Logic
+## Screening Flow
 
-### Mobility screening
+Current intent:
 
-- 11 questions across general activity/pain plus hips, shoulders, and spine
-- screening percentages are calculated client-side
-- raw responses are stored in `screening_questionnaires`
-- the dashboard/results derive region scores from those stored answers
-- user is intended to retake only once every 30 days
+- screening is the shared first assessment for everyone
+- it creates the mobility baseline
+- it should drive the next best step
 
-### Subscription pathing
+Current implementation reality:
 
-Current intended UX:
+- scores are calculated client-side
+- screening completion can write a local snapshot to browser storage
+- dashboard/results can fall back to that local snapshot
+- the screening now uses 6 tests grouped by region:
+  - `Shoulders`
+    - `Back scratch test`
+    - `Wall angel`
+  - `Hips`
+    - `Single leg balance squat`
+    - `Seated hip rotation`
+  - `Spine`
+    - `Quadruped T rotation`
+    - `Toe touch`
+- each screening test now has movement-specific answer options
+- the score screen now explains:
+  - what the overall score means
+  - which region is the main priority
+  - what to focus on in the next routine phase
 
-- All users start with mobility screening
-- Basic users then go to sport-specific or body-part routine choice
-- Premium users go from screening to movement battery
-- After premium battery, users move into daily routine or programs/calendar flow
+This means:
 
-### Readiness / session logic
+- screening can still function for beta users on the same device/browser
+- cross-device durable history is not yet fully solved in the intended final way
+
+Files involved:
+
+- `src/app/screening/page.tsx`
+- `src/app/screening/ScreeningClient.tsx`
+- `src/app/dashboard/page.tsx`
+- `src/app/results/page.tsx`
+- `src/lib/mobility-screening.ts`
+- `src/lib/assessment-media.ts`
+- `src/lib/screening-storage.ts`
+
+---
+
+## Assessment Media
+
+Assessment media is centralized in:
+
+- `src/lib/assessment-media.ts`
 
 Current state:
 
-- readiness exists and can be saved before a session
-- session check-in exists pre and post session
-- however, pain handling is still too shallow for real intelligent workout modification
-
-Known product gap:
-
-- If a user reports pain, the app still does not ask *where* the pain is
-- This means AI cannot safely or accurately adapt the workout around the painful region yet
-
-### Programs
-
-Current state:
-
-- programs page derives a weekly calendar and block summary from routine history
-- it is not yet a true scheduled programming engine
-
-Not built yet:
-
-- plan length selection (`4 / 8 / 12 weeks`)
-- scheduled workout persistence
-- reminder orchestration
-- auto-populated calendar from a selected plan
+- the 6 screening tests now use local still images in `public/movement-tests`
+- screening no longer depends on generic stock test visuals
+- current image paths:
+  - `public/movement-tests/shoulder-back-scratch.webp`
+  - `public/movement-tests/shoulder-wall-angel.jpg`
+  - `public/movement-tests/hip-single-leg-squat.jpg`
+  - `public/movement-tests/hip-seated-rotation.jpg`
+  - `public/movement-tests/spine-quadruped-t-rotation.jpg`
+  - `public/movement-tests/spine-toe-touch.webp`
 
 ---
 
-## 10. Dashboard Refactor Summary
+## Routine Generation
 
-The dashboard was recently changed substantially.
+Route:
 
-### Before
+- `src/app/api/routines/generate/route.ts`
 
-- users landed on a broad grid of options immediately
-- it was unclear where to start
+Current behavior:
 
-### Now
+- quiz sends generation request to the API route
+- route attempts Anthropic generation
+- if the AI request is unavailable/slow, the route can now return a fallback routine
 
-The dashboard decides the best next step from:
+Important beta benefit:
 
-- whether screening exists
-- whether battery exists
-- whether the user is Basic or Premium
-- whether routines already exist
+- users are less likely to get stuck waiting forever with no workout
 
-It now emphasizes:
+Client hardening:
 
-- one guided hero action
-- saved mobility score access
-- battery status
-- cleaner progression language
-- stronger hover styling
-- metallic headline styling
+- quiz page times out the request on the frontend if it hangs too long
 
-### Preview mode
+Server hardening:
 
-The dashboard now supports local preview switching via query string:
+- the API route contains fallback structure split across:
+  - release
+  - activation
+  - range
+- fallback generation now uses the curated library
+- AI is biased toward the same approved exercise pool
+- balanced routine guardrails reject weak AI outputs and fall back to curated structure
 
-- `?preview=basic`
-- `?preview=pro`
+Current limitation:
 
-This is currently a local UI preview aid and does not change real subscription state.
-
----
-
-## 11. Auth / Deployment Status
-
-### Auth
-
-Currently true:
-
-- sign-in works
-- dashboard access works
-- password visibility toggles exist
-- resend confirmation flow exists
-- reset flow was stabilized enough to get back into the app
-
-### Anthropic / deployment
-
-Currently true:
-
-- Vercel production was failing with `401 invalid x-api-key`
-- the route was hardened to sanitize env input
-- the issue was narrowed down and resolved
-- live routine generation now works again
-
-### Local development
-
-Current local dev URL when the correct repo is running:
-
-- `http://localhost:3001`
-
-Reason:
-
-- another process is occupying port `3000`
-
-Useful local URLs right now:
-
-- `http://localhost:3001/dashboard`
-- `http://localhost:3001/dashboard?preview=basic`
-- `http://localhost:3001/dashboard?preview=pro`
-- `http://localhost:3001/screening`
+- AI routine quality still needs iterative QA even with the curated library and guardrails
+- the curated library still needs manual cleanup of duplicates and mis-bucketed drills
 
 ---
 
-## 12. Current Known Issues / Next Priorities
+## Exercise Video Plan
 
-### Highest-priority product issue
+Current product decision:
 
-Improve pre-session readiness depth.
+- exercise videos will be uploaded to an unlisted YouTube channel first
 
-Reason:
+Why:
 
-- current pain question is too generic
-- if pain is reported, the app still does not know which region is affected
-- workout modification cannot be smart without area-specific context
+- quicker than building full video hosting now
+- lighter than shipping large assets in app/repo
+- easier to manage for beta
 
-What should be added next:
+Recommended implementation pattern:
 
-- conditional pain follow-up questions
-- painful area selection
-- severity and type of pain
-- whether the user wants lighter work / avoidance / recovery-only
-- pass this structured context into generation
+- app-side curated mapping from exercise name -> YouTube video id/url
+- do not rely on a raw YouTube channel feed as the source of truth
 
-### Calendar / programming work still needed
+Current local-only work exists for:
 
-1. Add a real plan setup flow
-   - 4 weeks
-   - 8 weeks
-   - 12 weeks
-   - random daily routine
+- `src/lib/exercise-videos.ts`
 
-2. Add a schedule data model
+Assessment tests currently use still images rather than exercise demo videos.
+
+---
+
+## Programs / Premium Planning
+
+Programs/planning is still not truly built.
+
+Current truth:
+
+- there is a planning surface
+- there is premium/path language around:
+  - random workout
+  - planned block
+  - 4 / 8 / 12 week framing
+
+But this is still not true durable programming yet.
+
+Not yet built:
+
+- persisted program model
+- scheduled workout records
+- real calendar-backed workout instances
+- reminder emails
+
+---
+
+## Current Known Limitations
+
+- screening persistence is still using a beta workaround
+- true cloud-safe screening history still needs schema alignment
+- mobile refinement is incomplete outside the most improved screens
+- Premium programming is still more surface than system
+- exercise videos are not fully integrated yet
+- AI routine quality still needs iterative QA even with the curated library and guardrails
+- deeper readiness-driven workout modification is still not fully mature
+- the curated exercise library still needs more manual cleanup:
+  - duplicates
+  - misclassified drills
+  - bucket cleanup by `hips / shoulders / spine`
+  - bucket cleanup by `release / activation / range`
+
+---
+
+## Current Local State
+
+At the time of this doc update:
+
+- `CLAUDE_RECAP.md` and this doc are local until committed
+- local noise files may exist such as:
+  - `DEVELOPER_DOCS.rtf`
+  - `dev-server.err.log`
+  - `dev-server.out.log`
+
+Do not assume those are meaningful app artifacts.
+
+---
+
+## Recent Important Commits
+
+Recent commits on `main` include:
+
+- `3d780dd` `feat: bias routines toward curated mobility library`
+- `14474e1` `fix: enforce balanced routine phase coverage`
+- `45a86a6` `feat: personalize screening answers and feedback`
+- `3089a64` `fix: simplify screening test responses`
+- `1283460` `feat: add screening test images`
+- `e2b6c8d` `feat: replace screening with 6 self-assessment tests`
+
+What those recent commits specifically changed:
+
+### `e2b6c8d`
+
+- replaced the old screening questionnaire with the new 6-test self-assessment flow
+
+### `1283460`
+
+- added local still images for the 6 screening tests
+
+### `3089a64`
+
+- simplified screening response UX back toward the older feel
+- removed demo-video CTA and generic pass/flag boxes
+
+### `45a86a6`
+
+- gave each screening test movement-specific answer wording
+- added usable result advice at the end of screening
+
+### `3d780dd`
+
+- created the curated mobility library from real gym programming
+- biased both fallback and AI routine generation toward that pool
+
+### `14474e1`
+
+- added a guardrail so weak `balanced` AI routines are rejected in favor of a properly phased curated fallback
+
+---
+
+## Practical Handoff Advice
+
+If another developer or Claude continues from here, the most important truths are:
+
+1. The app is functioning again at a beta level.
+2. The Basic tier is the priority.
+3. The dashboard has been reshaped to be compact and onboarding-first.
+4. Basic should stay lean and intentional.
+5. Screening persistence is still using a temporary workaround because the live schema does not match earlier assumptions.
+6. Screening media is now local and the test set has been significantly updated.
+7. Routine generation now has both:
+   - a reliability fallback
+   - a curated exercise library
+   - a phase-balance guardrail
+8. Premium should remain secondary until Basic feels rock solid.
+
+---
+
+## Highest-Priority Next Steps
+
+1. Verify the full Basic beta path end-to-end on deployed Vercel:
+   - auth
+   - dashboard
+   - screening
+   - results
+   - quiz
+   - routine
+
+2. Keep cleaning the curated mobility library:
+   - remove duplicates
+   - split wrongly merged drills
+   - correct bucket assignments
+
+3. Continue improving workout quality using real generated examples:
+   - `balanced`
+   - `flexibility`
+   - `sport relevant`
+   - low-readiness cases
+
+4. Align the real Supabase screening schema and remove the temporary local-storage workaround cleanly.
+
+5. Continue screen-by-screen mobile refinement outside the dashboard.
+
+6. Finish the YouTube exercise-video mapping integration.
+
+7. Keep simplifying anything in Basic that still feels like leaked Premium complexity.
+
+8. Only after Basic is solid, return to:
+   - movement battery polish
+   - real 4 / 8 / 12 week programming
    - scheduled workouts
-   - date/time
-   - reminder state
-   - completion state
-
-3. Build calendar population logic
-   - create workout instances from selected plan
-   - persist them
-   - display them consistently
-
-4. Add email reminder system
-   - 30-minute reminder
-   - job/scheduler
-   - delivery tracking
-
-5. Link readiness and post-session feedback to actual scheduled workouts
-
-### Technical cleanup still needed
-
-- formalize the Supabase schema documentation against the real project schema
-- decide whether `screening_results` should remain minimal or be rebuilt to include region summaries properly
-- implement real versions of placeholder API routes if needed
-
----
-
-## 13. Recent Commits Before This Current Uncommitted Batch
-
-Already committed before the current local work:
-
-- `9583b1c` `chore: remove temporary anthropic diagnostics`
-- `0441859` `fix: clean UTF-8 encoding in generate route`
-- `edaa1bb` `chore: add safe anthropic env diagnostics`
-- `5811d43` `fix: sanitize anthropic env usage in generator route`
-- `a4bc650` `fix: restore auth access and stabilize supabase client`
-- `28c1faf` `fix: stabilize auth reset flow and build validation`
-
-Current local batch still needed to commit at the moment this doc was updated:
-
-- guided dashboard onboarding refactor
-- screening schema compatibility fixes
-- results/dashboard sourcing mobility history from questionnaires
-- dashboard subscription preview mode
-
----
-
-## 14. Practical Handoff Notes
-
-If a new developer or Claude continues from here, the most important truths are:
-
-1. The app is usable again.
-2. Auth is working.
-3. Live routine generation is working.
-4. The dashboard has been refactored into a guided onboarding-first experience.
-5. Screening data should currently be treated as questionnaire-driven, not dependent on a rich `screening_results` schema.
-6. The next best product improvement is the deeper pre-session pain/readiness flow.
-7. The next major systems feature after that is true program scheduling/calendar/reminders.
-
----
-
-## 15. Suggested Next Build Order
-
-1. Commit and push the current local dashboard/screening/results batch
-2. Improve pre-session readiness with conditional pain detail
-3. Define the real schedule/program schema
-4. Build 4/8/12-week plan setup flow
-5. Persist scheduled workouts and render them in calendar
-6. Add reminder emails
-7. Revisit subscription-specific polish around Basic vs Premium experience
+   - calendar persistence
+   - reminder emails
