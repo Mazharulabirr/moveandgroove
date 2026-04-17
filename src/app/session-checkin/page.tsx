@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Header from '@/components/Header'
 import { IconBattery, IconCheckin, IconCheckbox, IconFocus, IconMotivation, IconPain, IconReadiness, IconSleep, IconSoreness } from '@/components/Icons'
@@ -143,6 +143,12 @@ export default function SessionCheckinPage() {
   const total = questions.length
   const progress = step === 0 ? 0 : Math.round((step / total) * 100)
   const accentColor = type === 'pre' ? '#00b4d8' : '#4ac8e8'
+
+  useEffect(() => {
+    const routeState = readInitialRouteState()
+    setType(routeState.initialType)
+    setStep(routeState.initialType && routeState.autoStart ? 1 : 0)
+  }, [])
 
   function pick(questionId: string, value: number) {
     setAnswers((prev) => ({ ...prev, [questionId]: value }))
