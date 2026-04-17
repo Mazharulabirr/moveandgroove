@@ -1,4 +1,4 @@
-﻿export type CuratedPillar = 'release' | 'activation' | 'range'
+export type CuratedPillar = 'release' | 'activation' | 'range'
 export type CuratedArea = 'hips' | 'shoulders' | 'spine'
 
 export type CuratedRoutineExerciseTemplate = {
@@ -200,7 +200,17 @@ export const CURATED_ROUTINE_LIBRARY: Record<CuratedArea, Record<CuratedPillar, 
         holdSeconds: null,
         rationale: 'Opens anterior shoulder and chest tissues before activation. It helps free the front of the shoulder before stronger control work.',
         study: 'Page (2012). Current concepts in muscle stretching for exercise and rehabilitation. IJSPT.',
-        aliases: ['Chest slides', 'Pec slides', 'Side slides', 'Forward slides'],
+        aliases: ['Chest slides', 'Pec slides', 'Side slides'],
+      },
+      {
+        name: 'Forward Slides',
+        targetArea: 'shoulders',
+        sets: 1,
+        reps: 6,
+        holdSeconds: null,
+        rationale: 'Opens the lat and cross-body back line while linking shoulder motion to trunk and hip position. It helps free overhead movement through a cross-sling pattern rather than a pec-biased stretch.',
+        study: 'Page (2012). Current concepts in muscle stretching for exercise and rehabilitation. IJSPT.',
+        aliases: ['Forward slides'],
       },
       {
         name: 'Shoulder Dives',
@@ -282,6 +292,26 @@ export const CURATED_ROUTINE_LIBRARY: Record<CuratedArea, Record<CuratedPillar, 
         rationale: 'Strengthens upward-rotation and posterior shoulder support before range work. It helps improve overhead mechanics and scapular support.',
         study: 'Cools et al. (2007). Rehabilitation of scapular muscle balance. BJSM.',
         aliases: ['Standing banded T-V raises', 'Standing banded Ys', 'T raises'],
+      },
+      {
+        name: 'Prone T-Y-I Raises',
+        targetArea: 'shoulders',
+        sets: 2,
+        reps: 8,
+        holdSeconds: null,
+        rationale: 'Builds posterior shoulder endurance and scapular control across multiple arm paths. It helps strengthen the upper back before freer shoulder range work.',
+        study: 'Cools et al. (2007). Rehabilitation of scapular muscle balance. BJSM.',
+        aliases: ['T / Y / I', 'T Y I'],
+      },
+      {
+        name: 'Prone W-Y Raises',
+        targetArea: 'shoulders',
+        sets: 2,
+        reps: 8,
+        holdSeconds: null,
+        rationale: 'Builds scapular retraction and upward-rotation control in positions that carry over well to overhead mechanics. It helps the shoulder stay organized before larger ranges are loaded.',
+        study: 'Cools et al. (2007). Rehabilitation of scapular muscle balance. BJSM.',
+        aliases: ['W-Y', 'WY'],
       },
     ],
     range: [
