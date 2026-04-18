@@ -1,4 +1,4 @@
-# Move & Groove v2 - Developer Docs
+﻿# Move & Groove v2 - Developer Docs
 
 > Last updated: April 17, 2026
 > Repo: https://github.com/marcomastrorocco/move-and-groove-v2
@@ -82,12 +82,22 @@ Missing/unsafe assumptions that were causing live failures:
 - `screening_questionnaires.completed_at`
 - `screening_questionnaires.responses`
 
+Additional live schema reality confirmed from direct Supabase probing:
+
+- `screening_questionnaires.goal` is required
+- `screening_questionnaires.activity_level` is required and is an integer
+- `screening_questionnaires.desk_hours_per_day` is required and is an integer
+- `screening_questionnaires.average_sleep_quality` is required
+
+This confirms `screening_questionnaires` is still the old lifestyle questionnaire table shape, not a clean 6-test mobility assessment table yet.
+
 Current safe workaround:
 
 - the screening flow stores a local snapshot in browser storage
 - dashboard/results can read that local snapshot
 - the score can still be shown to the user on that device/browser
 - screening queries now use `created_at` instead of `completed_at`
+- dashboard/results/screening now ignore legacy `screening_questionnaires` rows unless they actually contain parseable screening answers
 
 Important limitation:
 
@@ -326,6 +336,7 @@ The app was originally built as if screening-related tables had richer columns t
 The most important practical truth right now is:
 
 - do not assume `screening_questionnaires` contains `completed_at` or `responses` in production-safe form
+- do not assume any existing `screening_questionnaires` row is a valid 6-test screening row unless it has parseable answer data
 - do not assume `screening_results` is a reliable rich summary table
 
 Current safe behavior is a workaround, not the final architecture.
@@ -345,6 +356,7 @@ Current implementation reality:
 - scores are calculated client-side
 - screening completion can write a local snapshot to browser storage
 - dashboard/results can fall back to that local snapshot
+- old questionnaire rows are now filtered out so they do not masquerade as valid mobility-screening history
 - the screening now uses 6 tests grouped by region:
   - `Shoulders`
     - `Back scratch test`
@@ -365,6 +377,7 @@ This means:
 
 - screening can still function for beta users on the same device/browser
 - cross-device durable history is not yet fully solved in the intended final way
+- the app is now safer against bad legacy cloud reads, but cloud-backed v2 screening saves still need an additive Supabase schema step
 
 Files involved:
 
@@ -609,3 +622,4 @@ If another developer or Claude continues from here, the most important truths ar
    - scheduled workouts
    - calendar persistence
    - reminder emails
+

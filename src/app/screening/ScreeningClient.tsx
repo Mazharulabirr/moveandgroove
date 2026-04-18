@@ -12,6 +12,7 @@ import {
   MOBILITY_REGION_ORDER,
   mobilityScreeningTests,
 } from '@/lib/mobility-screening'
+import { buildScreeningQuestionnaireInsert, deriveScreeningSnapshot } from '@/lib/screening-cloud-v2'
 import { createClient } from '@/lib/supabase/client'
 import { getIsPro } from '@/lib/profiles'
 import { readStoredScreening, writeStoredScreening } from '@/lib/screening-storage'
@@ -100,7 +101,8 @@ export default function ScreeningClient() {
       ])
 
       const localSnapshot = readStoredScreening()
-      setLatestScreening(latest || (localSnapshot ? {
+      const cloudSnapshot = deriveScreeningSnapshot(latest)
+      setLatestScreening(cloudSnapshot || (localSnapshot ? {
         created_at: localSnapshot.created_at,
         completed_at: null,
         assessed_at: null,
@@ -155,7 +157,21 @@ export default function ScreeningClient() {
       const { data: { session } } = await supabase.auth.getSession()
       const uid = session?.user?.id
       if (uid) {
-        console.warn('[screening] cloud save skipped until live screening schema is aligned')
+        const insertPayload = buildScreeningQuestionnaireInsert(uid, answers)
+        const { data, error } = await supabase
+          .from('screening_questionnaires')
+          .insert(insertPayload)
+          .select('*')
+          .single()
+
+        if (error) {
+          throw error
+        }
+
+        const cloudSnapshot = deriveScreeningSnapshot(data)
+        if (cloudSnapshot) {
+          setLatestScreening(cloudSnapshot)
+        }
       }
       setDone(true)
     } catch (error) {
@@ -166,6 +182,7 @@ export default function ScreeningClient() {
 
       console.error('[screening]', { error, message })
       setSaveError(message)
+      setDone(true)
     }
 
     setSaving(false)

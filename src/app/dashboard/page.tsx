@@ -13,8 +13,8 @@ import {
   IconRoutine,
 } from '@/components/Icons'
 import { createClient } from '@/lib/supabase/client'
-import { calculateMobilityScreeningScores } from '@/lib/mobility-screening'
 import { getIsPro } from '@/lib/profiles'
+import { deriveScreeningSnapshot } from '@/lib/screening-cloud-v2'
 import { readStoredScreening } from '@/lib/screening-storage'
 
 interface Stats {
@@ -163,17 +163,9 @@ export default function DashboardPage() {
         setRoutines(savedRoutines)
       }
 
-      if (screening) {
-        const scores = calculateMobilityScreeningScores((screening.responses as Record<string, number> | undefined) || {})
-        setLatestScreening({
-          id: screening.id,
-          overall_score: scores.overall.pct,
-          hip_score: scores.hips.pct,
-          shoulder_score: scores.shoulders.pct,
-          spine_score: scores.spine.pct,
-          created_at: screening.created_at || null,
-          completed_at: screening.completed_at || null,
-        })
+      const cloudScreening = deriveScreeningSnapshot(screening)
+      if (cloudScreening) {
+        setLatestScreening(cloudScreening)
       } else {
         const localSnapshot = readStoredScreening()
         setLatestScreening(localSnapshot ? {

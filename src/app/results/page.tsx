@@ -16,9 +16,9 @@ import {
   IconSpine,
   IconSquat,
 } from '@/components/Icons'
-import { calculateMobilityScreeningScores } from '@/lib/mobility-screening'
 import { createClient } from '@/lib/supabase/client'
 import { getIsPro } from '@/lib/profiles'
+import { deriveScreeningSnapshot } from '@/lib/screening-cloud-v2'
 import { readStoredScreening } from '@/lib/screening-storage'
 
 const UC = 'uppercase' as const
@@ -144,21 +144,22 @@ export default function ResultsPage() {
         getIsPro(supabase as never, uid),
       ])
 
-      setScreeningHistory(
-        (screening || []).map((item: { id: string; responses?: Record<string, number>; created_at?: string | null; completed_at?: string | null }) => {
-          const scores = calculateMobilityScreeningScores(item.responses || {})
-          return {
-            id: item.id,
-            overall_score: scores.overall.pct,
-            hip_score: scores.hips.pct,
-            shoulder_score: scores.shoulders.pct,
-            spine_score: scores.spine.pct,
-            created_at: item.created_at || null,
-            completed_at: item.completed_at || null,
-          }
-        })
-      )
-      if ((!screening || screening.length === 0)) {
+      const cloudHistory = (screening || [])
+        .map((item) => deriveScreeningSnapshot(item))
+        .filter((item): item is NonNullable<typeof item> => Boolean(item))
+        .map((item) => ({
+          id: item.id,
+          overall_score: item.overall_score,
+          hip_score: item.hip_score,
+          shoulder_score: item.shoulder_score,
+          spine_score: item.spine_score,
+          created_at: item.created_at || null,
+          completed_at: item.completed_at || null,
+        }))
+
+      setScreeningHistory(cloudHistory)
+
+      if (cloudHistory.length === 0) {
         const localSnapshot = readStoredScreening()
         if (localSnapshot) {
           setScreeningHistory([{
@@ -409,4 +410,3 @@ export default function ResultsPage() {
     </div>
   )
 }
-
