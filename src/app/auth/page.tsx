@@ -6,6 +6,8 @@ import { createClient } from '@/lib/supabase/client'
 
 type Tab = 'signin' | 'signup'
 
+const APP_ORIGIN = 'https://move-and-groove-v2.vercel.app'
+
 export default function AuthPage() {
   const router = useRouter()
   const supabase = createClient()
@@ -101,7 +103,7 @@ export default function AuthPage() {
       type: 'signup',
       email,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth`,
+        emailRedirectTo: `${APP_ORIGIN}/auth`,
       },
     })
 
@@ -125,7 +127,7 @@ export default function AuthPage() {
 
     setLoading(true)
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(siEmail, {
-      redirectTo: `${window.location.origin}/auth/reset`,
+      redirectTo: `${APP_ORIGIN}/auth/reset`,
     })
 
     if (resetError) {
