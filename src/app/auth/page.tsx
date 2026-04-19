@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 
 type Tab = 'signin' | 'signup'
 
-const APP_ORIGIN = 'https://move-and-groove-v2.vercel.app'
+const APP_ORIGIN = process.env.NEXT_PUBLIC_SITE_URL || 'https://move-and-groove-v2.vercel.app'
 
 export default function AuthPage() {
   const router = useRouter()
