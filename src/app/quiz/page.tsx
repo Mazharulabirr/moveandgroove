@@ -184,7 +184,7 @@ export default function QuizPage() {
           inset: 0,
           zIndex: 0,
           pointerEvents: 'none',
-          backgroundImage: 'url(https://images.unsplash.com/photo-1574680096145-d05b474e2155?w=1920&q=80&fit=crop&crop=center)',
+          backgroundImage: 'url(/athlete-backgrounds/muaythai-fight.jpg)',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
         }}

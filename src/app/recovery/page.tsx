@@ -76,7 +76,7 @@ export default function RecoveryPage() {
           inset: 0,
           zIndex: 0,
           pointerEvents: 'none',
-          backgroundImage: 'url(https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=1920&q=80)',
+          backgroundImage: 'url(/athlete-backgrounds/athletix-foam-roll.jpg)',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
         }}

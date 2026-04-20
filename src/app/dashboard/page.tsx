@@ -340,8 +340,8 @@ export default function DashboardPage() {
 
   return (
     <>
-      <div style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none', background: '#000000' }}>
-        <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at top, rgba(0,180,216,0.08) 0%, rgba(0,0,0,0) 34%), linear-gradient(to bottom, rgba(3,5,8,0.98) 0%, rgba(0,0,0,1) 100%)' }} />
+      <div style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none', backgroundImage: 'url(/athlete-backgrounds/rugby-team.jpg)', backgroundSize: 'cover', backgroundPosition: 'center' }}>
+        <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at top, rgba(0,180,216,0.08) 0%, rgba(0,0,0,0) 34%), linear-gradient(to bottom, rgba(3,5,8,0.92) 0%, rgba(0,0,0,0.94) 38%, rgba(0,0,0,0.98) 100%)' }} />
       </div>
 
       <Header />

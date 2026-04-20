@@ -409,7 +409,7 @@ export default function RoutinePage() {
 
   return (
     <>
-      <div style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none', backgroundImage: 'url(https://images.unsplash.com/photo-1583454110551-21f2fa2afe61?w=1920&q=80&fit=crop&crop=center)', backgroundSize: 'cover', backgroundPosition: 'center' }}>
+      <div style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none', backgroundImage: 'url(/athlete-backgrounds/bjj-training.jpg)', backgroundSize: 'cover', backgroundPosition: 'center' }}>
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom,rgba(0,0,0,0.85) 0%,rgba(0,0,0,0.75) 50%,rgba(0,0,0,0.95) 100%)' }} />
       </div>
 
