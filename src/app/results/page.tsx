@@ -12,6 +12,7 @@ import {
   IconLunge,
   IconPerformance,
   IconResults,
+  IconRoutine,
   IconShoulders,
   IconSpine,
   IconSquat,
@@ -43,6 +44,16 @@ type BatteryResult = {
   created_at?: string | null
 }
 
+type RoutineSummary = {
+  id: number
+  title: string
+  sport: string | null
+  areas: string[]
+  duration_minutes: number
+  goal: string | null
+  created_at: string
+}
+
 function scoreColor(pct: number) {
   if (pct >= 80) return '#00b4d8'
   if (pct >= 60) return '#4ac8e8'
@@ -67,6 +78,13 @@ function getAssessmentDate(entry: { assessed_at?: string | null; created_at?: st
 
 function getScreeningDate(entry: ScreeningResult) {
   return entry.completed_at || entry.created_at || new Date().toISOString()
+}
+
+function formatRoutineFocus(routine: RoutineSummary) {
+  if (routine.sport) return routine.sport
+  if (routine.areas.length === 1) return routine.areas[0]
+  if (routine.areas.length === 2) return `${routine.areas[0]} + ${routine.areas[1]}`
+  return 'General mobility'
 }
 
 const BATTERY_LABELS: Record<string, string> = {
@@ -126,6 +144,7 @@ export default function ResultsPage() {
   const supabase = createClient()
   const [screeningHistory, setScreeningHistory] = useState<ScreeningResult[]>([])
   const [batteryHistory, setBatteryHistory] = useState<BatteryResult[]>([])
+  const [routineHistory, setRoutineHistory] = useState<RoutineSummary[]>([])
   const [isPro, setIsPro] = useState(false)
   const [loading, setLoading] = useState(true)
 
@@ -138,9 +157,10 @@ export default function ResultsPage() {
       }
       const uid = session.user.id
 
-      const [{ data: screening }, { data: battery }, pro] = await Promise.all([
+      const [{ data: screening }, { data: battery }, { data: routines }, pro] = await Promise.all([
         supabase.from('screening_questionnaires').select('*').eq('user_id', uid).order('created_at', { ascending: false }).limit(10),
         supabase.from('test_results').select('*').eq('user_id', uid).order('created_at', { ascending: false }).limit(10),
+        supabase.from('routines').select('id,title,sport,areas,duration_minutes,goal,created_at').eq('user_id', uid).order('created_at', { ascending: false }).limit(8),
         getIsPro(supabase as never, uid),
       ])
 
@@ -174,6 +194,7 @@ export default function ResultsPage() {
         }
       }
       setBatteryHistory(battery || [])
+      setRoutineHistory(routines || [])
       setIsPro(pro)
       setLoading(false)
     }
@@ -224,7 +245,7 @@ export default function ResultsPage() {
     )
   }
 
-  const hasNoData = !latestScreening && !latestBattery
+  const hasNoData = !latestScreening && !latestBattery && routineHistory.length === 0
   const showBattery = isPro || Boolean(latestBattery)
   const resultsIntro = showBattery
     ? 'Your mobility screening and movement battery scores over time.'
@@ -263,7 +284,7 @@ export default function ResultsPage() {
             </div>
           )}
 
-          {(latestScreening || latestBattery) && (
+          {(latestScreening || latestBattery || routineHistory.length > 0) && (
             <>
               <div className={latestScreening && latestBattery ? 'mg-grid-2' : ''} style={{ display: 'grid', gridTemplateColumns: latestScreening && latestBattery ? undefined : '1fr', gap: 2, background: 'var(--border)', border: '1px solid var(--border)', marginBottom: 2 }}>
                 {latestScreening && (
@@ -346,6 +367,40 @@ export default function ResultsPage() {
                   </div>
                 </>
               )}
+
+              <div style={{ marginBottom: 48 }}>
+                <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 13, letterSpacing: 4, color: 'var(--cyan)', marginBottom: 24, textTransform: UC }}>Saved Workouts</p>
+                <div style={{ background: 'var(--black2)', border: '1px solid var(--border)', padding: '28px 30px' }}>
+                  {routineHistory.length > 0 ? (
+                    <div style={{ display: 'grid', gap: 12 }}>
+                      {routineHistory.map((routine, index) => (
+                        <div key={routine.id} style={{ display: 'grid', gridTemplateColumns: '28px minmax(0,1fr)', gap: 14, alignItems: 'start', paddingBottom: index === routineHistory.length - 1 ? 0 : 12, borderBottom: index === routineHistory.length - 1 ? 'none' : '1px solid rgba(255,255,255,0.08)' }}>
+                          <span style={{ display: 'flex', marginTop: 2 }}>
+                            <IconRoutine size={18} color="var(--cyan)" />
+                          </span>
+                          <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 6 }}>
+                              <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 13, fontWeight: 700, letterSpacing: 2, color: 'var(--white)' }}>
+                                {routine.title}
+                              </div>
+                              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 2, color: 'var(--silver3)', textTransform: UC }}>
+                                {formatDate(routine.created_at)}
+                              </div>
+                            </div>
+                            <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: 'var(--silver2)', lineHeight: 1.65 }}>
+                              {formatRoutineFocus(routine)} · {routine.goal || 'balanced'} · {routine.duration_minutes} min
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 17, color: 'var(--silver2)', lineHeight: 1.7 }}>
+                      Your saved workouts will appear here once you build and save them.
+                    </div>
+                  )}
+                </div>
+              </div>
 
               {(screeningHistory.length > 1 || batteryHistory.length > 1) && (
                 <ProGate

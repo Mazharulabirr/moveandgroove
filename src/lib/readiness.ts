@@ -1,4 +1,5 @@
 ﻿import type { IconName } from '@/components/Icons'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 export type ReadinessQuestion = {
   id: string
@@ -22,6 +23,24 @@ export type ReadinessAdjustmentSnapshot = {
   modificationMode: ReadinessMode
   userMessage: string
   answers: Record<string, number>
+}
+
+export type RoutineReadinessModifiers = {
+  hasTodayCheckin: boolean
+  adjustedDuration: number
+  durationStepsReduced: number
+  effectiveGoal: string
+  reducedTargetAreas: string[]
+  releaseBiasAreas: string[]
+  biasReleaseOverRange: boolean
+  gentlerGoalWeighting: boolean
+  promptGuidance: string[]
+  userMessage: string | null
+}
+
+type ReadinessLogRow = {
+  checked_at?: string | null
+  responses?: Record<string, unknown> | null
 }
 
 export const READINESS_QUESTIONS: ReadinessQuestion[] = [
@@ -89,7 +108,7 @@ export const READINESS_QUESTIONS: ReadinessQuestion[] = [
 
 export function readinessScore(answers: Record<string, number>) {
   const total = Object.values(answers).reduce((sum, value) => sum + value, 0)
-  const max = READINESS_QUESTIONS.length * 4
+  const max = Math.max(Object.keys(answers).length, 1) * 4
   return Math.round((total / max) * 100)
 }
 
@@ -129,6 +148,29 @@ function mapSorenessArea(area: string) {
   if (normalized === 'neck' || normalized === 'upper back' || normalized === 'lower back') return 'spine'
   if (normalized === 'hips' || normalized === 'knees' || normalized === 'ankles') return 'hips'
   return null
+}
+
+function startOfTodayIso() {
+  const now = new Date()
+  now.setHours(0, 0, 0, 0)
+  return now.toISOString()
+}
+
+function asNumber(value: unknown, fallback = 0) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback
+}
+
+function asStringArray(value: unknown) {
+  if (!Array.isArray(value)) return []
+  return value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+}
+
+function reduceDurationOneStep(duration: number) {
+  if (duration <= 15) return 15
+  if (duration <= 20) return 15
+  if (duration <= 30) return 20
+  if (duration <= 45) return 30
+  return Math.max(15, duration - 15)
 }
 
 export function buildReadinessAdjustmentSnapshot({
@@ -178,5 +220,123 @@ export function buildReadinessAdjustmentSnapshot({
     modificationMode,
     userMessage,
     answers,
+  }
+}
+
+export async function readTodayReadinessAdjustmentSnapshot(supabase: SupabaseClient, userId: string) {
+  const { data, error } = await supabase
+    .from('readiness_logs')
+    .select('checked_at,responses')
+    .eq('user_id', userId)
+    .eq('checkin_type', 'pre')
+    .gte('checked_at', startOfTodayIso())
+    .order('checked_at', { ascending: false })
+    .limit(1)
+    .maybeSingle<ReadinessLogRow>()
+
+  if (error) {
+    throw error
+  }
+
+  if (!data?.responses) {
+    return null
+  }
+
+  const responses = data.responses
+  const answers = {
+    sleep: asNumber(responses.sleep, 0),
+    soreness: asNumber(responses.soreness, 0),
+    mood: asNumber(responses.mood, 0),
+  }
+
+  if (!answers.sleep && !answers.soreness && !answers.mood) {
+    return null
+  }
+
+  return buildReadinessAdjustmentSnapshot({
+    answers,
+    sorenessAreas: asStringArray(responses.sorenessAreas),
+    sorenessSeverity: asNumber(responses.sorenessSeverity, 0),
+    sorenessNotes: typeof responses.sorenessNotes === 'string' ? responses.sorenessNotes : '',
+    checkedAt: data.checked_at || new Date().toISOString(),
+  })
+}
+
+export function deriveRoutineReadinessModifiers({
+  readiness,
+  duration,
+  goal,
+}: {
+  readiness: ReadinessAdjustmentSnapshot | null | undefined
+  duration: number
+  goal: string
+}): RoutineReadinessModifiers {
+  if (!readiness) {
+    return {
+      hasTodayCheckin: false,
+      adjustedDuration: duration,
+      durationStepsReduced: 0,
+      effectiveGoal: goal,
+      reducedTargetAreas: [],
+      releaseBiasAreas: [],
+      biasReleaseOverRange: false,
+      gentlerGoalWeighting: false,
+      promptGuidance: [],
+      userMessage: null,
+    }
+  }
+
+  const sleepQuality = readiness.answers.sleep ?? 4
+  const mood = readiness.answers.mood ?? 4
+  const sorenessSeverity = readiness.sorenessSeverity ?? 0
+  const reducedTargetAreas = sorenessSeverity >= 4 ? readiness.restrictedAreas : []
+  const releaseBiasAreas = sorenessSeverity >= 4 ? readiness.restrictedAreas : []
+  const poorSleep = sleepQuality <= 2
+  const lowMood = mood <= 2
+  const needsShorterSession = poorSleep || lowMood
+  const adjustedDuration = needsShorterSession ? reduceDurationOneStep(duration) : duration
+  const biasReleaseOverRange = poorSleep || sorenessSeverity >= 4
+  const gentlerGoalWeighting = lowMood || readiness.modificationMode === 'recovery'
+
+  let effectiveGoal = goal
+  if (gentlerGoalWeighting && (goal === 'performance' || goal === 'strength')) {
+    effectiveGoal = 'balanced'
+  }
+
+  const promptGuidance: string[] = []
+
+  if (sorenessSeverity >= 4 && reducedTargetAreas.length > 0) {
+    promptGuidance.push(
+      `High soreness is present in ${reducedTargetAreas.join(', ')}. Reduce exercises targeting those regions and increase release weighting there before any gentle control work.`,
+    )
+  }
+
+  if (poorSleep) {
+    promptGuidance.push(
+      'Sleep quality is poor today. Reduce the session by one duration step and bias the session more toward release than range-intensive loading.',
+    )
+  }
+
+  if (lowMood) {
+    promptGuidance.push(
+      'Mood is low today. Keep the session shorter, simpler, and gentler rather than aggressive or highly demanding.',
+    )
+  }
+
+  if (promptGuidance.length === 0) {
+    promptGuidance.push('Today’s readiness is solid. Generate the routine normally.')
+  }
+
+  return {
+    hasTodayCheckin: true,
+    adjustedDuration,
+    durationStepsReduced: adjustedDuration === duration ? 0 : 1,
+    effectiveGoal,
+    reducedTargetAreas,
+    releaseBiasAreas,
+    biasReleaseOverRange,
+    gentlerGoalWeighting,
+    promptGuidance,
+    userMessage: readiness.userMessage,
   }
 }

@@ -1,7 +1,12 @@
 ﻿import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
+import { createClient } from '@supabase/supabase-js'
 import { buildApprovedExercisePoolText, CURATED_ROUTINE_LIBRARY } from '@/lib/curated-mobility'
-import type { ReadinessAdjustmentSnapshot } from '@/lib/readiness'
+import {
+  deriveRoutineReadinessModifiers,
+  readTodayReadinessAdjustmentSnapshot,
+  type ReadinessAdjustmentSnapshot,
+} from '@/lib/readiness'
 import { SPORT_PROFILE_MAP } from '@/lib/sports'
 
 function readRequiredEnv(name: string) {
@@ -20,6 +25,11 @@ function readRequiredEnv(name: string) {
 function createAnthropicClient() {
   return new Anthropic({ apiKey: readRequiredEnv('ANTHROPIC_API_KEY') })
 }
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+)
 
 type FoamRollExercise = {
   name: string
@@ -289,6 +299,46 @@ function buildRoutineEvidenceSummary(goal: string, chosenAreas: string[], readin
   return `${goalLead} Covering the ${areaText} this way is more effective than isolated stretching, because the session improves tissue tolerance, motor control, and usable range together.${readinessNote}`
 }
 
+function buildRoutineTitle({
+  mode,
+  sport,
+  chosenAreas,
+  goal,
+}: {
+  mode: 'sport' | 'area'
+  sport: string | null
+  chosenAreas: string[]
+  goal: string
+}) {
+  const sportLabel = sport ? SPORT_PROFILE_MAP[sport]?.label || sport : null
+  const primaryArea = chosenAreas[0] || 'Mobility'
+  const focusLabel =
+    primaryArea === 'hips'
+      ? 'Hip Mobility'
+      : primaryArea === 'shoulders'
+        ? 'Shoulder Activation'
+        : primaryArea === 'spine'
+          ? 'Spine Mobility'
+          : 'Mobility Flow'
+
+  if (mode === 'sport' && sportLabel) {
+    const shortSport = sportLabel.split(' ').slice(0, 2).join(' ')
+    const context = goal === 'performance' ? `${shortSport} Prep` : goal === 'flexibility' ? `${shortSport} Reset` : `${shortSport} Series`
+    return `${focusLabel} — ${context}`
+  }
+
+  const context =
+    goal === 'performance'
+      ? 'Pre-Session'
+      : goal === 'flexibility'
+        ? 'Recovery Session'
+        : goal === 'strength'
+          ? 'Control Series'
+          : 'Daily Session'
+
+  return `${focusLabel} — ${context}`
+}
+
 function resolveTargetAreas(mode: 'sport' | 'area', sport: string | null, areas: string[] | null) {
   if (areas && areas.length > 0) {
     return areas
@@ -309,6 +359,30 @@ function getRoutineAreas(targetAreas: string[], readiness: ReadinessAdjustmentSn
 
   const restricted = new Set(readiness.restrictedAreas)
   const filtered = base.filter((area) => !restricted.has(area))
+  return filtered.length > 0 ? filtered : base
+}
+
+function getAreaCycleForPillar({
+  targetAreas,
+  pillar,
+  reducedTargetAreas,
+  releaseBiasAreas,
+}: {
+  targetAreas: string[]
+  pillar: CuratedPillar
+  reducedTargetAreas: string[]
+  releaseBiasAreas: string[]
+}) {
+  const base = targetAreas.length > 0 ? targetAreas : ['hips', 'shoulders', 'spine']
+  const reduced = new Set(reducedTargetAreas)
+
+  if (pillar === 'release' && releaseBiasAreas.length > 0) {
+    const preferred = [...releaseBiasAreas.filter((area) => base.includes(area))]
+    const remaining = base.filter((area) => !preferred.includes(area))
+    return [...preferred, ...remaining]
+  }
+
+  const filtered = base.filter((area) => !reduced.has(area))
   return filtered.length > 0 ? filtered : base
 }
 
@@ -341,6 +415,8 @@ function buildFallbackRoutine({
   goal,
   prepPhase,
   readiness,
+  reducedTargetAreas = [],
+  releaseBiasAreas = [],
 }: {
   mode: 'sport' | 'area'
   sport: string | null
@@ -349,6 +425,8 @@ function buildFallbackRoutine({
   goal: string
   prepPhase: RoutinePhase | null
   readiness?: ReadinessAdjustmentSnapshot | null
+  reducedTargetAreas?: string[]
+  releaseBiasAreas?: string[]
 }): GeneratedRoutine {
   const pillars: Array<'release' | 'activation' | 'range'> = ['release', 'activation', 'range']
   const exerciseTarget = Math.max(4, Math.min(8, Math.round(duration / 4)))
@@ -366,10 +444,16 @@ function buildFallbackRoutine({
   }))
 
   for (let index = 0; index < exerciseTarget; index += 1) {
-    const area = chosenAreas[index % chosenAreas.length]
     const pillar = phaseSlots[index % phaseSlots.length]
+    const areaCycle = getAreaCycleForPillar({
+      targetAreas: chosenAreas,
+      pillar,
+      reducedTargetAreas,
+      releaseBiasAreas,
+    })
+    const area = areaCycle[index % areaCycle.length]
     const library = getCuratedLibrary(area, pillar)
-    const pick = library?.[Math.floor(index / chosenAreas.length) % library.length]
+    const pick = library?.[Math.floor(index / areaCycle.length) % library.length]
     if (!pick) continue
     const phase = phases.find((item) => item.pillar === pillar)
     if (phase && !phase.exercises.some((exercise) => exercise.name === pick.name)) {
@@ -393,11 +477,9 @@ function buildFallbackRoutine({
   }
 
   const totalExercises = filteredPhases.reduce((sum, phase) => sum + phase.exercises.length, 0)
-  const sportLabel = sport ? SPORT_PROFILE_MAP[sport]?.label : null
-  const titleFocus = mode === 'sport' && sport ? `${(sportLabel || sport).toUpperCase()} MOBILITY FLOW` : `${chosenAreas[0].toUpperCase()} MOBILITY FLOW`
 
   return {
-    routineTitle: titleFocus,
+    routineTitle: buildRoutineTitle({ mode, sport, chosenAreas, goal }),
     summary: buildRoutineSummary(goal, chosenAreas, sport, mode),
     difficultyLevel: readiness?.modificationMode === 'recovery' ? 'Beginner' : goal === 'performance' ? 'Intermediate' : 'Beginner',
     totalExercises,
@@ -428,6 +510,18 @@ export async function POST(req: NextRequest) {
 
     const sportProfile = sport ? SPORT_PROFILE_MAP[sport] : null
     const targetAreas = resolveTargetAreas(mode, sport, areas)
+    const cloudReadiness = userId ? await readTodayReadinessAdjustmentSnapshot(supabase, userId).catch((error) => {
+      console.warn('[generate.readiness]', error)
+      return null
+    }) : null
+    const effectiveReadiness = cloudReadiness || readiness
+    const readinessModifiers = deriveRoutineReadinessModifiers({
+      readiness: effectiveReadiness,
+      duration,
+      goal,
+    })
+    const effectiveGoal = readinessModifiers.effectiveGoal
+    const sessionDuration = readinessModifiers.adjustedDuration
     const approvedExercisePool = buildApprovedExercisePoolText(targetAreas)
     const sportFocus = sportProfile ? sportProfile.keyDemands.join(', ') : null
     const sportRisks = sportProfile ? sportProfile.mobilityRisks.join('; ') : null
@@ -436,7 +530,7 @@ export async function POST(req: NextRequest) {
     // Build PREP phase from local library
     let prepPhase: RoutinePhase | null = null
     if (includeFoamRoll) {
-      const foamRollExercises = selectFoamRollExercises(targetAreas, duration)
+      const foamRollExercises = selectFoamRollExercises(targetAreas, sessionDuration)
       if (foamRollExercises.length > 0) {
         prepPhase = {
           pillar: 'prep',
@@ -460,10 +554,12 @@ export async function POST(req: NextRequest) {
       mode,
       sport,
       targetAreas,
-      duration,
-      goal,
+      duration: sessionDuration,
+      goal: effectiveGoal,
       prepPhase,
-      readiness,
+      readiness: effectiveReadiness,
+      reducedTargetAreas: readinessModifiers.reducedTargetAreas,
+      releaseBiasAreas: readinessModifiers.releaseBiasAreas,
     })
 
     let anthropic: Anthropic
@@ -475,10 +571,10 @@ export async function POST(req: NextRequest) {
     }
 
     const prepMinutes   = prepPhase ? prepPhase.exercises.length * 3 : 0
-    const aiDuration    = duration - prepMinutes
+    const aiDuration    = sessionDuration - prepMinutes
     const baseExerciseCount = Math.max(4, Math.round(aiDuration / 4))
     const exerciseCount =
-      goal === 'balanced' || goal === 'flexibility'
+      effectiveGoal === 'balanced' || effectiveGoal === 'flexibility'
         ? Math.max(baseExerciseCount, aiDuration >= 18 ? 6 : 5)
         : baseExerciseCount
 
@@ -495,14 +591,16 @@ ${sportProfile ? `- Last Reviewed: ${sportProfile.lastReviewed}` : ''}
 - Approved Exercise Pool:
 ${approvedExercisePool}
 - Session Duration: ${aiDuration} minutes
-- Primary Goal: ${goal}
-${readiness ? `- Readiness Score: ${readiness.readinessScore}
-- Readiness State: ${readiness.readinessLabel}
-- Soreness Areas: ${readiness.sorenessAreas.join(', ') || 'none'}
-- Soreness Severity: ${readiness.sorenessSeverity}/10
-- Restricted Areas: ${readiness.restrictedAreas.join(', ') || 'none'}
-- Modification Mode: ${readiness.modificationMode}
-- Readiness Note: ${readiness.sorenessNotes || 'none'}` : ''}
+- Primary Goal: ${effectiveGoal}
+${effectiveReadiness ? `- Readiness Score: ${effectiveReadiness.readinessScore}
+- Readiness State: ${effectiveReadiness.readinessLabel}
+- Soreness Areas: ${effectiveReadiness.sorenessAreas.join(', ') || 'none'}
+- Soreness Severity: ${effectiveReadiness.sorenessSeverity}/10
+- Restricted Areas: ${effectiveReadiness.restrictedAreas.join(', ') || 'none'}
+- Modification Mode: ${effectiveReadiness.modificationMode}
+- Readiness Note: ${effectiveReadiness.sorenessNotes || 'none'}` : ''}
+${readinessModifiers.hasTodayCheckin ? `- Readiness Modifiers:
+${readinessModifiers.promptGuidance.map((note) => `  - ${note}`).join('\n')}` : ''}
 
 SESSION STRUCTURE Ã¢â‚¬â€ THREE PHASES ONLY:
 
@@ -537,10 +635,19 @@ If readiness indicates soreness or restriction:
 - where possible, shift focus away from sore areas instead of hammering them
 - if the only selected focus area is sore, keep the work gentle, recovery-biased, and non-provocative
 - if modification mode is recovery, keep the full session restorative and conservative
+Routine names must be athletic, evocative, and professional.
+Routine names must be concise, maximum 6 words.
+Routine names must use this format: [Focus] — [Context]
+Good examples:
+- Hip Opening Protocol — Golf Series
+- Thoracic Release — Pre-Match
+- Shoulder Activation — Overhead Athlete
+- Spine Mobility — Recovery Session
+- End-Range Strength — BJJ Prep
 
 Respond ONLY in valid JSON (no markdown):
 {
-  "routineTitle": "string",
+  "routineTitle": "[Focus] — [Context]",
   "summary": "2 sentence overview",
   "difficultyLevel": "Beginner|Intermediate|Advanced",
   "totalExercises": number,
@@ -584,14 +691,14 @@ Respond ONLY in valid JSON (no markdown):
       if (jsonStart === -1 || jsonEnd === -1) {
         throw new Error(`AI returned non-JSON response: ${cleaned.slice(0, 200)}`)
       }
-      const routine = normalizeRoutineForGoal(JSON.parse(cleaned.slice(jsonStart, jsonEnd + 1)) as GeneratedRoutine, goal)
+      const routine = normalizeRoutineForGoal(JSON.parse(cleaned.slice(jsonStart, jsonEnd + 1)) as GeneratedRoutine, effectiveGoal)
 
       if (prepPhase) {
         routine.phases.unshift(prepPhase)
         routine.totalExercises += prepPhase.exercises.length
       }
 
-      if (needsCuratedFallback(routine, goal, targetAreas)) {
+      if (needsCuratedFallback(routine, effectiveGoal, targetAreas)) {
         console.warn('[generate.ai] AI routine failed phase-balance guardrail, returning curated fallback routine')
         return NextResponse.json(fallbackRoutine)
       }

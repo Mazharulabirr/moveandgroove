@@ -89,6 +89,13 @@ function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
+function formatRoutineFocus(routine: Routine) {
+  if (routine.sport) return routine.sport
+  if (routine.areas.length === 1) return routine.areas[0]
+  if (routine.areas.length === 2) return `${routine.areas[0]} + ${routine.areas[1]}`
+  return 'General mobility'
+}
+
 function addDays(dateStr: string, days: number) {
   const date = new Date(dateStr)
   date.setDate(date.getDate() + days)
@@ -263,6 +270,7 @@ export default function DashboardPage() {
     { val: stats.totalMinutes, label: 'Minutes Moved' },
     { val: stats.thisWeek, label: 'This Week' },
   ]
+  const recentRoutines = routines.slice(0, 3)
   const profileHistoryText = latestScreening
     ? `Latest overall ${latestScreening.overall_score}%${latestScreeningDate ? ` / ${formatDate(latestScreeningDate)}` : ''}`
     : 'No screening saved yet'
@@ -576,6 +584,39 @@ export default function DashboardPage() {
                       </button>
                     ))}
                   </div>
+                  <div style={{ marginTop: 18, borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 18 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
+                      <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: 'var(--silver3)', textTransform: UC }}>
+                        {'// Saved Workouts'}
+                      </div>
+                      <button className="btn-outline" onClick={() => router.push('/results')}>
+                        VIEW ALL
+                      </button>
+                    </div>
+                    {recentRoutines.length > 0 ? (
+                      <div style={{ display: 'grid', gap: 10 }}>
+                        {recentRoutines.map((routine) => (
+                          <div key={routine.id} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', padding: '14px 14px 13px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 6 }}>
+                              <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 12, fontWeight: 700, letterSpacing: 2, color: 'var(--white)' }}>
+                                {routine.title}
+                              </div>
+                              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 2, color: 'var(--silver3)', textTransform: UC }}>
+                                {formatDate(routine.created_at)}
+                              </div>
+                            </div>
+                            <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 13, color: 'var(--silver2)', lineHeight: 1.65 }}>
+                              {formatRoutineFocus(routine)} · {routine.goal || 'balanced'} · {routine.duration_minutes} min
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 14, color: 'var(--silver2)', lineHeight: 1.7 }}>
+                        Your saved workouts will show up here once you build and save them.
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -841,6 +882,17 @@ export default function DashboardPage() {
                     </div>
                     <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 13, color: 'var(--silver2)', lineHeight: 1.65 }}>
                       {profileHistoryText}
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => router.push('/results')}
+                    style={{ width: '100%', textAlign: 'left', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', padding: '14px 14px 13px', cursor: 'pointer', marginTop: 10 }}
+                  >
+                    <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 3, color: 'var(--silver3)', textTransform: UC, marginBottom: 6 }}>
+                      Saved Workouts
+                    </div>
+                    <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 13, color: 'var(--silver2)', lineHeight: 1.65 }}>
+                      {latestRoutine ? `${latestRoutine.title} / ${formatDate(latestRoutine.created_at)}` : 'No saved workouts yet'}
                     </div>
                   </button>
                 </div>
