@@ -196,10 +196,10 @@ export default function QuizPage() {
             backgroundSize: 'min(1120px, 82vw) auto',
             backgroundRepeat: 'no-repeat',
             backgroundPosition: 'center 18%',
-            opacity: 0.11,
+            opacity: 0.42,
           }}
         />
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom,rgba(0,0,0,0.92) 0%,rgba(0,0,0,0.88) 40%,rgba(0,0,0,0.97) 100%)' }} />
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom,rgba(0,0,0,0.62) 0%,rgba(0,0,0,0.6) 40%,rgba(0,0,0,0.78) 100%)' }} />
       </div>
 
       <Header />

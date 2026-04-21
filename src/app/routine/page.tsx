@@ -418,10 +418,10 @@ export default function RoutinePage() {
             backgroundSize: 'min(1080px, 80vw) auto',
             backgroundRepeat: 'no-repeat',
             backgroundPosition: 'center 16%',
-            opacity: 0.11,
+            opacity: 0.42,
           }}
         />
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom,rgba(0,0,0,0.93) 0%,rgba(0,0,0,0.89) 50%,rgba(0,0,0,0.98) 100%)' }} />
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom,rgba(0,0,0,0.64) 0%,rgba(0,0,0,0.62) 50%,rgba(0,0,0,0.8) 100%)' }} />
       </div>
 
       <Header />

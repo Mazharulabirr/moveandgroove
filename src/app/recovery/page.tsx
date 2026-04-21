@@ -87,10 +87,10 @@ export default function RecoveryPage() {
             backgroundSize: 'min(1200px, 84vw) auto',
             backgroundRepeat: 'no-repeat',
             backgroundPosition: 'center 20%',
-            opacity: 0.1,
+            opacity: 0.4,
           }}
         />
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom,rgba(0,0,0,0.92) 0%,rgba(0,0,0,0.88) 45%,rgba(0,0,0,0.97) 100%)' }} />
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom,rgba(0,0,0,0.64) 0%,rgba(0,0,0,0.62) 45%,rgba(0,0,0,0.78) 100%)' }} />
       </div>
 
       <Header />
