@@ -6,6 +6,7 @@ import Header from '@/components/Header'
 import PreSessionReadinessModal from '@/components/PreSessionReadinessModal'
 import { getExerciseVideo, getExerciseVideoEmbedUrl, getExerciseVideoWatchUrl } from '@/lib/exercise-videos'
 import type { ReadinessAdjustmentSnapshot } from '@/lib/readiness'
+import { pickRoutineBackground } from '@/lib/routine-backgrounds'
 import { createClient } from '@/lib/supabase/client'
 import { hasPreSessionCheckinToday } from '@/lib/session-flow'
 
@@ -237,6 +238,10 @@ export default function RoutinePage() {
   const areasLabel = storedMeta?.areas && storedMeta.areas.length > 0 ? storedMeta.areas.map((area) => area.toUpperCase()).join(' / ') : 'FULL BODY'
   const builderHref = storedMeta?.source === 'recovery' ? '/recovery' : '/quiz'
   const builderLabel = storedMeta?.source === 'recovery' ? 'REGENERATE RECOVERY' : 'GENERATE NEW ROUTINE'
+  const routineBackground = pickRoutineBackground({
+    sport: storedMeta?.sport,
+    areas: storedMeta?.areas,
+  })
   const isSaved = savedId !== null
   const totalExerciseCount = routine ? routine.phases.reduce((sum, phase) => sum + phase.exercises.length, 0) : 0
   const totalCompletedSets = routine
@@ -414,10 +419,10 @@ export default function RoutinePage() {
           style={{
             position: 'absolute',
             inset: 0,
-            backgroundImage: 'url(/athlete-backgrounds/bjj-training.jpg)',
+            backgroundImage: `url(${routineBackground.image})`,
             backgroundSize: 'min(1080px, 80vw) auto',
             backgroundRepeat: 'no-repeat',
-            backgroundPosition: 'center 16%',
+            backgroundPosition: routineBackground.position || 'center 16%',
             opacity: 0.38,
           }}
         />
