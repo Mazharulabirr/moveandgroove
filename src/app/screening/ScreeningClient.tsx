@@ -199,10 +199,10 @@ export default function ScreeningClient() {
             backgroundSize: 'min(1200px, 84vw) auto',
             backgroundRepeat: 'no-repeat',
             backgroundPosition: 'center 14%',
-            opacity: 0.52,
+            opacity: 0.36,
           }}
         />
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom,rgba(0,0,0,0.5) 0%,rgba(0,0,0,0.52) 40%,rgba(0,0,0,0.72) 100%)' }} />
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom,rgba(0,0,0,0.6) 0%,rgba(0,0,0,0.58) 40%,rgba(0,0,0,0.78) 100%)' }} />
       </div>
 
       <Header />

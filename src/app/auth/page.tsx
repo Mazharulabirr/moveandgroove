@@ -155,10 +155,10 @@ export default function AuthPage() {
             backgroundSize: 'min(1180px, 86vw) auto',
             backgroundRepeat: 'no-repeat',
             backgroundPosition: 'center 14%',
-            opacity: 0.55,
+            opacity: 0.38,
           }}
         />
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom,rgba(0,0,0,0.48) 0%,rgba(0,0,0,0.5) 40%,rgba(0,0,0,0.68) 100%)' }} />
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom,rgba(0,0,0,0.58) 0%,rgba(0,0,0,0.56) 40%,rgba(0,0,0,0.74) 100%)' }} />
       </div>
 
       <Header />

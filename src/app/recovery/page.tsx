@@ -76,21 +76,12 @@ export default function RecoveryPage() {
           inset: 0,
           zIndex: 0,
           pointerEvents: 'none',
-          background: '#000',
+          backgroundImage: 'url(https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=1920&q=80)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
         }}
       >
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            backgroundImage: 'url(/athlete-backgrounds/athletix-foam-roll.jpg)',
-            backgroundSize: 'min(1200px, 84vw) auto',
-            backgroundRepeat: 'no-repeat',
-            backgroundPosition: 'center 20%',
-            opacity: 0.52,
-          }}
-        />
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom,rgba(0,0,0,0.5) 0%,rgba(0,0,0,0.52) 45%,rgba(0,0,0,0.7) 100%)' }} />
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom,rgba(0,0,0,0.74) 0%,rgba(0,0,0,0.7) 45%,rgba(0,0,0,0.85) 100%)' }} />
       </div>
 
       <Header />
