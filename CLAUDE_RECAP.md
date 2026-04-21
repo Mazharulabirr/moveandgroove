@@ -1,25 +1,42 @@
-# Claude Recap
+﻿# Claude Recap
 
-Move & Groove v2 on `main` is now a working guided mobility app with auth restored, live routine generation working again, a much cleaner Basic dashboard, a rebuilt screening flow, and a more controlled routine-generation system.
+Move & Groove v2 on `main` is now a solid Basic-first beta mobility app. The product is usable end to end, and the current priority is still to make the Basic tier feel complete, clean, and trustworthy before putting more energy into Premium complexity.
 
-The most important current product priority is still:
+## Core Product Truth
+
+The main product rule right now is:
 
 - nail the Basic tier first
 
 That means:
 
-- Basic should feel complete on its own
+- Basic must feel complete on its own
 - Basic should not feel like a broken Premium preview
 - the dashboard should stay compact and directive
-- Premium should remain secondary while the beta is being tightened
+- screening should happen once, then the app should behave like a workout tool
+- Premium should remain secondary while Basic is tightened
 
-## Biggest Recent Changes
+## What Is Working Now
 
-### Screening
+### Auth
 
-The old screening flow has been replaced with a simplified 6-test at-home self-assessment.
+Working flows:
 
-Current screening tests:
+- sign in
+- sign up
+- resend confirmation
+- password reset flow
+
+Important auth note:
+
+- password reset redirect is hardcoded to production reset route so reset emails do not inherit localhost during testing
+- reset target is `https://move-and-groove-v2.vercel.app/auth/reset`
+
+## Screening
+
+The old screening is gone. The current screening is a 6-test at-home self-assessment.
+
+Current tests:
 
 - `Back scratch test`
 - `Wall angel`
@@ -28,133 +45,188 @@ Current screening tests:
 - `Quadruped T rotation`
 - `Toe touch`
 
-Important current behavior:
+Current behavior:
 
-- test images are now local app assets rather than generic stock photos
-- each test now has movement-specific answer wording
-- the score screen now explains:
-  - what the overall score means
-  - which region is the main priority
+- each test has a real local still image
+- each test has movement-specific answer wording
+- the end score screen explains:
+  - what the score means
+  - which region is weakest
   - what to focus on next
-- screening still uses the local-storage fallback because the real Supabase schema is not yet aligned with older assumptions
 
-Files involved:
+Important technical state:
+
+- screening is now cloud-backed again through `screening_questionnaires.responses`
+- local storage fallback still exists as safety backup
+- dashboard and results read Supabase first, then fall back locally if cloud data is unavailable
+- old legacy questionnaire rows are ignored unless they contain parseable mobility screening answers
+
+Relevant files:
 
 - `src/app/screening/page.tsx`
 - `src/app/screening/ScreeningClient.tsx`
 - `src/lib/mobility-screening.ts`
 - `src/lib/assessment-media.ts`
 - `src/lib/screening-storage.ts`
+- `src/lib/screening-cloud-v2.ts`
 
-### Routine generation
+## Readiness and Routine Generation
 
-Routine generation is now more structured than it was before.
+Routine generation is now more controlled and more product-shaped than earlier versions.
 
-Current state:
+Current behavior:
 
 - Anthropic is still the main generation path
-- if Anthropic times out or returns poor output, the app has a stronger fallback path
-- the fallback path is no longer just generic hardcoded movement logic
+- fallback generation exists when AI is slow or unavailable
+- fallback routines are no longer generic nonsense; they now use curated movement logic
+- readiness now modifies routine generation before the prompt is built
 
-The app now includes a curated internal movement library in:
+Readiness logic now does this:
+
+- checks today’s readiness log before generating
+- if soreness severity is high in an area, reduces work into that area and biases release
+- if sleep is poor, shortens the session and biases release over range
+- if mood is low, shortens and softens the session
+- if readiness is good, generates normally
+
+Relevant files:
+
+- `src/lib/readiness.ts`
+- `src/app/api/routines/generate/route.ts`
+
+## Curated Exercise Library
+
+The app now has a curated internal mobility library built from real gym programming.
+
+File:
 
 - `src/lib/curated-mobility.ts`
 
-That library is based on real gym programming and is grouped by:
+Structure:
 
 - `hips`
 - `shoulders`
 - `spine`
 
-Then by:
+Then within each:
 
 - `release`
 - `activation`
 - `range`
 
-The generator now uses that library in two ways:
+Why it matters:
 
-1. fallback routines are built from the curated library
-2. the Anthropic prompt is given the approved exercise pool and told to stay close to it
+- fallback routines pull from it
+- the AI prompt is biased toward it
+- this is now one of the most important quality-control layers in the app
 
-There is also now a guardrail for `balanced` routines:
+Important cleanup truths already identified:
 
-- if AI returns a weak or imbalanced session that does not properly cover `release`, `activation`, and `range`, the app rejects it and returns the curated fallback instead
+- `Forward slides` and `Chest slides` are different exercises and must not be merged
+- `T / Y / I` and `W-Y` belong in shoulders activation, not spine activation
+- `Swimmers` should not be in spine range
 
-This was added because �balanced� sessions were still sometimes collapsing into mostly range work.
+The library still needs more cleanup, but it is already improving routine quality.
 
-Main generator file:
+## Routine Page
 
-- `src/app/api/routines/generate/route.ts`
+The routine page now includes:
 
-## Current Basic user journey
+- better title naming structure
+- clearer evidence/trust presentation
+- visible saved-routine flow
+- set ticking within a live block/circuit rather than forcing full completion of one exercise at a time
+- direct post-session check-in handoff
 
-The intended Basic loop is:
+Important new behavior:
 
-1. log in
-2. complete screening once
-3. return to the simplified dashboard
-4. create a routine
-5. do readiness when relevant
-6. complete the workout
-7. do post-session check-in
-8. return to dashboard/results
-9. repeat routine creation as the main loop
+- the routine background now matches the selected sport first, then body area, then a fallback image
+- this logic lives in `src/lib/routine-backgrounds.ts`
 
-The product principle is:
+Current mapping direction:
 
-- once screening is done, the app should feel like a workout tool, not like endless onboarding
+- uploaded real sport images are used where they exist
+- area-based routines use the mobility-session image
+- the routine page is the only page that should stay “smart” about user-specific image matching
 
-## Current known realities
+## Dashboard / Results
 
-### Screening persistence
+The Basic dashboard is much cleaner now.
 
-Still not final.
+Current intended Basic experience:
 
-Important truth:
+- screen once
+- come back to a compact dashboard
+- create routines repeatedly as the main loop
+- review score, sessions, and saved routines without clutter
 
-- do not assume the live Supabase screening schema safely supports the older `completed_at` / `responses` logic
-- the app currently relies on a browser-local fallback snapshot for beta continuity
+Current improvements:
 
-### Curated library cleanup
+- dashboard is black, cleaner, and more compact
+- saved workouts are surfaced more clearly
+- results also shows saved workouts more clearly
+- Basic does not keep screaming about Premium-only battery actions
 
-The curated library is a strong step forward, but it is not fully cleaned yet.
+## Background / Visual Direction
 
-Still needs ongoing manual cleanup:
+Current direction:
 
-- duplicates
-- wrong bucket assignments
-- exercises that are too similar but not identical
-- user-facing rationale wording cleanup where internal phrasing still leaks through
+- home keeps the original hero image
+- dashboard stays black
+- non-routine pages are being moved back toward cleaner stock-style backgrounds because the uploaded athlete images looked too visually heavy for the core site pages
+- routine page keeps the user-specific matched background behavior
+
+This distinction is intentional:
+
+- site pages should look clean and editorial
+- routine page can feel more tailored and sport-specific
+
+## Current Known Realities
+
+### Screening schema
+
+The live Supabase table is still legacy-shaped.
+
+Confirmed truths:
+
+- `screening_questionnaires.completed_at` does not exist
+- `screening_questionnaires.responses` had to be added additively
+- legacy required fields still exist:
+  - `goal`
+  - `activity_level`
+  - `desk_hours_per_day`
+  - `average_sleep_quality`
+  - `stress_level`
+
+So the new screening is working, but it is layered onto an older table model.
 
 ### Premium
 
-Premium remains secondary.
+Premium is still secondary.
 
-Still true:
+True right now:
 
 - movement battery exists
 - planning/programming surface exists
-- real persistent programming is not built yet
-- do not let Premium complexity distract from Basic polish
+- real persistent multi-week programming is not built yet
 
-## Most important next steps
+Do not let Premium complexity distract from Basic polish.
 
-1. continue cleaning the curated mobility library
-2. test more real generated workouts and keep tightening output quality
-3. align the real screening schema so the local fallback can eventually be removed
-4. keep refining mobile screens beyond the dashboard
-5. only after Basic is strong, go back to deeper Premium work
+## Most Important Next Steps
 
-## Short handoff truth list
+1. Keep tightening Basic end-to-end quality on deployed Vercel.
+2. Continue cleaning the curated mobility library.
+3. Keep testing real generated routines across more sports and states.
+4. Finish committing and deploying the expanded routine background image set.
+5. Keep refining mobile page by page.
+6. Only after Basic feels strong, return to deeper Premium work.
 
-If another developer picks this up, the key truths are:
+## Short Handoff Truth List
 
-1. Basic is the priority.
-2. Screening has been rebuilt and now uses 6 local-image tests.
-3. Screening persistence is still using a workaround.
-4. Routine generation now has:
-   - AI generation
-   - curated fallback generation
-   - a balance guardrail
-5. The curated exercise library is now one of the most important systems in the app and should be treated as an approved methodology layer, not random prompt filler.
+1. Basic is still the priority.
+2. Screening is rebuilt and now saves to cloud with local fallback backup.
+3. Readiness now affects routine generation.
+4. The curated exercise library is central to workout quality.
+5. The routine page now supports sport/area-matched backgrounds.
+6. General site pages should stay cleaner and less image-heavy than the routine page.
+7. Premium should stay secondary until Basic feels rock solid.
