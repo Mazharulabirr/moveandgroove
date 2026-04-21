@@ -51,6 +51,7 @@ export default function QuizPage() {
   const readinessSnapshot = readTodayPreSessionReadiness()
 
   const progress = { 1: 20, '2a': 40, '2b': 40, 3: 60, 4: 80, 5: 95 }[step] || 20
+  const backgroundImage = step === 5 ? '/athlete-backgrounds/athletix-foam-roll.jpg' : '/athlete-backgrounds/muaythai-fight.jpg'
 
   function toggleArea(id: string) {
     setAreas((prev) => (prev.includes(id) ? prev.filter((area) => area !== id) : [...prev, id]))
@@ -184,12 +185,21 @@ export default function QuizPage() {
           inset: 0,
           zIndex: 0,
           pointerEvents: 'none',
-          backgroundImage: 'url(/athlete-backgrounds/muaythai-fight.jpg)',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
+          background: '#000',
         }}
       >
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom,rgba(0,0,0,0.8) 0%,rgba(0,0,0,0.7) 40%,rgba(0,0,0,0.9) 100%)' }} />
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            backgroundImage: `url(${backgroundImage})`,
+            backgroundSize: 'min(1120px, 82vw) auto',
+            backgroundRepeat: 'no-repeat',
+            backgroundPosition: 'center 18%',
+            opacity: 0.11,
+          }}
+        />
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom,rgba(0,0,0,0.92) 0%,rgba(0,0,0,0.88) 40%,rgba(0,0,0,0.97) 100%)' }} />
       </div>
 
       <Header />

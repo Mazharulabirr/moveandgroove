@@ -409,8 +409,19 @@ export default function RoutinePage() {
 
   return (
     <>
-      <div style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none', backgroundImage: 'url(/athlete-backgrounds/bjj-training.jpg)', backgroundSize: 'cover', backgroundPosition: 'center' }}>
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom,rgba(0,0,0,0.85) 0%,rgba(0,0,0,0.75) 50%,rgba(0,0,0,0.95) 100%)' }} />
+      <div style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none', background: '#000' }}>
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            backgroundImage: 'url(/athlete-backgrounds/bjj-training.jpg)',
+            backgroundSize: 'min(1080px, 80vw) auto',
+            backgroundRepeat: 'no-repeat',
+            backgroundPosition: 'center 16%',
+            opacity: 0.11,
+          }}
+        />
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom,rgba(0,0,0,0.93) 0%,rgba(0,0,0,0.89) 50%,rgba(0,0,0,0.98) 100%)' }} />
       </div>
 
       <Header />

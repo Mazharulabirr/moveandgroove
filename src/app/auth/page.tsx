@@ -145,10 +145,20 @@ export default function AuthPage() {
     <>
       <div style={{
         position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none',
-        backgroundImage: 'url(https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=1920&q=80&fit=crop&crop=center)',
-        backgroundSize: 'cover', backgroundPosition: 'center', opacity: 1,
+        background: '#000',
       }}>
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom,rgba(0,0,0,0.75) 0%,rgba(0,0,0,0.65) 40%,rgba(0,0,0,0.82) 100%)' }} />
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            backgroundImage: 'url(/athlete-backgrounds/auth-login.avif)',
+            backgroundSize: 'min(1180px, 86vw) auto',
+            backgroundRepeat: 'no-repeat',
+            backgroundPosition: 'center 14%',
+            opacity: 0.12,
+          }}
+        />
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom,rgba(0,0,0,0.9) 0%,rgba(0,0,0,0.86) 40%,rgba(0,0,0,0.94) 100%)' }} />
       </div>
 
       <Header />

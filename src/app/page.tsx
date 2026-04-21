@@ -39,10 +39,10 @@ export default function HomePage() {
     <>
       <div style={{
         position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none',
-        backgroundImage: 'url(/athlete-backgrounds/rugby-team.jpg)',
+        backgroundImage: 'url(https://images.unsplash.com/photo-1526506118085-60ce8714f8c5?w=1920&q=80&fit=crop&crop=center)',
         backgroundSize: 'cover', backgroundPosition: 'center', opacity: 1,
       }}>
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom,rgba(0,0,0,0.75) 0%,rgba(0,0,0,0.65) 40%,rgba(0,0,0,0.82) 100%)' }} />
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom,rgba(0,0,0,0.82) 0%,rgba(0,0,0,0.76) 40%,rgba(0,0,0,0.9) 100%)' }} />
       </div>
 
       <Header />
