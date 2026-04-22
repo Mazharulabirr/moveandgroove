@@ -234,7 +234,7 @@ export default function SessionCheckinPage() {
 
   return (
     <div style={{ minHeight: '100vh' }}>
-      <div style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none', backgroundImage: 'url(https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=1920&q=80)', backgroundSize: 'cover', backgroundPosition: 'center' }}>
+      <div style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none', backgroundImage: 'url(/athlete-backgrounds/athletix-foam-roll.jpg)', backgroundSize: 'cover', backgroundPosition: 'center 20%' }}>
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom,rgba(0,0,0,0.88) 0%,rgba(0,0,0,0.75) 40%,rgba(0,0,0,0.95) 100%)' }} />
       </div>
 

@@ -41,3 +41,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local dev noise
+move-groove-dev.err.log
+move-groove-dev.out.log
+supabase/
