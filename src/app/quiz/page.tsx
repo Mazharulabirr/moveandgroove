@@ -10,11 +10,13 @@ import { SPORT_PROFILES } from '@/lib/sports'
 import { createClient } from '@/lib/supabase/client'
 import { hasPreSessionCheckinToday } from '@/lib/session-flow'
 
-const SPORTS: { id: string; label: string; icon: IconName }[] = SPORT_PROFILES.map((sport) => ({
-  id: sport.id,
-  label: sport.label,
-  icon: sport.icon,
-}))
+const SPORTS: { id: string; label: string; icon: IconName }[] = [...SPORT_PROFILES]
+  .sort((a, b) => a.label.localeCompare(b.label))
+  .map((sport) => ({
+    id: sport.id,
+    label: sport.label,
+    icon: sport.icon,
+  }))
 
 const AREAS: { id: string; label: string; icon: IconName; sub: string }[] = [
   { id: 'hips', label: 'HIPS', icon: 'hips', sub: 'Hip flexors / Adductors / Glutes / Piriformis' },
@@ -51,7 +53,7 @@ export default function QuizPage() {
   const readinessSnapshot = readTodayPreSessionReadiness()
 
   const progress = { 1: 20, '2a': 40, '2b': 40, 3: 60, 4: 80, 5: 95 }[step] || 20
-  const backgroundImage = '/athlete-backgrounds/athletix-foam-roll.jpg'
+  const backgroundImage = 'https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=1800&q=80'
 
   function toggleArea(id: string) {
     setAreas((prev) => (prev.includes(id) ? prev.filter((area) => area !== id) : [...prev, id]))
@@ -193,13 +195,13 @@ export default function QuizPage() {
             position: 'absolute',
             inset: 0,
             backgroundImage: `url(${backgroundImage})`,
-            backgroundSize: 'min(1120px, 82vw) auto',
+            backgroundSize: 'cover',
             backgroundRepeat: 'no-repeat',
-            backgroundPosition: 'center 18%',
-            opacity: 0.38,
+            backgroundPosition: 'center',
+            opacity: 0.5,
           }}
         />
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom,rgba(0,0,0,0.58) 0%,rgba(0,0,0,0.56) 40%,rgba(0,0,0,0.76) 100%)' }} />
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom,rgba(0,0,0,0.64) 0%,rgba(0,0,0,0.6) 40%,rgba(0,0,0,0.78) 100%)' }} />
       </div>
 
       <Header />
