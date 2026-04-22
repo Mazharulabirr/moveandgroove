@@ -35,19 +35,44 @@ type SaveRoutineRequest = {
   areas?: string[]
   duration?: number
   goal?: string | null
+  accessToken?: string | null
 }
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+function readEnv(name: string) {
+  const value = process.env[name]
+  if (!value) {
+    throw new Error(`Missing required environment variable: ${name}`)
+  }
+  return value
+}
 
 export async function POST(req: NextRequest) {
   try {
-    const { userId, routine, sport, areas, duration, goal } = await req.json() as SaveRoutineRequest
+    const { userId, routine, sport, areas, duration, goal, accessToken } = await req.json() as SaveRoutineRequest
 
-    if (!userId || !routine) {
+    if (!userId || !routine || !accessToken) {
       return NextResponse.json({ error: 'Missing required routine save payload.' }, { status: 400 })
+    }
+
+    const supabase = createClient(
+      readEnv('NEXT_PUBLIC_SUPABASE_URL'),
+      readEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY'),
+      {
+        global: {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        },
+      },
+    )
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser(accessToken)
+
+    if (authError || !user || user.id !== userId) {
+      return NextResponse.json({ error: 'Routine save is not authorized for this user.' }, { status: 401 })
     }
 
     const targetAreas = areas && areas.length > 0 ? areas : ['hips', 'shoulders', 'spine']

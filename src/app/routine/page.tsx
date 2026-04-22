@@ -197,6 +197,7 @@ export default function RoutinePage() {
   const [savedId, setSavedId] = useState<number | null>(() => storedMeta?.routine?.savedId ?? null)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
+  const [showSavePrompt, setShowSavePrompt] = useState<boolean>(() => !(storedMeta?.routine?.savedId ?? null))
   const [activePhaseIndex, setActivePhaseIndex] = useState(0)
   const [sessionFinished, setSessionFinished] = useState(false)
   const [showReadinessModal, setShowReadinessModal] = useState(false)
@@ -214,6 +215,10 @@ export default function RoutinePage() {
     setSessionFinished(false)
     setCompletedSets({})
   }, [routine])
+
+  useEffect(() => {
+    setShowSavePrompt(savedId === null)
+  }, [savedId])
 
   useEffect(() => {
     async function loadReadiness() {
@@ -317,8 +322,9 @@ export default function RoutinePage() {
     try {
       const { data: { session } } = await supabase.auth.getSession()
       const userId = session?.user?.id
+      const accessToken = session?.access_token
 
-      if (!userId) {
+      if (!userId || !accessToken) {
         throw new Error('Sign in to save routines to your library.')
       }
 
@@ -327,6 +333,7 @@ export default function RoutinePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId,
+          accessToken,
           routine: storedMeta.routine,
           sport: storedMeta.sport || null,
           areas: storedMeta.areas || [],
@@ -342,6 +349,7 @@ export default function RoutinePage() {
       }
 
       setSavedId(payload.savedId)
+      setShowSavePrompt(false)
 
       const nextMeta = {
         ...storedMeta,
@@ -471,34 +479,45 @@ export default function RoutinePage() {
                   {hasTodayReadiness ? 'Today’s readiness check is logged.' : 'Complete this before you start the workout.'}
                 </span>
               </div>
-              <div style={{ marginTop: 22, maxWidth: 620, border: '1px solid rgba(139,231,255,0.18)', background: 'linear-gradient(180deg, rgba(0,180,216,0.08) 0%, rgba(8,10,14,0.96) 100%)', padding: '18px 20px' }}>
-                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: 'var(--cyan)', marginBottom: 10, textTransform: 'uppercase' }}>
-                  {'// Routine Library'}
-                </div>
-                <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 12, fontWeight: 700, letterSpacing: 3, color: 'var(--white)', marginBottom: 10, textTransform: 'uppercase' }}>
-                  {isSaved ? 'ROUTINE SAVED' : 'DO YOU WANT TO SAVE THIS ROUTINE?'}
-                </div>
-                <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: 'var(--silver2)', lineHeight: 1.75, marginBottom: saveError ? 10 : 0 }}>
-                  {isSaved
-                    ? 'This routine is now in your library and can be reopened later from your profile or programs view.'
-                    : 'Save only the routines you want to keep. If not, this stays as a one-time session and your dashboard stays clean.'}
-                </div>
-                {saveError && (
-                  <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 14, color: '#ff8f8f', lineHeight: 1.6, marginTop: 10 }}>
-                    {saveError}
+              {(showSavePrompt || isSaved || saveError) && (
+                <div style={{ marginTop: 22, maxWidth: 620, border: '1px solid rgba(139,231,255,0.18)', background: 'linear-gradient(180deg, rgba(0,180,216,0.08) 0%, rgba(8,10,14,0.96) 100%)', padding: '18px 20px' }}>
+                  <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: 'var(--cyan)', marginBottom: 10, textTransform: 'uppercase' }}>
+                    {'// Routine Library'}
                   </div>
-                )}
-                <div className="mg-mobile-stack" style={{ marginTop: 14 }}>
-                  {!isSaved && (
-                    <button className="btn-primary" onClick={saveRoutine} disabled={saving}>
-                      {saving ? 'SAVING...' : 'SAVE TO LIBRARY'}
-                    </button>
+                  <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 12, fontWeight: 700, letterSpacing: 3, color: 'var(--white)', marginBottom: 10, textTransform: 'uppercase' }}>
+                    {isSaved ? 'ROUTINE SAVED' : 'DO YOU WANT TO SAVE THIS ROUTINE?'}
+                  </div>
+                  <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: 'var(--silver2)', lineHeight: 1.75, marginBottom: saveError ? 10 : 0 }}>
+                    {isSaved
+                      ? 'This routine is now in your library and can be reopened later from your profile or programs view.'
+                      : 'Save only the routines you want to keep. If not, this stays as a one-time session and you can keep going with the workout right here.'}
+                  </div>
+                  {saveError && (
+                    <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 14, color: '#ff8f8f', lineHeight: 1.6, marginTop: 10 }}>
+                      {saveError}
+                    </div>
                   )}
-                  <button className="btn-outline" onClick={() => router.push('/dashboard')}>
-                    {isSaved ? 'BACK TO DASHBOARD' : 'NOT NOW'}
-                  </button>
+                  <div className="mg-mobile-stack" style={{ marginTop: 14 }}>
+                    {!isSaved && showSavePrompt && (
+                      <button className="btn-primary" onClick={saveRoutine} disabled={saving}>
+                        {saving ? 'SAVING...' : 'SAVE TO LIBRARY'}
+                      </button>
+                    )}
+                    {isSaved ? (
+                      <button className="btn-outline" onClick={() => router.push('/dashboard')}>
+                        BACK TO DASHBOARD
+                      </button>
+                    ) : (
+                      <button className="btn-outline" onClick={() => {
+                        setSaveError('')
+                        setShowSavePrompt(false)
+                      }}>
+                        NOT NOW
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
             <div style={{ flexShrink: 0, width: 'min(100%, 320px)' }}>
               <div className="mg-mobile-stack" style={{ marginBottom: 16 }}>
