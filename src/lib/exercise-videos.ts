@@ -190,10 +190,6 @@ export const EXERCISE_VIDEO_LIBRARY: ExerciseVideoEntry[] = [
     aliases: [
       'hip range seated internal rotation',
       'seated internal rotation',
-      'standing abducted internal rotation',
-      'standing ab ducted ir',
-      'rack ir',
-      'wall er/ir',
     ],
     area: 'hips',
   },
