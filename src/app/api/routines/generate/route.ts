@@ -231,6 +231,18 @@ function routineTargetsArea(routine: GeneratedRoutine, area: string) {
   )
 }
 
+function phaseTargetsArea(
+  routine: GeneratedRoutine,
+  pillar: 'release' | 'activation' | 'range',
+  area: string,
+) {
+  return routine.phases.some(
+    (phase) =>
+      phase.pillar === pillar &&
+      phase.exercises.some((exercise) => exercise.targetArea === area),
+  )
+}
+
 function needsCuratedFallback(routine: GeneratedRoutine, goal: string, targetAreas: string[]) {
   const releaseCount = countExercisesForPillar(routine, 'release')
   const activationCount = countExercisesForPillar(routine, 'activation')
@@ -246,6 +258,12 @@ function needsCuratedFallback(routine: GeneratedRoutine, goal: string, targetAre
     if (releaseCount < Math.min(Math.max(normalizedAreas.length, 2), 3)) return true
     if (activationCount < 2) return true
     if (rangeCount < 1) return true
+    if (areaCoverage < normalizedAreas.length) return true
+
+    const requiredActivationAreas = normalizedAreas.slice(0, Math.min(normalizedAreas.length, activationCount))
+    if (requiredActivationAreas.some((area) => !phaseTargetsArea(routine, 'activation', area))) {
+      return true
+    }
   }
 
   if (goal === 'flexibility' && releaseCount < 3) {
@@ -607,9 +625,33 @@ SESSION STRUCTURE Ã¢â‚¬â€ THREE PHASES ONLY:
 1. RELEASE Ã¢â‚¬â€ Loosen soft tissue surrounding target joints.
    Use: Static stretches, dynamic stretches, PNF, passive holds, joint distractions.
    DO NOT include foam rolling or roller-based exercises.
+   RELEASE MUST COVER ALL RELEVANT STRUCTURES AROUND THE TARGET JOINT, not just one easy stretch.
+   For hips, release must cover all four quadrants across the phase:
+   - anterior: hip flexors, rectus femoris, iliopsoas
+   - posterior: glutes, hamstrings, piriformis
+   - lateral: TFL, IT band, abductors
+   - medial: adductors, groin
+   For shoulders, release must cover:
+   - anterior: pec minor, anterior capsule, biceps tendon region
+   - posterior: posterior capsule, infraspinatus, teres minor
+   - superior: upper trapezius, levator scapulae
+   - inferior: latissimus dorsi, teres major
+   For spine, release must cover:
+   - flexion: lumbar and thoracic flexion mobility
+   - extension: thoracic extension, lumbar decompression
+   - rotation: thoracic rotation, facet mobility
+   - lateral flexion: quadratus lumborum, lateral trunk
+   Use the approved exercise pool anatomy tags to make sure these structures are genuinely covered across the release block.
 
 2. ACTIVATION Ã¢â‚¬â€ Build neuromuscular control through the released range.
    Use: Isometric holds, eccentric loading, CARs, lift-offs, and controlled active mobility.
+   BEFORE WRITING ACTIVATION, decide whether the RANGE phase is dominated by rotational patterns or linear patterns.
+   - Rotational patterns include hip 90/90 work, thoracic rotation, shoulder ER/IR end-range work, and other drills where the main adaptation is rotation control.
+   - Linear patterns include hip flexion end range, Jefferson-curl-style loading, overhead holds, and other drills where the main adaptation is flexion, extension, or overhead line control.
+   If the range phase is rotational, activation must target the structures that drive and control rotation, such as piriformis, deep hip rotators, external rotators, multifidus, and obliques.
+   If the range phase is linear, activation must target the primary movers for that line of force, such as hip flexors, glutes, rectus femoris, erectors, and serratus anterior.
+   ACTIVATION MUST NEVER BE GENERIC. It must directly prepare the neuromuscular structures that will be loaded in the range phase.
+   Use the approved exercise pool movement-pattern tags and anatomy tags to justify the activation choices.
 
 3. RANGE Ã¢â‚¬â€ Integrate strength and flexibility at end range.
    Use: loaded end-range holds, controlled end-range isometrics, active mobility, and simple strength-through-range work.
@@ -629,6 +671,7 @@ Do not use or mention PAILs or RAILs in this standard routine builder.
 For balanced and flexibility sessions, release must be substantial rather than token. Cover multiple structures around the joint, not just one stretch per region.
 For sport relevant balanced sessions, release should usually contain at least 3 exercises when the session length allows it.
 Do not give a balanced session just one pec stretch and one hip stretch and call release covered.
+When the approved pool shows anatomy tags, use them deliberately so release covers the full joint surround and activation matches the dominant movement pattern of the range block.
 If mode is sport relevant, bias the session toward the top biomechanical demands of that sport instead of spreading attention evenly across every joint. Around 60-70% of the session should support the primary sport demands.
 If readiness indicates soreness or restriction:
 - avoid aggressive loading and aggressive end-range work for restricted areas
