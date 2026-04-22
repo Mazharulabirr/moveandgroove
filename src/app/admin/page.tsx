@@ -1,0 +1,422 @@
+'use client'
+
+import { useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import Header from '@/components/Header'
+import { CURATED_ROUTINE_LIBRARY, type CuratedArea, type CuratedPillar, type CuratedRoutineExerciseTemplate } from '@/lib/curated-mobility'
+import { getExerciseVideo } from '@/lib/exercise-videos'
+import { createClient } from '@/lib/supabase/client'
+
+type AdminOverview = {
+  users: {
+    totalRegisteredUsers: number
+    newSignupsThisWeek: number
+    totalScreeningsCompleted: number
+    totalRoutinesGenerated: number
+  }
+  routines: {
+    mostPopularSports: Array<{ label: string; count: number }>
+    mostPopularGoals: Array<{ label: string; count: number }>
+    averageSessionDuration: number
+  }
+}
+
+type ExerciseVideoOverride = {
+  exercise_name: string
+  youtube_id: string | null
+  updated_at?: string | null
+}
+
+type ExerciseAdminRow = {
+  name: string
+  area: CuratedArea
+  pillar: CuratedPillar
+  hardcodedYoutubeId: string
+}
+
+const UC = 'uppercase' as const
+
+function flattenCuratedExercises(): ExerciseAdminRow[] {
+  const rows: ExerciseAdminRow[] = []
+  const seen = new Set<string>()
+
+  ;(Object.entries(CURATED_ROUTINE_LIBRARY) as Array<[CuratedArea, Record<CuratedPillar, CuratedRoutineExerciseTemplate[]>]>)
+    .forEach(([area, phases]) => {
+      ;(Object.entries(phases) as Array<[CuratedPillar, CuratedRoutineExerciseTemplate[]]>)
+        .forEach(([pillar, exercises]) => {
+          exercises.forEach((exercise) => {
+            if (seen.has(exercise.name)) {
+              return
+            }
+
+            seen.add(exercise.name)
+            rows.push({
+              name: exercise.name,
+              area,
+              pillar,
+              hardcodedYoutubeId: getExerciseVideo(exercise.name)?.youtubeVideoId || '',
+            })
+          })
+        })
+    })
+
+  return rows.sort((a, b) => a.name.localeCompare(b.name))
+}
+
+const ALL_EXERCISES = flattenCuratedExercises()
+
+export default function AdminPage() {
+  const router = useRouter()
+  const supabase = createClient()
+  const [loading, setLoading] = useState(true)
+  const [accessToken, setAccessToken] = useState('')
+  const [overview, setOverview] = useState<AdminOverview | null>(null)
+  const [overrides, setOverrides] = useState<Record<string, ExerciseVideoOverride>>({})
+  const [search, setSearch] = useState('')
+  const [error, setError] = useState('')
+  const [saveStatus, setSaveStatus] = useState<Record<string, 'idle' | 'saving' | 'saved' | 'error'>>({})
+  const [draftYoutubeIds, setDraftYoutubeIds] = useState<Record<string, string>>({})
+
+  useEffect(() => {
+    let mounted = true
+
+    async function loadAdmin() {
+      const { data: { session } } = await supabase.auth.getSession()
+
+      if (!mounted) return
+
+      if (!session) {
+        router.replace('/auth')
+        return
+      }
+
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('is_admin')
+        .eq('id', session.user.id)
+        .maybeSingle()
+
+      if (!mounted) return
+
+      if (profileError || !profile?.is_admin) {
+        router.replace('/dashboard')
+        return
+      }
+
+      setAccessToken(session.access_token)
+
+      try {
+        const [overviewResponse, mappingsResponse] = await Promise.all([
+          fetch('/api/admin/overview', {
+            headers: { Authorization: `Bearer ${session.access_token}` },
+          }),
+          fetch('/api/admin/exercise-videos', {
+            headers: { Authorization: `Bearer ${session.access_token}` },
+          }),
+        ])
+
+        const overviewPayload = await overviewResponse.json()
+        const mappingsPayload = await mappingsResponse.json()
+
+        if (!overviewResponse.ok) {
+          throw new Error(overviewPayload.error || 'Could not load admin overview.')
+        }
+
+        if (!mappingsResponse.ok) {
+          throw new Error(mappingsPayload.error || 'Could not load exercise video mappings.')
+        }
+
+        if (!mounted) return
+
+        setOverview(overviewPayload)
+        const nextOverrides = Object.fromEntries(
+          (mappingsPayload.mappings as ExerciseVideoOverride[]).map((mapping) => [mapping.exercise_name, mapping]),
+        )
+        setOverrides(nextOverrides)
+        setDraftYoutubeIds(
+          Object.fromEntries(
+            ALL_EXERCISES.map((exercise) => [exercise.name, nextOverrides[exercise.name]?.youtube_id || exercise.hardcodedYoutubeId || '']),
+          ),
+        )
+      } catch (loadError) {
+        if (!mounted) return
+        setError(loadError instanceof Error ? loadError.message : 'Could not load admin panel.')
+      } finally {
+        if (mounted) {
+          setLoading(false)
+        }
+      }
+    }
+
+    void loadAdmin()
+    return () => {
+      mounted = false
+    }
+  }, [router, supabase])
+
+  const filteredExercises = useMemo(() => {
+    const normalized = search.trim().toLowerCase()
+    if (!normalized) return ALL_EXERCISES
+
+    return ALL_EXERCISES.filter((exercise) =>
+      exercise.name.toLowerCase().includes(normalized)
+      || exercise.area.toLowerCase().includes(normalized)
+      || exercise.pillar.toLowerCase().includes(normalized),
+    )
+  }, [search])
+
+  async function saveVideoMapping(exerciseName: string) {
+    if (!accessToken) return
+
+    setSaveStatus((current) => ({ ...current, [exerciseName]: 'saving' }))
+    setError('')
+
+    try {
+      const response = await fetch('/api/admin/exercise-videos', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          exerciseName,
+          youtubeId: draftYoutubeIds[exerciseName] || '',
+        }),
+      })
+
+      const payload = await response.json()
+      if (!response.ok) {
+        throw new Error(payload.error || 'Could not save exercise video mapping.')
+      }
+
+      setOverrides((current) => ({
+        ...current,
+        [exerciseName]: payload.mapping,
+      }))
+      setSaveStatus((current) => ({ ...current, [exerciseName]: 'saved' }))
+      window.setTimeout(() => {
+        setSaveStatus((current) => ({ ...current, [exerciseName]: 'idle' }))
+      }, 1800)
+    } catch (saveError) {
+      setSaveStatus((current) => ({ ...current, [exerciseName]: 'error' }))
+      setError(saveError instanceof Error ? saveError.message : 'Could not save exercise video mapping.')
+    }
+  }
+
+  if (loading) {
+    return (
+      <>
+        <Header />
+        <main style={{ position: 'relative', zIndex: 2, paddingTop: 64 }}>
+          <div style={{ textAlign: 'center', padding: '120px 40px' }}>
+            <div className="loading-ring" />
+            <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 11, letterSpacing: 4, color: 'var(--silver3)', textTransform: UC }}>
+              LOADING ADMIN
+            </div>
+          </div>
+        </main>
+      </>
+    )
+  }
+
+  return (
+    <>
+      <div style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none', background: '#000000' }}>
+        <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at top, rgba(0,180,216,0.1) 0%, rgba(0,0,0,0) 36%), linear-gradient(to bottom, rgba(4,6,9,0.98) 0%, rgba(0,0,0,1) 100%)' }} />
+      </div>
+
+      <Header />
+
+      <main style={{ position: 'relative', zIndex: 2, paddingTop: 64 }}>
+        <div className="mg-page-shell" style={{ maxWidth: 1220 }}>
+          <div style={{ marginBottom: 34 }}>
+            <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: 'var(--cyan)', marginBottom: 10, textTransform: UC }}>
+              {'// Internal Tooling'}
+            </div>
+            <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 'clamp(34px,5vw,54px)', fontWeight: 700, letterSpacing: 4, color: 'var(--white)', lineHeight: 1.06, marginBottom: 14 }}>
+              ADMIN PANEL
+            </div>
+            <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 16, color: 'var(--silver2)', lineHeight: 1.75, maxWidth: 760 }}>
+              Manage the internal overview metrics and live exercise video mappings without touching the user-facing flows.
+            </div>
+            {error && (
+              <div style={{ marginTop: 16, border: '1px solid rgba(255,143,143,0.2)', background: 'rgba(255,143,143,0.07)', padding: '12px 14px', fontFamily: "'DM Sans',sans-serif", fontSize: 14, color: '#ff9f9f' }}>
+                {error}
+              </div>
+            )}
+          </div>
+
+          <section style={{ marginBottom: 36 }}>
+            <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 18, letterSpacing: 3, color: 'var(--white)', marginBottom: 16 }}>
+              USERS
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 14 }}>
+              {[
+                { label: 'Total Registered Users', value: overview?.users.totalRegisteredUsers ?? 0 },
+                { label: 'New Signups This Week', value: overview?.users.newSignupsThisWeek ?? 0 },
+                { label: 'Total Screenings Completed', value: overview?.users.totalScreeningsCompleted ?? 0 },
+                { label: 'Total Routines Generated', value: overview?.users.totalRoutinesGenerated ?? 0 },
+              ].map((card) => (
+                <div key={card.label} style={{ background: 'rgba(8,10,14,0.96)', border: '1px solid rgba(255,255,255,0.08)', padding: '22px 20px' }}>
+                  <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 34, letterSpacing: 2, color: 'var(--white)', lineHeight: 1, marginBottom: 8 }}>
+                    {card.value}
+                  </div>
+                  <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 3, color: 'var(--cyan)', textTransform: UC }}>
+                    {card.label}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section style={{ marginBottom: 36 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 16, marginBottom: 16 }}>
+              <div>
+                <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 18, letterSpacing: 3, color: 'var(--white)', marginBottom: 8 }}>
+                  VIDEO MANAGER
+                </div>
+                <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: 'var(--silver2)', lineHeight: 1.7 }}>
+                  Save a YouTube ID to the live Supabase override table. Reads check that table first, then fall back to the hardcoded library.
+                </div>
+              </div>
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search exercise, area, or phase..."
+                style={{
+                  width: 360,
+                  background: 'rgba(8,10,14,0.96)',
+                  border: '1px solid rgba(255,255,255,0.12)',
+                  color: 'var(--white)',
+                  padding: '12px 14px',
+                  fontFamily: "'DM Sans',sans-serif",
+                  fontSize: 14,
+                }}
+              />
+            </div>
+            <div style={{ border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(8,10,14,0.98)' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 1.4fr) 110px 110px 140px minmax(220px, 1fr) 92px', gap: 12, padding: '14px 18px', borderBottom: '1px solid rgba(255,255,255,0.08)', fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 3, color: 'var(--silver3)', textTransform: UC }}>
+                <div>Exercise</div>
+                <div>Area</div>
+                <div>Phase</div>
+                <div>Source</div>
+                <div>YouTube ID</div>
+                <div>Save</div>
+              </div>
+              <div style={{ maxHeight: 620, overflowY: 'auto' }}>
+                {filteredExercises.map((exercise) => {
+                  const override = overrides[exercise.name]
+                  const activeYoutubeId = override?.youtube_id || exercise.hardcodedYoutubeId || ''
+                  const source = override?.youtube_id ? 'Supabase' : exercise.hardcodedYoutubeId ? 'Hardcoded' : 'Empty'
+                  const status = saveStatus[exercise.name] || 'idle'
+
+                  return (
+                    <div key={exercise.name} style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 1.4fr) 110px 110px 140px minmax(220px, 1fr) 92px', gap: 12, padding: '15px 18px', borderBottom: '1px solid rgba(255,255,255,0.05)', alignItems: 'center' }}>
+                      <div>
+                        <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 14, color: 'var(--white)', lineHeight: 1.45 }}>
+                          {exercise.name}
+                        </div>
+                      </div>
+                      <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 2, color: 'var(--cyan)', textTransform: UC }}>
+                        {exercise.area}
+                      </div>
+                      <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 2, color: 'var(--silver3)', textTransform: UC }}>
+                        {exercise.pillar}
+                      </div>
+                      <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 2, color: source === 'Supabase' ? 'var(--cyan)' : source === 'Hardcoded' ? 'var(--silver2)' : 'var(--silver4)', textTransform: UC }}>
+                        {source}
+                      </div>
+                      <div>
+                        <input
+                          value={draftYoutubeIds[exercise.name] ?? activeYoutubeId}
+                          onChange={(event) => setDraftYoutubeIds((current) => ({ ...current, [exercise.name]: event.target.value.trim() }))}
+                          placeholder="Paste YouTube ID"
+                          style={{
+                            width: '100%',
+                            background: 'rgba(255,255,255,0.02)',
+                            border: '1px solid rgba(255,255,255,0.1)',
+                            color: 'var(--white)',
+                            padding: '10px 12px',
+                            fontFamily: "'DM Mono',monospace",
+                            fontSize: 12,
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <button
+                          type="button"
+                          onClick={() => saveVideoMapping(exercise.name)}
+                          style={{
+                            width: '100%',
+                            background: status === 'saved' ? 'rgba(0,180,216,0.18)' : 'transparent',
+                            border: '1px solid rgba(0,180,216,0.28)',
+                            color: status === 'error' ? '#ff9f9f' : 'var(--cyan)',
+                            padding: '10px 8px',
+                            cursor: 'pointer',
+                            fontFamily: "'DM Mono',monospace",
+                            fontSize: 9,
+                            letterSpacing: 2,
+                            textTransform: UC,
+                          }}
+                        >
+                          {status === 'saving' ? 'Saving' : status === 'saved' ? 'Saved' : status === 'error' ? 'Retry' : 'Save'}
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </section>
+
+          <section>
+            <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 18, letterSpacing: 3, color: 'var(--white)', marginBottom: 16 }}>
+              ROUTINES
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.2fr 0.8fr', gap: 14 }}>
+              <div style={{ background: 'rgba(8,10,14,0.96)', border: '1px solid rgba(255,255,255,0.08)', padding: '20px' }}>
+                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 3, color: 'var(--cyan)', textTransform: UC, marginBottom: 12 }}>
+                  Most Popular Sports
+                </div>
+                <div style={{ display: 'grid', gap: 10 }}>
+                  {(overview?.routines.mostPopularSports || []).map((item) => (
+                    <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontFamily: "'DM Sans',sans-serif", fontSize: 14, color: 'var(--silver2)' }}>
+                      <span>{item.label}</span>
+                      <span style={{ color: 'var(--white)' }}>{item.count}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ background: 'rgba(8,10,14,0.96)', border: '1px solid rgba(255,255,255,0.08)', padding: '20px' }}>
+                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 3, color: 'var(--cyan)', textTransform: UC, marginBottom: 12 }}>
+                  Most Popular Goals
+                </div>
+                <div style={{ display: 'grid', gap: 10 }}>
+                  {(overview?.routines.mostPopularGoals || []).map((item) => (
+                    <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontFamily: "'DM Sans',sans-serif", fontSize: 14, color: 'var(--silver2)' }}>
+                      <span>{item.label}</span>
+                      <span style={{ color: 'var(--white)' }}>{item.count}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ background: 'rgba(8,10,14,0.96)', border: '1px solid rgba(255,255,255,0.08)', padding: '20px' }}>
+                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 3, color: 'var(--cyan)', textTransform: UC, marginBottom: 12 }}>
+                  Average Session Duration
+                </div>
+                <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 42, color: 'var(--white)', lineHeight: 1 }}>
+                  {overview?.routines.averageSessionDuration ?? 0}
+                </div>
+                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 3, color: 'var(--silver3)', textTransform: UC, marginTop: 8 }}>
+                  Minutes
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </main>
+    </>
+  )
+}

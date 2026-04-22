@@ -49,6 +49,11 @@ type RoutineMeta = {
   readiness?: ReadinessAdjustmentSnapshot | null
 }
 
+type ExerciseVideoOverride = {
+  exercise_name: string
+  youtube_id: string | null
+}
+
 const PHASE_STYLES: Record<Phase['pillar'], { label: string; color: string; border: string; bg: string }> = {
   prep: { label: 'PREP', color: 'var(--silver2)', border: 'var(--silver4)', bg: 'var(--black3)' },
   release: { label: 'RELEASE', color: 'var(--silver2)', border: 'var(--silver4)', bg: 'var(--black3)' },
@@ -203,6 +208,7 @@ export default function RoutinePage() {
   const [showReadinessModal, setShowReadinessModal] = useState(false)
   const [hasTodayReadiness, setHasTodayReadiness] = useState(false)
   const [completedSets, setCompletedSets] = useState<Record<number, number>>({})
+  const [videoOverrides, setVideoOverrides] = useState<Record<string, string>>({})
 
   useEffect(() => {
     if (!routine) {
@@ -238,6 +244,51 @@ export default function RoutinePage() {
 
     void loadReadiness()
   }, [supabase])
+
+  useEffect(() => {
+    async function loadVideoOverrides() {
+      if (!routine) {
+        setVideoOverrides({})
+        return
+      }
+
+      const exerciseNames = [...new Set(
+        routine.phases
+          .flatMap((phase) => phase.exercises)
+          .filter((exercise) => !exercise.isFoamRoll)
+          .map((exercise) => exercise.name.trim())
+          .filter(Boolean),
+      )]
+
+      if (exerciseNames.length === 0) {
+        setVideoOverrides({})
+        return
+      }
+
+      try {
+        const params = new URLSearchParams()
+        exerciseNames.forEach((name) => params.append('name', name))
+        const response = await fetch(`/api/exercise-videos?${params.toString()}`)
+        const payload = await response.json()
+
+        if (!response.ok) {
+          throw new Error(payload.error || 'Could not load exercise video overrides.')
+        }
+
+        const nextOverrides = Object.fromEntries(
+          (payload.mappings as ExerciseVideoOverride[])
+            .filter((mapping) => mapping.youtube_id)
+            .map((mapping) => [mapping.exercise_name, mapping.youtube_id as string]),
+        )
+        setVideoOverrides(nextOverrides)
+      } catch (error) {
+        console.error('[routine.exerciseVideos]', error)
+        setVideoOverrides({})
+      }
+    }
+
+    void loadVideoOverrides()
+  }, [routine])
 
   const sportLabel = storedMeta?.sport ? storedMeta.sport.toUpperCase() : null
   const areasLabel = storedMeta?.areas && storedMeta.areas.length > 0 ? storedMeta.areas.map((area) => area.toUpperCase()).join(' / ') : 'FULL BODY'
@@ -605,7 +656,18 @@ export default function RoutinePage() {
                   const completedSetCount = Math.min(completedSets[flatIndex] || 0, exercise.sets)
                   const isDone = completedSetCount >= exercise.sets
                   const isLocked = phaseIndex > activePhaseIndex && !sessionFinished
-                  const mappedVideo = exercise.isFoamRoll ? null : getExerciseVideo(exercise.name)
+                  const overrideVideoId = exercise.isFoamRoll ? null : videoOverrides[exercise.name] || null
+                  const mappedVideo = exercise.isFoamRoll
+                    ? null
+                    : overrideVideoId
+                      ? {
+                          slug: `override-${exercise.name}`,
+                          title: exercise.name,
+                          youtubeVideoId: overrideVideoId,
+                          aliases: [],
+                          area: exercise.targetArea,
+                        }
+                      : getExerciseVideo(exercise.name)
 
                   return (
                   <div
