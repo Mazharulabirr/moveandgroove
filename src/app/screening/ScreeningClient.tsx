@@ -195,14 +195,14 @@ export default function ScreeningClient() {
           style={{
             position: 'absolute',
             inset: 0,
-            backgroundImage: 'url(/athlete-backgrounds/cricket-mobility.jpg)',
-            backgroundSize: 'min(1200px, 84vw) auto',
+            backgroundImage: 'url(https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&w=1800&q=80)',
+            backgroundSize: 'cover',
             backgroundRepeat: 'no-repeat',
-            backgroundPosition: 'center 14%',
-            opacity: 0.36,
+            backgroundPosition: 'center',
+            opacity: 0.5,
           }}
         />
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom,rgba(0,0,0,0.6) 0%,rgba(0,0,0,0.58) 40%,rgba(0,0,0,0.78) 100%)' }} />
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom,rgba(0,0,0,0.66) 0%,rgba(0,0,0,0.62) 40%,rgba(0,0,0,0.8) 100%)' }} />
       </div>
 
       <Header />

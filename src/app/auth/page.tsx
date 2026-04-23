@@ -151,14 +151,14 @@ export default function AuthPage() {
           style={{
             position: 'absolute',
             inset: 0,
-            backgroundImage: 'url(/athlete-backgrounds/auth-login.avif)',
-            backgroundSize: 'min(1180px, 86vw) auto',
+            backgroundImage: 'url(https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=1800&q=80)',
+            backgroundSize: 'cover',
             backgroundRepeat: 'no-repeat',
-            backgroundPosition: 'center 14%',
-            opacity: 0.38,
+            backgroundPosition: 'center',
+            opacity: 0.52,
           }}
         />
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom,rgba(0,0,0,0.58) 0%,rgba(0,0,0,0.56) 40%,rgba(0,0,0,0.74) 100%)' }} />
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom,rgba(0,0,0,0.66) 0%,rgba(0,0,0,0.62) 40%,rgba(0,0,0,0.78) 100%)' }} />
       </div>
 
       <Header />

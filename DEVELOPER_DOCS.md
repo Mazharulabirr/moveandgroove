@@ -1,6 +1,6 @@
 ﻿# Move & Groove v2 - Developer Docs
 
-> Last updated: April 21, 2026
+> Last updated: April 23, 2026
 > Repo: https://github.com/marcomastrorocco/move-and-groove-v2
 > Primary branch: `main`
 > Hosting: Vercel
@@ -11,7 +11,7 @@
 
 ## Overview
 
-Move & Groove is a mobility, screening, readiness, and routine-generation app for athletes. The app currently combines:
+Move & Groove is a mobility, screening, readiness, and routine-generation app for athletes. The current product combines:
 
 - auth and onboarding
 - 6-test mobility screening
@@ -19,9 +19,12 @@ Move & Groove is a mobility, screening, readiness, and routine-generation app fo
 - AI-generated and fallback-generated routines
 - results/profile views
 - saved routine surfaces
+- sport-matched routine backgrounds
+- early exercise-video mapping via unlisted YouTube
+- live admin tooling for stats and exercise-video overrides
 - early Premium battery/program surfaces
 
-The visual direction is dark, editorial, and sport-led, but the current UX rule is that Basic should stay clean and not feel visually or functionally overloaded.
+The app is now beyond the "structurally broken" stage. The priority is quality, specificity, and polish.
 
 ---
 
@@ -45,8 +48,9 @@ Recent product direction that reflects that:
 - screening is shared baseline for everyone
 - Basic results/profile should stay mobility-first
 - saved workouts should be visible and useful
-- readiness should actually modify the generated routine
-- the routine page can feel sport-specific, but the rest of the site should stay cleaner and more editorial
+- readiness should materially modify the generated routine
+- the routine page is allowed to feel sport-specific
+- the rest of the site should stay cleaner and more editorial
 
 ---
 
@@ -66,6 +70,11 @@ Recent product direction that reflects that:
 - saved workouts are surfaced more clearly on dashboard and results
 - routine titles are stronger and more structured
 - routine backgrounds can now match the selected sport or body area
+- routine save works with RLS-aware auth token flow
+- the save prompt no longer has to eject the user from the workout when they choose not to save
+- exercise videos can now be mapped to unlisted YouTube clips and embedded on the routine page
+- admin panel is now live at `/admin`
+- admin video overrides now read from Supabase first, then fall back to the hardcoded video map
 
 ---
 
@@ -73,18 +82,18 @@ Recent product direction that reflects that:
 
 Recent important commits on `main` include:
 
-- `618f5d2` `fix: hardcode production redirectTo for password reset email`
-- `d59c5db` `feat: readiness-aware routine generation, saved routines view, creative workout names`
-- `9d0f3c0` `feat: replace stock backgrounds with real athlete photos`
-- `d1fbce2` `fix: tune athlete backgrounds and auth hero`
-- `f70643c` `fix: lighten athlete background overlays`
-- `9b18d68` `fix: reduce athlete background darkness`
-- `6b10eb1` `fix: rebalance athlete page backgrounds`
 - `497dd72` `feat: match routine backgrounds to user focus`
+- `b8b7eb2` `docs: update Claude recap and developer docs`
+- `51e9026` `feat: add unlisted youtube exercise mappings`
+- `1faf498` `feat: add admin panel and live exercise video manager`
+- `feat: tighten anatomy rules for routine generation`
+- `feat: sport-matched routine backgrounds and routine flow fix`
+- `fix: remove wrong standing hip ir video alias`
 
-Important note:
+Important practical truth:
 
-- the expanded sport-image set for routine backgrounds exists locally right now and may not be committed yet depending on the exact working tree state
+- the app is now in refinement mode
+- remaining issues are mostly exercise choice quality, alias coverage, and sport-specific polish rather than missing core architecture
 
 ---
 
@@ -123,6 +132,8 @@ Product rule:
 
 - `/dashboard`
   - Basic-first dashboard
+- `/admin`
+  - internal admin tooling, gated by `profiles.is_admin`
 - `/screening`
   - mobility baseline screen
 - `/quiz`
@@ -156,6 +167,7 @@ Product rule:
 - `src/app/dashboard/page.tsx`
 - `src/app/screening/page.tsx`
 - `src/app/screening/ScreeningClient.tsx`
+- `src/app/admin/page.tsx`
 - `src/app/quiz/page.tsx`
 - `src/app/routine/page.tsx`
 - `src/app/results/page.tsx`
@@ -176,10 +188,15 @@ Product rule:
 - `src/lib/routine-backgrounds.ts`
 - `src/lib/sports.ts`
 - `src/lib/exercise-videos.ts`
+- `src/lib/supabase/admin.ts`
 
 ### API
 
 - `src/app/api/routines/generate/route.ts`
+- `src/app/api/routines/save/route.ts`
+- `src/app/api/admin/overview/route.ts`
+- `src/app/api/admin/exercise-videos/route.ts`
+- `src/app/api/exercise-videos/route.ts`
 
 ---
 
@@ -293,6 +310,64 @@ Current generation behavior:
 - balanced sessions are rejected if phase coverage is weak and replaced with curated fallback logic
 - routine titles are instructed to follow a more athletic `[Focus] — [Context]` style
 
+### New anatomy logic
+
+The prompt now explicitly enforces anatomy-driven structure.
+
+#### Release phase
+
+Release must cover the full structural surround of the target joint.
+
+For hips:
+
+- anterior
+- posterior
+- lateral
+- medial
+
+For shoulders:
+
+- anterior
+- posterior
+- superior
+- inferior
+
+For spine:
+
+- flexion
+- extension
+- rotation
+- lateral flexion
+
+This prevents token release blocks like "one pec stretch and one hip stretch."
+
+#### Activation phase
+
+Activation is no longer allowed to be generic.
+
+Before writing activation, the model must decide whether the range phase is dominated by:
+
+- `rotational`
+- `linear`
+
+If range is rotational, activation should prepare:
+
+- piriformis
+- deep hip rotators
+- external rotators
+- multifidus
+- obliques
+
+If range is linear, activation should prepare:
+
+- hip flexors
+- glutes
+- rectus femoris
+- erectors
+- serratus anterior
+
+This is one of the biggest prompt-quality improvements made so far.
+
 ### Curated mobility library
 
 The app now includes a curated internal exercise library in:
@@ -317,24 +392,31 @@ This library matters because:
 - the AI prompt is biased toward it
 - it is now one of the main product-quality control layers
 
-Known cleanup truths already identified:
+Every exercise now includes:
 
-- `Forward slides` and `Chest slides` are different exercises
-- `T / Y / I` and `W-Y` belong in shoulders activation, not spine activation
-- `Swimmers` should not be in spine range
+- `movementPattern`
+- `anatomicalQuadrants`
 
-This file still needs more cleanup over time.
+The approved exercise pool text passed into the prompt now includes those tags, so the AI can reason from anatomy metadata instead of only names.
+
+Important cleanup truths already confirmed:
+
+- `Forward Slides` and `Prone Chest Slides` are separate exercises
+- `T / Y / I` and `W-Y` live only in shoulders activation
+- `Alternate Swimmer` lives in shoulders activation
+
+This file still needs ongoing refinement, but the structure is much better than before.
 
 ---
 
-## Saved Workouts
+## Saved Workouts and Routine Flow
 
-Saved workouts are now surfaced more clearly on:
+Saved workouts are surfaced more clearly on:
 
 - `src/app/dashboard/page.tsx`
 - `src/app/results/page.tsx`
 
-The user should be able to see:
+The user can see:
 
 - workout date
 - routine name
@@ -342,13 +424,22 @@ The user should be able to see:
 - goal
 - duration
 
-This is a meaningful Basic-tier improvement because the app now feels more like an actual usable tool, not a one-off generator.
+Routine flow fixes live in:
+
+- `src/app/api/routines/save/route.ts`
+- `src/app/routine/page.tsx`
+
+Current truths:
+
+- routine save uses the signed-in user token so it works with RLS
+- users can finish the workout without saving it
+- the save prompt should not bounce the user to the dashboard when they choose not to save
 
 ---
 
 ## Routine Background Matching
 
-Routine background matching now exists in:
+Routine background matching exists in:
 
 - `src/lib/routine-backgrounds.ts`
 
@@ -358,40 +449,35 @@ Current intended behavior:
 - otherwise choose body-area background
 - otherwise use default mobility background
 
-Current direction:
-
-- routine page can stay tailored and sport-aware
-- general site pages should stay visually cleaner
-
-Currently supported uploaded-image matches include:
+Currently supported sport-specific matches include:
 
 - AFL
 - Rugby
-- Cricket
-- BJJ
-- Kickboxing
-- Muay Thai
-- Golf
 - Soccer
-- Wrestling
-- Weightlifting
-- Tennis
+- Netball
 - Basketball
 - Volleyball
-- Netball
+- Cricket
+- Golf
+- Tennis
+- Padel
+- Wrestling
+- BJJ
+- Weightlifting
+- Kickboxing
+- Muay Thai
 - Water Polo
 - High Jump
 - Hurdles
 - Handball
-- Padel
 
 Area-based routines still use:
 
 - Athletix mobility image for hips / shoulders / spine / general mobility
 
-Important note:
+Important practical note:
 
-- depending on current uncommitted state, the expanded image set may still need committing/pushing
+- if the background looks wrong on live, the first thing to check is whether the mapped image file is actually committed and deployed
 
 ---
 
@@ -402,10 +488,8 @@ Current visual decisions:
 - home keeps its original hero image
 - dashboard stays black
 - recovery keeps the older stock barbell image
-- general site pages are trending back toward cleaner stock/editorial backgrounds
+- general site pages should stay visually cleaner
 - routine page is allowed to be the smart, user-specific image surface
-
-This distinction is intentional.
 
 Rule of thumb:
 
@@ -418,7 +502,7 @@ Rule of thumb:
 
 Current product decision:
 
-- exercise videos will be hosted first on an unlisted YouTube channel
+- exercise videos are being hosted first on an unlisted YouTube channel
 
 Why:
 
@@ -426,14 +510,148 @@ Why:
 - faster beta implementation
 - easier content control
 
-Recommended implementation pattern:
-
-- maintain a curated exercise name -> YouTube ID mapping in app logic or later in a small admin-friendly table
-- do not rely on a raw YouTube channel feed as the app’s source of truth
-
 Current file:
 
 - `src/lib/exercise-videos.ts`
+
+Current implementation:
+
+- manual exercise name -> YouTube ID mapping
+- routine page embeds YouTube videos when an exercise name or alias matches
+- the watch link opens the unlisted YouTube video directly
+- live Supabase overrides can now replace or fill gaps without touching code
+
+### Admin-managed video overrides
+
+The app now has a working internal admin panel at:
+
+- `/admin`
+
+What the admin panel currently does:
+
+- shows total registered users
+- shows new signups this week
+- shows total screenings completed
+- shows total routines generated
+- shows most popular sports selected
+- shows most popular goals selected
+- shows average session duration
+- shows a searchable curated exercise list for video management
+- lets an admin paste and save a YouTube ID per exercise
+
+Current admin routing behavior:
+
+- only users with `profiles.is_admin = true` should be able to access `/admin`
+- non-admin users should be redirected to `/dashboard`
+- unauthenticated users should be redirected to `/auth`
+
+Current video override behavior:
+
+- routine page now checks Supabase `exercise_videos` first
+- if a mapping exists there, it uses that YouTube ID
+- if not, it falls back to the hardcoded `src/lib/exercise-videos.ts` library
+
+This is a major workflow improvement because new exercise-video coverage no longer always requires a code change.
+
+Current live mapped coverage includes:
+
+### Hips range / activation
+
+- Kneeling Hurdle Pass
+- Heel Taps
+- Seated Hip Internal Rotation
+- Seated Foam Roll Pass
+- Seated Hip External Rotation
+
+### Hips release
+
+- Butterfly Stretch
+- Groin Rocking Stretch
+- Hip Drops
+- Modified Pigeon Stretch
+- Scorpion Stretch
+- Couch Stretch
+- Deep Squat Supported
+- High Split Rock
+- Quadruped Hamstring Stretch
+- Rectus Femoris Assisted Stretch
+- Spider Stretch
+- Half-Kneeling Hip Flexor Stretch
+- Hamstring Hinge
+
+### Shoulder activation / range
+
+- Prone T Raises
+- Prone Y Lifts
+- Prone Y-W Raises
+- Quadruped Shrugs
+- Seated Banded Driver
+- Prone Alternate Swimmer
+
+Important alias truth:
+
+- bad alias overlap can produce a wrong video match
+- one example was fixed:
+  - `Standing Abducted Internal Rotation` was wrongly matching the seated IR clip
+  - that alias was removed so a wrong clip is not shown as a false positive
+
+Recommended working method:
+
+1. test the live routine page
+2. if a wrong video appears, fix the alias
+3. if a placeholder appears, add the correct clip when available
+4. keep uploads focused on exercises that actually show up often
+
+---
+
+## Database / Security
+
+Important backend work now in place:
+
+- screening cloud save works
+- `responses` exists on `screening_questionnaires`
+- RLS policies are now applied successfully to:
+  - `profiles`
+  - `progress`
+  - `routines`
+  - `routine_items`
+  - `screening_questionnaires`
+  - `screening_results`
+  - `test_results`
+  - `readiness_logs`
+
+Important schema / policy truths:
+
+- `profiles` uses `id`, not `user_id`
+- `routine_items` ownership must be derived through `routines.user_id`
+- `test_results` ownership must be derived through `screening_results.user_id`
+- some owner comparisons needed `::text = auth.uid()::text` to work against the real schema
+
+The one-shot SQL reference file exists in:
+
+- `supabase/rls_core_tables.sql`
+
+### Admin-specific schema / env truths
+
+Admin now depends on a few extra backend requirements:
+
+- `profiles.is_admin boolean default false`
+- `exercise_videos` table with:
+  - `exercise_name text primary key`
+  - `youtube_id text`
+  - `updated_at timestamptz default now()`
+
+Current required Vercel/server environment variable:
+
+- `SUPABASE_SERVICE_ROLE_KEY`
+  - or legacy-compatible fallback `SUPABASE_SERVICE_KEY`
+
+Important practical truth:
+
+- `/admin` can render only if the service-role env is present
+- if that env is missing, the admin page may render shell/UI but stats and overrides will fail
+- one real deployment failure already happened because `src/lib/supabase/admin.ts` was accidentally omitted from the first admin commit
+- the fix was simply to commit that missing helper and redeploy
 
 ---
 
@@ -465,8 +683,9 @@ Do not let Premium complexity distract from Basic polish.
 - AI routine quality still needs ongoing QA across more sports and states
 - mobile refinement is still incomplete on some screens
 - Premium programming is still more surface than true system
-- exercise video integration is still only partially built
-- the routine background image expansion may still need a final commit/push depending on current local state
+- exercise video integration is still partial and alias-driven rather than admin-managed
+- the admin panel currently assumes desktop/internal usage and is not optimized for mobile
+- some sport or exercise mappings may still need refinement after real-user QA
 
 ---
 
@@ -474,11 +693,16 @@ Do not let Premium complexity distract from Basic polish.
 
 Common unrelated files that may exist locally and should not be committed casually:
 
-- `src/lib/curated-mobility.ts` when only encoding/noise changes are present
 - `src/lib/screening-cloud.ts` old unused helper
 - `move-groove-dev.out.log`
 - `move-groove-dev.err.log`
 - `DEVELOPER_DOCS.rtf`
+
+Also be careful with local UI files that may be mid-tweak and unrelated to the current task:
+
+- `src/app/auth/page.tsx`
+- `src/app/quiz/page.tsx`
+- `src/app/screening/ScreeningClient.tsx`
 
 ---
 
@@ -489,12 +713,13 @@ If another developer or Claude continues from here, the most important truths ar
 1. The app is functioning again at a real beta level.
 2. Basic is the priority.
 3. Screening has been rebuilt and is now cloud-backed with local fallback backup.
-4. Readiness now materially affects routine generation.
+4. Readiness materially affects routine generation.
 5. The curated mobility library is central to workout quality.
-6. Saved workouts now matter in the Basic experience.
-7. The routine page now supports sport/body-area matched backgrounds.
-8. The rest of the site should remain cleaner and less image-heavy than the routine page.
-9. Premium should stay secondary until Basic feels rock solid.
+6. Anatomy-driven prompt rules are now live and matter.
+7. Saved workouts now matter in the Basic experience.
+8. The routine page now supports sport/body-area matched backgrounds.
+9. Exercise videos are now testable via unlisted YouTube mappings.
+10. Premium should stay secondary until Basic feels rock solid.
 
 ---
 
@@ -508,25 +733,30 @@ If another developer or Claude continues from here, the most important truths ar
    - quiz
    - routine
 
-2. Keep cleaning the curated mobility library:
+2. Keep improving workout quality using real generated examples:
+   - `Golf + flexibility`
+   - `BJJ + balanced`
+   - `Basketball + balanced`
+   - shoulder-focused routines
+   - spine-focused routines
+
+3. Keep tightening the curated mobility library:
    - duplicates
    - mis-bucketed drills
-   - wrong merges
    - rationale wording cleanup
+   - movement pattern / anatomy tag quality
 
-3. Keep improving workout quality using real generated examples:
-   - `balanced`
-   - `flexibility`
-   - `sport relevant`
-   - low-readiness cases
+4. Keep growing exercise video coverage only for exercises that actually appear often.
 
-4. Finish committing and deploying the expanded routine-background sport image set if still local.
+5. Use `/admin` as the first-choice workflow for adding new video mappings.
 
-5. Continue screen-by-screen mobile refinement.
+6. Keep fixing alias mismatches whenever the wrong video appears.
 
-6. Only after Basic is strong, return to:
-   - movement battery polish
-   - true multi-week programming
-   - scheduled workouts
+7. Continue screen-by-screen mobile refinement.
+
+8. Only after Basic is strong, return to:
+  - movement battery polish
+  - true multi-week programming
+  - scheduled workouts
    - calendar persistence
    - reminder systems
