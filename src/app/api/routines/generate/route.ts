@@ -456,6 +456,48 @@ function toRoutineExercise(template: (typeof CURATED_ROUTINE_LIBRARY)['hips']['r
   }
 }
 
+function normalizeExerciseName(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+}
+
+function getApprovedExerciseCanonicalMap(targetAreas: string[]) {
+  const allExercises = targetAreas
+    .filter((area): area is keyof typeof CURATED_ROUTINE_LIBRARY => area in CURATED_ROUTINE_LIBRARY)
+    .flatMap((area) => {
+      const phases = CURATED_ROUTINE_LIBRARY[area]
+      return [...phases.release, ...phases.activation, ...phases.range]
+    })
+
+  const map = new Map<string, string>()
+  for (const exercise of allExercises) {
+    map.set(normalizeExerciseName(exercise.name), exercise.name)
+    for (const alias of exercise.aliases || []) {
+      map.set(normalizeExerciseName(alias), exercise.name)
+    }
+  }
+  return map
+}
+
+function normalizeRoutineExerciseNames(routine: GeneratedRoutine, targetAreas: string[]) {
+  const approvedMap = getApprovedExerciseCanonicalMap(targetAreas)
+
+  return {
+    ...routine,
+    phases: routine.phases.map((phase) => ({
+      ...phase,
+      exercises: phase.exercises.map((exercise) => {
+        const canonicalName = approvedMap.get(normalizeExerciseName(exercise.name))
+        return canonicalName
+          ? { ...exercise, name: canonicalName }
+          : exercise
+      }),
+    })),
+  }
+}
+
 async function persistGeneratedRoutine({
   userId,
   routine,
@@ -826,6 +868,7 @@ PILLAR WEIGHTING BY GOAL:
 
 Create ${exerciseCount} total exercises. Cite REAL peer-reviewed studies (JOSPT, BJSM, JSCR, IJSPT).
 Prioritize the approved exercise pool before inventing new exercise names. Stay close to that movement language and phase logic.
+Use ONLY the exact exercise names from the approved pool. Do not paraphrase, shorten, or rename any exercise.
 Release phase must contain ONLY stretching - no foam rolling.
 Unless the goal is flexibility, release exercises should default to 1 set each so the session can cover more surrounding structures. Only use 2 sets for release when the goal is flexibility.
 Do not use or mention PAILs or RAILs in this standard routine builder.
@@ -895,7 +938,10 @@ Respond ONLY in valid JSON (no markdown):
       if (jsonStart === -1 || jsonEnd === -1) {
         throw new Error(`AI returned non-JSON response: ${cleaned.slice(0, 200)}`)
       }
-      const routine = normalizeRoutineForGoal(JSON.parse(cleaned.slice(jsonStart, jsonEnd + 1)) as GeneratedRoutine, effectiveGoal)
+      const routine = normalizeRoutineExerciseNames(
+        normalizeRoutineForGoal(JSON.parse(cleaned.slice(jsonStart, jsonEnd + 1)) as GeneratedRoutine, effectiveGoal),
+        targetAreas,
+      )
 
       if (prepPhase) {
         routine.phases.unshift(prepPhase)
