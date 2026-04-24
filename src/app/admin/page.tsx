@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Header from '@/components/Header'
 import { CURATED_ROUTINE_LIBRARY, type CuratedArea, type CuratedPillar, type CuratedRoutineExerciseTemplate } from '@/lib/curated-mobility'
-import { getExerciseVideo } from '@/lib/exercise-videos'
+import { EXERCISE_VIDEO_LIBRARY, getExerciseVideo } from '@/lib/exercise-videos'
 import { createClient } from '@/lib/supabase/client'
 
 type AdminOverview = {
@@ -37,9 +37,48 @@ type ExerciseAdminRow = {
   area: CuratedArea
   pillar: CuratedPillar
   hardcodedYoutubeId: string
+  groupKey: string
+  groupLabel: string
+  sortOrder: number
 }
 
 const UC = 'uppercase' as const
+const GROUP_ORDER: Array<{ key: string; label: string }> = [
+  { key: 'hips-release', label: 'HIPS — RELEASE' },
+  { key: 'hips-activation', label: 'HIPS — ACTIVATION' },
+  { key: 'hips-range', label: 'HIPS — RANGE' },
+  { key: 'shoulders-release', label: 'SHOULDERS — RELEASE' },
+  { key: 'shoulders-activation', label: 'SHOULDERS — ACTIVATION' },
+  { key: 'shoulders-range', label: 'SHOULDERS — RANGE' },
+  { key: 'spine-release', label: 'SPINE — RELEASE' },
+  { key: 'spine-activation', label: 'SPINE — ACTIVATION' },
+  { key: 'spine-range', label: 'SPINE — RANGE' },
+  { key: 'foam-roll-hips', label: 'FOAM ROLL — HIPS' },
+  { key: 'foam-roll-shoulders', label: 'FOAM ROLL — SHOULDERS' },
+  { key: 'foam-roll-spine', label: 'FOAM ROLL — SPINE' },
+]
+
+const GROUP_ORDER_INDEX = Object.fromEntries(GROUP_ORDER.map((group, index) => [group.key, index]))
+
+function getStandardGroup(area: CuratedArea, pillar: CuratedPillar) {
+  const key = `${area}-${pillar}`
+  const label = GROUP_ORDER.find((group) => group.key === key)?.label || `${area.toUpperCase()} — ${pillar.toUpperCase()}`
+  return {
+    key,
+    label,
+    sortOrder: GROUP_ORDER_INDEX[key] ?? 999,
+  }
+}
+
+function getFoamRollGroup(area: CuratedArea) {
+  const key = `foam-roll-${area}`
+  const label = GROUP_ORDER.find((group) => group.key === key)?.label || `FOAM ROLL — ${area.toUpperCase()}`
+  return {
+    key,
+    label,
+    sortOrder: GROUP_ORDER_INDEX[key] ?? 999,
+  }
+}
 
 function flattenCuratedExercises(): ExerciseAdminRow[] {
   const rows: ExerciseAdminRow[] = []
@@ -54,18 +93,49 @@ function flattenCuratedExercises(): ExerciseAdminRow[] {
               return
             }
 
+            const group = getStandardGroup(area, pillar)
             seen.add(exercise.name)
             rows.push({
               name: exercise.name,
               area,
               pillar,
               hardcodedYoutubeId: getExerciseVideo(exercise.name)?.youtubeVideoId || '',
+              groupKey: group.key,
+              groupLabel: group.label,
+              sortOrder: group.sortOrder,
             })
           })
         })
     })
 
-  return rows.sort((a, b) => a.name.localeCompare(b.name))
+  EXERCISE_VIDEO_LIBRARY.forEach((entry) => {
+    const normalizedTitle = entry.title.trim()
+    if (!normalizedTitle || seen.has(normalizedTitle)) {
+      return
+    }
+
+    const normalizedAliases = entry.aliases.map((alias) => alias.toLowerCase())
+    const looksLikeFoamRoll = normalizedTitle.toLowerCase().includes('foam roll') || normalizedAliases.some((alias) => alias.includes('foam roll'))
+
+    const area = entry.area as CuratedArea | undefined
+    if (!looksLikeFoamRoll || !area || !['hips', 'shoulders', 'spine'].includes(area)) {
+      return
+    }
+
+    const group = getFoamRollGroup(area)
+    seen.add(normalizedTitle)
+    rows.push({
+      name: normalizedTitle,
+      area,
+      pillar: 'activation',
+      hardcodedYoutubeId: entry.youtubeVideoId,
+      groupKey: group.key,
+      groupLabel: group.label,
+      sortOrder: group.sortOrder,
+    })
+  })
+
+  return rows
 }
 
 const ALL_EXERCISES = flattenCuratedExercises()
@@ -181,6 +251,24 @@ export default function AdminPage() {
       || exercise.pillar.toLowerCase().includes(normalized),
     )
   }, [search])
+
+  const groupedExercises = useMemo(() => {
+    const rowsByGroup = new Map<string, ExerciseAdminRow[]>()
+
+    filteredExercises.forEach((exercise) => {
+      const existing = rowsByGroup.get(exercise.groupKey) || []
+      existing.push(exercise)
+      rowsByGroup.set(exercise.groupKey, existing)
+    })
+
+    return GROUP_ORDER
+      .map((group) => ({
+        key: group.key,
+        label: group.label,
+        exercises: rowsByGroup.get(group.key) || [],
+      }))
+      .filter((group) => group.exercises.length > 0)
+  }, [filteredExercises])
 
   async function saveVideoMapping(exerciseName: string) {
     if (!accessToken) return
@@ -400,67 +488,74 @@ export default function AdminPage() {
                 <div>Save</div>
               </div>
               <div style={{ maxHeight: 620, overflowY: 'auto' }}>
-                {filteredExercises.map((exercise) => {
-                  const override = overrides[exercise.name]
-                  const activeYoutubeId = override?.youtube_id || exercise.hardcodedYoutubeId || ''
-                  const source = override?.youtube_id ? 'Supabase' : exercise.hardcodedYoutubeId ? 'Hardcoded' : 'Empty'
-                  const status = saveStatus[exercise.name] || 'idle'
-
-                  return (
-                    <div key={exercise.name} style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 1.4fr) 110px 110px 140px minmax(220px, 1fr) 92px', gap: 12, padding: '15px 18px', borderBottom: '1px solid rgba(255,255,255,0.05)', alignItems: 'center' }}>
-                      <div>
-                        <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 14, color: 'var(--white)', lineHeight: 1.45 }}>
-                          {exercise.name}
-                        </div>
-                      </div>
-                      <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 2, color: 'var(--cyan)', textTransform: UC }}>
-                        {exercise.area}
-                      </div>
-                      <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 2, color: 'var(--silver3)', textTransform: UC }}>
-                        {exercise.pillar}
-                      </div>
-                      <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 2, color: source === 'Supabase' ? 'var(--cyan)' : source === 'Hardcoded' ? 'var(--silver2)' : 'var(--silver4)', textTransform: UC }}>
-                        {source}
-                      </div>
-                      <div>
-                        <input
-                          value={draftYoutubeIds[exercise.name] ?? activeYoutubeId}
-                          onChange={(event) => setDraftYoutubeIds((current) => ({ ...current, [exercise.name]: event.target.value.trim() }))}
-                          placeholder="Paste YouTube ID"
-                          style={{
-                            width: '100%',
-                            background: 'rgba(255,255,255,0.02)',
-                            border: '1px solid rgba(255,255,255,0.1)',
-                            color: 'var(--white)',
-                            padding: '10px 12px',
-                            fontFamily: "'DM Mono',monospace",
-                            fontSize: 12,
-                          }}
-                        />
-                      </div>
-                      <div>
-                        <button
-                          type="button"
-                          onClick={() => saveVideoMapping(exercise.name)}
-                          style={{
-                            width: '100%',
-                            background: status === 'saved' ? 'rgba(0,180,216,0.18)' : 'transparent',
-                            border: '1px solid rgba(0,180,216,0.28)',
-                            color: status === 'error' ? '#ff9f9f' : 'var(--cyan)',
-                            padding: '10px 8px',
-                            cursor: 'pointer',
-                            fontFamily: "'DM Mono',monospace",
-                            fontSize: 9,
-                            letterSpacing: 2,
-                            textTransform: UC,
-                          }}
-                        >
-                          {status === 'saving' ? 'Saving' : status === 'saved' ? 'Saved' : status === 'error' ? 'Retry' : 'Save'}
-                        </button>
-                      </div>
+                {groupedExercises.map((group) => (
+                  <div key={group.key}>
+                    <div style={{ padding: '14px 18px', borderBottom: '1px solid rgba(255,255,255,0.05)', borderTop: '1px solid rgba(255,255,255,0.05)', background: 'rgba(0,180,216,0.05)', fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 3, color: 'var(--cyan)', textTransform: UC }}>
+                      {group.label}
                     </div>
-                  )
-                })}
+                    {group.exercises.map((exercise) => {
+                      const override = overrides[exercise.name]
+                      const activeYoutubeId = override?.youtube_id || exercise.hardcodedYoutubeId || ''
+                      const source = override?.youtube_id ? 'Supabase' : exercise.hardcodedYoutubeId ? 'Hardcoded' : 'Empty'
+                      const status = saveStatus[exercise.name] || 'idle'
+
+                      return (
+                        <div key={exercise.name} style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 1.4fr) 110px 110px 140px minmax(220px, 1fr) 92px', gap: 12, padding: '15px 18px', borderBottom: '1px solid rgba(255,255,255,0.05)', alignItems: 'center' }}>
+                          <div>
+                            <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 14, color: 'var(--white)', lineHeight: 1.45 }}>
+                              {exercise.name}
+                            </div>
+                          </div>
+                          <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 2, color: 'var(--cyan)', textTransform: UC }}>
+                            {exercise.area}
+                          </div>
+                          <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 2, color: 'var(--silver3)', textTransform: UC }}>
+                            {exercise.pillar}
+                          </div>
+                          <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 2, color: source === 'Supabase' ? 'var(--cyan)' : source === 'Hardcoded' ? 'var(--silver2)' : 'var(--silver4)', textTransform: UC }}>
+                            {source}
+                          </div>
+                          <div>
+                            <input
+                              value={draftYoutubeIds[exercise.name] ?? activeYoutubeId}
+                              onChange={(event) => setDraftYoutubeIds((current) => ({ ...current, [exercise.name]: event.target.value.trim() }))}
+                              placeholder="Paste YouTube ID"
+                              style={{
+                                width: '100%',
+                                background: 'rgba(255,255,255,0.02)',
+                                border: '1px solid rgba(255,255,255,0.1)',
+                                color: 'var(--white)',
+                                padding: '10px 12px',
+                                fontFamily: "'DM Mono',monospace",
+                                fontSize: 12,
+                              }}
+                            />
+                          </div>
+                          <div>
+                            <button
+                              type="button"
+                              onClick={() => saveVideoMapping(exercise.name)}
+                              style={{
+                                width: '100%',
+                                background: status === 'saved' ? 'rgba(0,180,216,0.18)' : 'transparent',
+                                border: '1px solid rgba(0,180,216,0.28)',
+                                color: status === 'error' ? '#ff9f9f' : 'var(--cyan)',
+                                padding: '10px 8px',
+                                cursor: 'pointer',
+                                fontFamily: "'DM Mono',monospace",
+                                fontSize: 9,
+                                letterSpacing: 2,
+                                textTransform: UC,
+                              }}
+                            >
+                              {status === 'saving' ? 'Saving' : status === 'saved' ? 'Saved' : status === 'error' ? 'Retry' : 'Save'}
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                ))}
               </div>
             </div>
           </section>
