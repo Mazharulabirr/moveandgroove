@@ -64,6 +64,7 @@ type GeneratedRoutine = {
   totalExercises: number
   phases: RoutinePhase[]
   evidenceSummary: string
+  savedId?: number
 }
 
 type GenerateRequest = {
@@ -455,6 +456,98 @@ function toRoutineExercise(template: (typeof CURATED_ROUTINE_LIBRARY)['hips']['r
   }
 }
 
+async function persistGeneratedRoutine({
+  userId,
+  routine,
+  sport,
+  areas,
+  duration,
+  goal,
+}: {
+  userId: string
+  routine: GeneratedRoutine
+  sport: string | null
+  areas: string[]
+  duration: number
+  goal: string
+}) {
+  const { data: savedRoutine, error: routineError } = await supabase
+    .from('routines')
+    .insert([{
+      user_id: userId,
+      title: routine.routineTitle,
+      sport: sport || null,
+      areas,
+      goal: goal || null,
+      duration_minutes: duration || null,
+      difficulty: routine.difficultyLevel,
+      summary: routine.summary,
+      evidence_summary: routine.evidenceSummary,
+    }])
+    .select('id')
+    .single<{ id: number }>()
+
+  if (routineError) {
+    throw new Error(`[generate.persistRoutine] ${routineError.message}`)
+  }
+
+  const items = routine.phases.flatMap((phase, phaseIndex) =>
+    phase.exercises.map((exercise, exerciseIndex) => ({
+      routine_id: savedRoutine.id,
+      video_id: null,
+      pillar: phase.pillar,
+      exercise_name: exercise.name,
+      target_area: exercise.targetArea,
+      sets: exercise.sets,
+      reps: exercise.reps || null,
+      hold_seconds: exercise.holdSeconds || null,
+      rationale: exercise.rationale,
+      study_citation: exercise.study,
+      order_index: phaseIndex * 10 + exerciseIndex,
+    })),
+  )
+
+  if (items.length > 0) {
+    const { error: itemsError } = await supabase.from('routine_items').insert(items)
+    if (itemsError) {
+      throw new Error(`[generate.persistRoutineItems] ${itemsError.message}`)
+    }
+  }
+
+  return savedRoutine.id
+}
+
+async function maybePersistRoutineForAuthenticatedUser({
+  authenticatedUserId,
+  routine,
+  sport,
+  targetAreas,
+  sessionDuration,
+  effectiveGoal,
+}: {
+  authenticatedUserId: string | null
+  routine: GeneratedRoutine
+  sport: string | null
+  targetAreas: string[]
+  sessionDuration: number
+  effectiveGoal: string
+}) {
+  if (!authenticatedUserId) {
+    return routine
+  }
+
+  const savedId = await persistGeneratedRoutine({
+    userId: authenticatedUserId,
+    routine,
+    sport,
+    areas: targetAreas,
+    duration: sessionDuration,
+    goal: effectiveGoal,
+  })
+
+  return { ...routine, savedId }
+}
+
 function buildFallbackRoutine({
   mode,
   sport,
@@ -646,7 +739,14 @@ export async function POST(req: NextRequest) {
       anthropic = createAnthropicClient()
     } catch (error) {
       console.error('[generate.env]', error)
-      return NextResponse.json(fallbackRoutine)
+      return NextResponse.json(await maybePersistRoutineForAuthenticatedUser({
+        authenticatedUserId,
+        routine: fallbackRoutine,
+        sport,
+        targetAreas,
+        sessionDuration,
+        effectiveGoal,
+      }))
     }
 
     const prepMinutes   = prepPhase ? prepPhase.exercises.length * 3 : 0
@@ -804,17 +904,38 @@ Respond ONLY in valid JSON (no markdown):
 
       if (needsCuratedFallback(routine, effectiveGoal, targetAreas)) {
         console.warn('[generate.ai] AI routine failed phase-balance guardrail, returning curated fallback routine')
-        return NextResponse.json(fallbackRoutine)
+        return NextResponse.json(await maybePersistRoutineForAuthenticatedUser({
+          authenticatedUserId,
+          routine: fallbackRoutine,
+          sport,
+          targetAreas,
+          sessionDuration,
+          effectiveGoal,
+        }))
       }
 
-      return NextResponse.json(routine)
+      return NextResponse.json(await maybePersistRoutineForAuthenticatedUser({
+        authenticatedUserId,
+        routine,
+        sport,
+        targetAreas,
+        sessionDuration,
+        effectiveGoal,
+      }))
     } catch (error) {
       if (error instanceof Error && error.message === 'Anthropic request timed out') {
         console.warn('[generate.ai] Anthropic timed out, returning fallback routine')
       } else {
         console.error('[generate.ai]', error)
       }
-      return NextResponse.json(fallbackRoutine)
+      return NextResponse.json(await maybePersistRoutineForAuthenticatedUser({
+        authenticatedUserId,
+        routine: fallbackRoutine,
+        sport,
+        targetAreas,
+        sessionDuration,
+        effectiveGoal,
+      }))
     }
 
   } catch (err: unknown) {
