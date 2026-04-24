@@ -253,14 +253,14 @@ export default function ScreeningClient() {
                   <div key={region} style={{ border: '1px solid rgba(255,255,255,0.08)', background: 'linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(8,10,14,0.98) 100%)', padding: '24px 24px 20px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 18 }}>
                       <meta.Icon size={30} color={meta.color} />
-                      <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 18, fontWeight: 700, letterSpacing: 3, color: meta.color, textTransform: UC }}>
-                        {meta.label}
-                      </div>
+                    <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 'clamp(15px, 4vw, 18px)', fontWeight: 700, letterSpacing: 3, color: meta.color, textTransform: UC }}>
+                      {meta.label}
+                    </div>
                     </div>
                     <div className="mg-grid-2" style={{ gap: 14 }}>
                       {tests.map((item) => (
                         <div key={item.id} style={{ border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)', padding: '18px 18px 16px' }}>
-                          <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 14, fontWeight: 500, letterSpacing: 1.5, color: 'var(--white)', marginBottom: 8 }}>
+                          <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 'clamp(13px, 3.8vw, 14px)', fontWeight: 500, letterSpacing: 1.5, color: 'var(--white)', marginBottom: 8 }}>
                             {item.name}
                           </div>
                           <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 14, color: 'var(--silver3)', lineHeight: 1.6 }}>
@@ -335,16 +335,16 @@ export default function ScreeningClient() {
                     const selected = answers[test.id] === option.value
                     const accent = selected ? regionMeta.color : 'var(--silver3)'
                     return (
-                      <div
-                        key={option.id}
-                        onClick={() => pick(test.id, option.value)}
-                        style={{
-                          flex: 1,
-                          background: selected ? 'var(--black3)' : 'var(--black2)',
-                          padding: '28px 24px',
-                          cursor: 'pointer',
-                          transition: 'background 0.2s',
-                          borderLeft: selected ? `6px solid ${regionMeta.color}` : '6px solid transparent',
+                        <div
+                          key={option.id}
+                          onClick={() => pick(test.id, option.value)}
+                          style={{
+                            flex: 1,
+                            background: selected ? 'var(--black3)' : 'var(--black2)',
+                            padding: '22px clamp(16px, 4.5vw, 24px)',
+                            cursor: 'pointer',
+                            transition: 'background 0.2s',
+                            borderLeft: selected ? `6px solid ${regionMeta.color}` : '6px solid transparent',
                         }}
                         className="mg-assessment-option-row"
                       >
@@ -355,7 +355,7 @@ export default function ScreeningClient() {
                           <span style={{ display: 'block', fontFamily: "'Syncopate',sans-serif", fontSize: 'clamp(16px, 4.2vw, 22px)', fontWeight: 700, color: selected ? 'var(--white)' : 'var(--silver)', lineHeight: 1.3, marginBottom: 8 }}>
                             {option.label}
                           </span>
-                          <span style={{ display: 'block', fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: 'var(--silver2)', lineHeight: 1.65 }}>
+                          <span style={{ display: 'block', fontFamily: "'DM Sans',sans-serif", fontSize: 'clamp(14px, 3.8vw, 15px)', color: 'var(--silver2)', lineHeight: 1.65 }}>
                             {option.description}
                           </span>
                         </span>
@@ -395,7 +395,7 @@ export default function ScreeningClient() {
 
               <div style={{ border: '1px solid var(--border)', background: 'var(--black2)', padding: '56px 28px', marginBottom: 2, textAlign: CA }}>
                 <p style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 'clamp(88px, 24vw, 160px)', fontWeight: 700, color: scoreLabel(scores.overall.pct).color, lineHeight: 1, letterSpacing: 4 }}>{scores.overall.pct}</p>
-                <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 18, letterSpacing: 6, color: 'var(--silver2)', marginTop: 16 }}>OVERALL MOBILITY SCORE</p>
+                <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 'clamp(14px, 3.8vw, 18px)', letterSpacing: 6, color: 'var(--silver2)', marginTop: 16 }}>OVERALL MOBILITY SCORE</p>
                 <p style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 18, fontWeight: 700, letterSpacing: 5, color: scoreLabel(scores.overall.pct).color, marginTop: 20 }}>{scoreLabel(scores.overall.pct).label}</p>
               </div>
 
