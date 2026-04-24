@@ -111,12 +111,43 @@ export async function upsertReadinessLog(
   supabase: SupabaseClient,
   row: Record<string, unknown>,
 ) {
-  const { error } = await supabase.from('readiness_logs').upsert([row], {
-    onConflict: 'user_id,date,session_type',
-  })
+  const userId = typeof row.user_id === 'string' ? row.user_id : ''
+  const date = typeof row.date === 'string' ? row.date : ''
+  const sessionType = typeof row.session_type === 'string' ? row.session_type : ''
 
-  if (error) {
-    throw error
+  if (!userId || !date || !sessionType) {
+    throw new Error('Readiness log row is missing user_id, date, or session_type.')
+  }
+
+  const { data: existing, error: existingError } = await supabase
+    .from('readiness_logs')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('date', date)
+    .eq('session_type', sessionType)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle<{ id: string }>()
+
+  if (existingError) {
+    throw existingError
+  }
+
+  if (existing?.id) {
+    const { error: updateError } = await supabase
+      .from('readiness_logs')
+      .update(row)
+      .eq('id', existing.id)
+
+    if (updateError) {
+      throw updateError
+    }
+    return
+  }
+
+  const { error: insertError } = await supabase.from('readiness_logs').insert([row])
+  if (insertError) {
+    throw insertError
   }
 }
 

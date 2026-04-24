@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Header from '@/components/Header'
 import { IconBattery, IconCheckin, IconCheckbox, IconFocus, IconMotivation, IconPain, IconReadiness, IconSleep, IconSoreness } from '@/components/Icons'
-import { buildPostSessionCheckinInsert, buildPreSessionReadinessInsert, upsertReadinessLog } from '@/lib/readiness-log'
+import { buildPostSessionCheckinInsert, buildPreSessionReadinessInsert } from '@/lib/readiness-log'
 import { buildReadinessAdjustmentSnapshot } from '@/lib/readiness'
 import { writeStoredPreSessionReadiness } from '@/lib/readiness-storage'
 import { createClient } from '@/lib/supabase/client'
@@ -189,6 +189,7 @@ export default function SessionCheckinPage() {
     try {
       const { data: { session } } = await supabase.auth.getSession()
       const uid = session?.user?.id
+      const accessToken = session?.access_token
       if (type === 'pre') {
         const snapshot = buildReadinessAdjustmentSnapshot({
           answers,
@@ -197,27 +198,53 @@ export default function SessionCheckinPage() {
           sorenessNotes,
         })
         writeStoredPreSessionReadiness(snapshot)
-        if (uid) {
-          await upsertReadinessLog(
-            supabase as never,
-            buildPreSessionReadinessInsert({
-              userId: uid,
-              snapshot,
-            }),
-          )
+        if (uid && accessToken) {
+          const row = buildPreSessionReadinessInsert({
+            userId: uid,
+            snapshot,
+          })
+          const response = await fetch('/api/readiness-logs', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${accessToken}`,
+            },
+            body: JSON.stringify({ row }),
+          })
+
+          if (!response.ok) {
+            const payload = await response.json().catch(() => null)
+            throw new Error(payload?.error || 'Could not save pre-session check-in.')
+          }
         }
       }
-      if (uid && type === 'post') {
-        await upsertReadinessLog(
-          supabase as never,
-          buildPostSessionCheckinInsert({
-            userId: uid,
-            answers,
-          }),
-        )
+      if (uid && accessToken && type === 'post') {
+        const row = buildPostSessionCheckinInsert({
+          userId: uid,
+          answers,
+        })
+        const response = await fetch('/api/readiness-logs', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({ row }),
+        })
+
+        if (!response.ok) {
+          const payload = await response.json().catch(() => null)
+          throw new Error(payload?.error || 'Could not save post-session check-in.')
+        }
       }
     } catch (error) {
-      console.error('[session-checkin]', error)
+      console.error('[session-checkin]', {
+        type,
+        answers,
+        sorenessAreas,
+        sorenessSeverity,
+        error,
+      })
       failed = true
       setSaveError('We could not sync this check-in right now. Please try again.')
     }

@@ -92,6 +92,7 @@ export default function PreSessionReadinessModal({ open, allowClose = false, onC
     try {
       const { data: { session } } = await supabase.auth.getSession()
       const uid = session?.user?.id
+      const accessToken = session?.access_token
 
       if (!uid) {
         throw new Error('Sign in required')
@@ -109,13 +110,28 @@ export default function PreSessionReadinessModal({ open, allowClose = false, onC
       writeStoredPreSessionReadiness(snapshot)
 
       try {
-        await upsertReadinessLog(
-          supabase as never,
-          buildPreSessionReadinessInsert({
-            userId: uid,
-            snapshot,
-          }),
-        )
+        const row = buildPreSessionReadinessInsert({
+          userId: uid,
+          snapshot,
+        })
+
+        if (accessToken) {
+          const response = await fetch('/api/readiness-logs', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${accessToken}`,
+            },
+            body: JSON.stringify({ row }),
+          })
+
+          if (!response.ok) {
+            const payload = await response.json().catch(() => null)
+            throw new Error(payload?.error || 'Could not save pre-session readiness.')
+          }
+        } else {
+          await upsertReadinessLog(supabase as never, row)
+        }
       } catch (insertError) {
         console.warn('[pre-session-readiness.insert]', insertError)
       }
