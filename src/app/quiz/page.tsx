@@ -49,6 +49,7 @@ export default function QuizPage() {
   const [includeFoamRoll, setIncludeFoamRoll] = useState<boolean | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [dailyLimitReached, setDailyLimitReached] = useState(false)
   const [showReadinessGate, setShowReadinessGate] = useState(false)
   const readinessSnapshot = readTodayPreSessionReadiness()
 
@@ -62,6 +63,7 @@ export default function QuizPage() {
   async function generateRoutine() {
     setLoading(true)
     setError('')
+    setDailyLimitReached(false)
 
     const { data: { session } } = await supabase.auth.getSession()
 
@@ -81,11 +83,23 @@ export default function QuizPage() {
       const timeoutId = window.setTimeout(() => controller.abort(), 25000)
       const response = await fetch(`${API}/routines/generate`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
         body: JSON.stringify(payload),
         signal: controller.signal,
       })
       window.clearTimeout(timeoutId)
+
+      if (response.status === 429) {
+        const payload = await response.json().catch(() => null)
+        if (payload?.error === 'DAILY_LIMIT_REACHED') {
+          setDailyLimitReached(true)
+          setLoading(false)
+          return
+        }
+      }
 
       if (!response.ok) {
         const text = await response.text()
@@ -432,6 +446,16 @@ export default function QuizPage() {
               {error && (
                 <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: '#e74c3c', marginBottom: 16, padding: '10px 14px', borderLeft: '2px solid #e74c3c', background: 'rgba(231,76,60,0.06)' }}>
                   {error}
+                </div>
+              )}
+              {dailyLimitReached && (
+                <div style={{ marginBottom: 18, border: '1px solid rgba(0,180,216,0.18)', background: 'rgba(0,180,216,0.08)', padding: '14px 16px' }}>
+                  <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: 'var(--silver2)', lineHeight: 1.7, marginBottom: 12 }}>
+                    You've used your 2 free routines today. Upgrade to Pro for unlimited access.
+                  </div>
+                  <button className="btn-primary" onClick={() => router.push('/upgrade')}>
+                    UPGRADE TO PRO
+                  </button>
                 </div>
               )}
               {readinessSnapshot && (

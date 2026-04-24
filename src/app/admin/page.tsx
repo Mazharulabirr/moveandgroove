@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -19,6 +19,11 @@ type AdminOverview = {
     mostPopularGoals: Array<{ label: string; count: number }>
     averageSessionDuration: number
   }
+}
+
+type AdminConfig = {
+  key: string
+  value: number
 }
 
 type ExerciseVideoOverride = {
@@ -76,6 +81,9 @@ export default function AdminPage() {
   const [error, setError] = useState('')
   const [saveStatus, setSaveStatus] = useState<Record<string, 'idle' | 'saving' | 'saved' | 'error'>>({})
   const [draftYoutubeIds, setDraftYoutubeIds] = useState<Record<string, string>>({})
+  const [config, setConfig] = useState<AdminConfig | null>(null)
+  const [configDraft, setConfigDraft] = useState('')
+  const [configStatus, setConfigStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
 
   useEffect(() => {
     let mounted = true
@@ -106,17 +114,21 @@ export default function AdminPage() {
       setAccessToken(session.access_token)
 
       try {
-        const [overviewResponse, mappingsResponse] = await Promise.all([
+        const [overviewResponse, mappingsResponse, configResponse] = await Promise.all([
           fetch('/api/admin/overview', {
             headers: { Authorization: `Bearer ${session.access_token}` },
           }),
           fetch('/api/admin/exercise-videos', {
             headers: { Authorization: `Bearer ${session.access_token}` },
           }),
+          fetch('/api/admin/config', {
+            headers: { Authorization: `Bearer ${session.access_token}` },
+          }),
         ])
 
         const overviewPayload = await overviewResponse.json()
         const mappingsPayload = await mappingsResponse.json()
+        const configPayload = await configResponse.json()
 
         if (!overviewResponse.ok) {
           throw new Error(overviewPayload.error || 'Could not load admin overview.')
@@ -124,6 +136,9 @@ export default function AdminPage() {
 
         if (!mappingsResponse.ok) {
           throw new Error(mappingsPayload.error || 'Could not load exercise video mappings.')
+        }
+        if (!configResponse.ok) {
+          throw new Error(configPayload.error || 'Could not load app config.')
         }
 
         if (!mounted) return
@@ -138,6 +153,8 @@ export default function AdminPage() {
             ALL_EXERCISES.map((exercise) => [exercise.name, nextOverrides[exercise.name]?.youtube_id || exercise.hardcodedYoutubeId || '']),
           ),
         )
+        setConfig(configPayload)
+        setConfigDraft(String(configPayload.value))
       } catch (loadError) {
         if (!mounted) return
         setError(loadError instanceof Error ? loadError.message : 'Could not load admin panel.')
@@ -200,6 +217,39 @@ export default function AdminPage() {
     } catch (saveError) {
       setSaveStatus((current) => ({ ...current, [exerciseName]: 'error' }))
       setError(saveError instanceof Error ? saveError.message : 'Could not save exercise video mapping.')
+    }
+  }
+
+  async function saveConfig() {
+    if (!accessToken) return
+
+    setConfigStatus('saving')
+    setError('')
+
+    try {
+      const response = await fetch('/api/admin/config', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          value: configDraft,
+        }),
+      })
+
+      const payload = await response.json()
+      if (!response.ok) {
+        throw new Error(payload.error || 'Could not save app config.')
+      }
+
+      setConfig(payload)
+      setConfigDraft(String(payload.value))
+      setConfigStatus('saved')
+      window.setTimeout(() => setConfigStatus('idle'), 1800)
+    } catch (configError) {
+      setConfigStatus('error')
+      setError(configError instanceof Error ? configError.message : 'Could not save app config.')
     }
   }
 
@@ -266,6 +316,52 @@ export default function AdminPage() {
                   </div>
                 </div>
               ))}
+            </div>
+          </section>
+
+          <section style={{ marginBottom: 36 }}>
+            <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 18, letterSpacing: 3, color: 'var(--white)', marginBottom: 16 }}>
+              CONFIG
+            </div>
+            <div style={{ background: 'rgba(8,10,14,0.96)', border: '1px solid rgba(255,255,255,0.08)', padding: '20px' }}>
+              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 3, color: 'var(--cyan)', textTransform: UC, marginBottom: 10 }}>
+                Basic Daily Routine Limit
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '180px 140px 100px', gap: 12, alignItems: 'center', maxWidth: 520 }}>
+                <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 14, color: 'var(--silver2)', lineHeight: 1.7 }}>
+                  Current value: {config?.value ?? 0}
+                </div>
+                <input
+                  value={configDraft}
+                  onChange={(event) => setConfigDraft(event.target.value)}
+                  style={{
+                    background: 'rgba(255,255,255,0.02)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    color: 'var(--white)',
+                    padding: '10px 12px',
+                    fontFamily: "'DM Mono',monospace",
+                    fontSize: 12,
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => { void saveConfig() }}
+                  style={{
+                    width: '100%',
+                    background: configStatus === 'saved' ? 'rgba(0,180,216,0.18)' : 'transparent',
+                    border: '1px solid rgba(0,180,216,0.28)',
+                    color: configStatus === 'error' ? '#ff9f9f' : 'var(--cyan)',
+                    padding: '10px 8px',
+                    cursor: 'pointer',
+                    fontFamily: "'DM Mono',monospace",
+                    fontSize: 9,
+                    letterSpacing: 2,
+                    textTransform: UC,
+                  }}
+                >
+                  {configStatus === 'saving' ? 'Saving' : configStatus === 'saved' ? 'Saved' : configStatus === 'error' ? 'Retry' : 'Save'}
+                </button>
+              </div>
             </div>
           </section>
 

@@ -12,6 +12,7 @@ import {
   IconResults,
   IconRoutine,
 } from '@/components/Icons'
+import { DEFAULT_BASIC_DAILY_ROUTINE_LIMIT, readBasicDailyRoutineLimit } from '@/lib/app-config'
 import { createClient } from '@/lib/supabase/client'
 import { getIsPro } from '@/lib/profiles'
 import { deriveScreeningSnapshot } from '@/lib/screening-cloud-v2'
@@ -140,22 +141,30 @@ export default function DashboardPage() {
   const [latestBattery, setLatestBattery] = useState<BatteryResult | null>(null)
   const [loading, setLoading] = useState(true)
   const [isPro, setIsPro] = useState(false)
+  const [dailyRoutineCount, setDailyRoutineCount] = useState(0)
+  const [dailyRoutineLimit, setDailyRoutineLimit] = useState(DEFAULT_BASIC_DAILY_ROUTINE_LIMIT)
   const [previewMode, setPreviewMode] = useState<'basic' | 'pro' | null>(() => getPreviewModeFromLocation())
   const [showWhyFirst, setShowWhyFirst] = useState(false)
   const [showPremiumTeaser, setShowPremiumTeaser] = useState(false)
 
   const loadData = useCallback(async (userId: string) => {
     try {
+      const startOfTodayUtc = (() => {
+        const now = new Date()
+        return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0)).toISOString()
+      })()
       const [
         { data: progress },
         { data: savedRoutines },
         { data: screening },
-        { data: battery },
+        { count: routinesToday },
+        basicDailyRoutineLimit,
       ] = await Promise.all([
         supabase.from('progress').select('*').eq('user_id', userId),
         supabase.from('routines').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
         supabase.from('screening_questionnaires').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
-        supabase.from('test_results').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+        supabase.from('routines').select('*', { count: 'exact', head: true }).eq('user_id', userId).gte('created_at', startOfTodayUtc),
+        readBasicDailyRoutineLimit(supabase as never),
       ])
 
       if (progress) {
@@ -185,8 +194,10 @@ export default function DashboardPage() {
           completed_at: null,
         } : null)
       }
-      setLatestBattery(battery || null)
+      setLatestBattery(null)
       setIsPro(await getIsPro(supabase as never, userId))
+      setDailyRoutineCount(routinesToday || 0)
+      setDailyRoutineLimit(basicDailyRoutineLimit)
     } catch (error) {
       console.error(error)
     }
@@ -217,6 +228,7 @@ export default function DashboardPage() {
   const membershipSummary = effectiveIsPro
     ? 'Premium adds the movement battery and planning layer after the shared screening baseline.'
     : 'Basic keeps the onboarding lighter and routes straight from screening into sport or body-area routines.'
+  const basicRoutineCounter = `${dailyRoutineCount}/${dailyRoutineLimit} routines used today`
   const journeySteps = effectiveIsPro ? PREMIUM_PATH : BASIC_PATH
   const visibleQuickActions = effectiveIsPro
     ? QUICK_ACTIONS.filter((action) => ['/quiz', '/programs', '/session-checkin'].includes(action.href))
@@ -396,6 +408,11 @@ export default function DashboardPage() {
                 <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 18, color: 'var(--silver2)', lineHeight: 1.8, marginBottom: 18, maxWidth: 720 }}>
                   {stageBody}
                 </div>
+                {!effectiveIsPro && (
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 18, padding: '8px 12px', border: '1px solid rgba(0,180,216,0.18)', background: 'rgba(0,180,216,0.08)', fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 3, color: 'var(--cyan)', textTransform: UC }}>
+                    {basicRoutineCounter}
+                  </div>
+                )}
 
                 {latestScreening && (
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 18 }}>
@@ -895,6 +912,14 @@ export default function DashboardPage() {
                       {latestRoutine ? `${latestRoutine.title} / ${formatDate(latestRoutine.created_at)}` : 'No saved workouts yet'}
                     </div>
                   </button>
+                  <div style={{ marginTop: 10, background: 'rgba(0,180,216,0.08)', border: '1px solid rgba(0,180,216,0.18)', padding: '12px 14px' }}>
+                    <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 3, color: 'var(--cyan)', textTransform: UC, marginBottom: 6 }}>
+                      Daily Routine Limit
+                    </div>
+                    <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 13, color: 'var(--silver2)', lineHeight: 1.65 }}>
+                      {basicRoutineCounter}
+                    </div>
+                  </div>
                 </div>
               )}
             </div>

@@ -1,6 +1,7 @@
 ﻿import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@supabase/supabase-js'
+import { readBasicDailyRoutineLimit } from '@/lib/app-config'
 import { buildApprovedExercisePoolText, CURATED_ROUTINE_LIBRARY } from '@/lib/curated-mobility'
 import {
   deriveRoutineReadinessModifiers,
@@ -8,6 +9,7 @@ import {
   type ReadinessAdjustmentSnapshot,
 } from '@/lib/readiness'
 import { SPORT_PROFILE_MAP } from '@/lib/sports'
+import { createAuthClient } from '@/lib/supabase/admin'
 
 function readRequiredEnv(name: string) {
   const raw = process.env[name]
@@ -75,6 +77,34 @@ type GenerateRequest = {
   readiness?: ReadinessAdjustmentSnapshot | null
 }
 
+function startOfTodayUtcIso() {
+  const now = new Date()
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0)).toISOString()
+}
+
+async function validateAuthenticatedUser(req: NextRequest, requestedUserId: string | null) {
+  const authHeader = req.headers.get('authorization') || ''
+  const accessToken = authHeader.startsWith('Bearer ')
+    ? authHeader.slice('Bearer '.length).trim()
+    : ''
+
+  if (!accessToken || !requestedUserId) {
+    return null
+  }
+
+  const authClient = createAuthClient(accessToken)
+  const {
+    data: { user },
+    error,
+  } = await authClient.auth.getUser(accessToken)
+
+  if (error || !user || user.id !== requestedUserId) {
+    throw new Error('Routine generation request is not authenticated.')
+  }
+
+  return user.id
+}
+
 type CuratedPillar = 'release' | 'activation' | 'range'
 
 type MessageBlock = {
@@ -84,23 +114,23 @@ type MessageBlock = {
 
 const FOAM_ROLL_LIBRARY: Record<string, FoamRollExercise[]> = {
   hips: [
-    { name: 'IT Band Roll',            area: 'hips',      notes: 'Side lying, roll hip to knee Ã¢â‚¬â€ pause on tender spots 5Ã¢â‚¬â€œ10s.' },
-    { name: 'Glute / Piriformis Roll', area: 'hips',      notes: 'Figure 4 position on roller Ã¢â‚¬â€ cross leg for deeper pressure.' },
-    { name: 'Hip Flexor Roll',         area: 'hips',      notes: 'Prone, roller under anterior hip Ã¢â‚¬â€ TFL and iliopsoas.' },
-    { name: 'Hamstring Roll',          area: 'hips',      notes: 'Seated on roller Ã¢â‚¬â€ proximal to distal, cross leg for more pressure.' },
-    { name: 'Quad Roll',               area: 'hips',      notes: 'Prone, roller under thigh Ã¢â‚¬â€ rectus femoris and vastus lateralis.' },
+    { name: 'IT Band Roll',            area: 'hips',      notes: 'Side lying, roll hip to knee - pause on tender spots 5-10s.' },
+    { name: 'Glute / Piriformis Roll', area: 'hips',      notes: 'Figure 4 position on roller - cross leg for deeper pressure.' },
+    { name: 'Hip Flexor Roll',         area: 'hips',      notes: 'Prone, roller under anterior hip - TFL and iliopsoas.' },
+    { name: 'Hamstring Roll',          area: 'hips',      notes: 'Seated on roller - proximal to distal, cross leg for more pressure.' },
+    { name: 'Quad Roll',               area: 'hips',      notes: 'Prone, roller under thigh - rectus femoris and vastus lateralis.' },
   ],
   shoulders: [
-    { name: 'Thoracic Spine Roll',     area: 'shoulders', notes: 'Slow roll T1 to T12 Ã¢â‚¬â€ pause on tender spots, arms crossed.' },
-    { name: 'Lat Roll',                area: 'shoulders', notes: 'Side lying arm overhead Ã¢â‚¬â€ latissimus dorsi and teres major.' },
-    { name: 'Pec Minor Roll',          area: 'shoulders', notes: 'Prone, roller near shoulder Ã¢â‚¬â€ rotate to find pec minor.' },
-    { name: 'Posterior Shoulder Roll', area: 'shoulders', notes: 'Side lying, roller on posterior capsule Ã¢â‚¬â€ gentle rotation.' },
+    { name: 'Thoracic Spine Roll',     area: 'shoulders', notes: 'Slow roll T1 to T12 - pause on tender spots, arms crossed.' },
+    { name: 'Lat Roll',                area: 'shoulders', notes: 'Side lying arm overhead - latissimus dorsi and teres major.' },
+    { name: 'Pec Minor Roll',          area: 'shoulders', notes: 'Prone, roller near shoulder - rotate to find pec minor.' },
+    { name: 'Posterior Shoulder Roll', area: 'shoulders', notes: 'Side lying, roller on posterior capsule - gentle rotation.' },
   ],
   spine: [
-    { name: 'Thoracic Spine Roll',    area: 'spine', notes: 'Slow roll T1 to T12 Ã¢â‚¬â€ pause on tender spots, breathe into each segment.' },
-    { name: 'Thoracic Rotation Roll', area: 'spine', notes: 'T-spine rotation over roller Ã¢â‚¬â€ lateral thoracic and rib cage release.' },
-    { name: 'Lumbar Paraspinal Roll', area: 'spine', notes: 'Feet flat, hips up Ã¢â‚¬â€ roll slowly along paraspinals.' },
-    { name: 'QL / Hip Roll',          area: 'spine', notes: 'Side lying at 45Ã‚Â° Ã¢â‚¬â€ quadratus lumborum and iliolumbar fascia.' },
+    { name: 'Thoracic Spine Roll',    area: 'spine', notes: 'Slow roll T1 to T12 - pause on tender spots, breathe into each segment.' },
+    { name: 'Thoracic Rotation Roll', area: 'spine', notes: 'T-spine rotation over roller - lateral thoracic and rib cage release.' },
+    { name: 'Lumbar Paraspinal Roll', area: 'spine', notes: 'Feet flat, hips up - roll slowly along paraspinals.' },
+    { name: 'QL / Hip Roll',          area: 'spine', notes: 'Side lying at 45 degrees - quadratus lumborum and iliolumbar fascia.' },
   ],
 }
 
@@ -525,10 +555,41 @@ export async function POST(req: NextRequest) {
 
   try {
     ;({ userId, mode, sport, areas, duration, goal, includeFoamRoll, readiness = null } = await req.json() as GenerateRequest)
+    const authenticatedUserId = await validateAuthenticatedUser(req, userId)
+
+    if (authenticatedUserId) {
+      const startOfToday = startOfTodayUtcIso()
+      const [{ count: routinesToday, error: routinesError }, { data: profile, error: profileError }, dailyLimit] = await Promise.all([
+        supabase
+          .from('routines')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', authenticatedUserId)
+          .gte('created_at', startOfToday),
+        supabase
+          .from('profiles')
+          .select('is_pro')
+          .eq('id', authenticatedUserId)
+          .maybeSingle<{ is_pro?: boolean | null }>(),
+        readBasicDailyRoutineLimit(supabase as never),
+      ])
+
+      if (routinesError) {
+        throw new Error(routinesError.message)
+      }
+
+      if (profileError) {
+        throw new Error(profileError.message)
+      }
+
+      const isPro = Boolean(profile?.is_pro)
+      if (!isPro && (routinesToday || 0) >= dailyLimit) {
+        return NextResponse.json({ error: 'DAILY_LIMIT_REACHED' }, { status: 429 })
+      }
+    }
 
     const sportProfile = sport ? SPORT_PROFILE_MAP[sport] : null
     const targetAreas = resolveTargetAreas(mode, sport, areas)
-    const cloudReadiness = userId ? await readTodayReadinessAdjustmentSnapshot(supabase, userId).catch((error) => {
+    const cloudReadiness = authenticatedUserId ? await readTodayReadinessAdjustmentSnapshot(supabase as never, authenticatedUserId).catch((error) => {
       console.warn('[generate.readiness]', error)
       return null
     }) : null
@@ -620,9 +681,9 @@ ${effectiveReadiness ? `- Readiness Score: ${effectiveReadiness.readinessScore}
 ${readinessModifiers.hasTodayCheckin ? `- Readiness Modifiers:
 ${readinessModifiers.promptGuidance.map((note) => `  - ${note}`).join('\n')}` : ''}
 
-SESSION STRUCTURE Ã¢â‚¬â€ THREE PHASES ONLY:
+SESSION STRUCTURE - THREE PHASES ONLY:
 
-1. RELEASE Ã¢â‚¬â€ Loosen soft tissue surrounding target joints.
+1. RELEASE - Loosen soft tissue surrounding target joints.
    Use: Static stretches, dynamic stretches, PNF, passive holds, joint distractions.
    DO NOT include foam rolling or roller-based exercises.
    RELEASE MUST COVER ALL RELEVANT STRUCTURES AROUND THE TARGET JOINT, not just one easy stretch.
@@ -643,7 +704,7 @@ SESSION STRUCTURE Ã¢â‚¬â€ THREE PHASES ONLY:
    - lateral flexion: quadratus lumborum, lateral trunk
    Use the approved exercise pool anatomy tags to make sure these structures are genuinely covered across the release block.
 
-2. ACTIVATION Ã¢â‚¬â€ Build neuromuscular control through the released range.
+2. ACTIVATION - Build neuromuscular control through the released range.
    Use: Isometric holds, eccentric loading, CARs, lift-offs, and controlled active mobility.
    BEFORE WRITING ACTIVATION, decide whether the RANGE phase is dominated by rotational patterns or linear patterns.
    - Rotational patterns include hip 90/90 work, thoracic rotation, shoulder ER/IR end-range work, and other drills where the main adaptation is rotation control.
@@ -653,19 +714,19 @@ SESSION STRUCTURE Ã¢â‚¬â€ THREE PHASES ONLY:
    ACTIVATION MUST NEVER BE GENERIC. It must directly prepare the neuromuscular structures that will be loaded in the range phase.
    Use the approved exercise pool movement-pattern tags and anatomy tags to justify the activation choices.
 
-3. RANGE Ã¢â‚¬â€ Integrate strength and flexibility at end range.
+3. RANGE - Integrate strength and flexibility at end range.
    Use: loaded end-range holds, controlled end-range isometrics, active mobility, and simple strength-through-range work.
    This block must include a real strength element. Do not place pure mobility segmentation drills like Cat-Camel in RANGE.
 
 PILLAR WEIGHTING BY GOAL:
-- flexibility  Ã¢â€ â€™ 50% release, 25% activation, 25% range
-- strength     Ã¢â€ â€™ 25% release, 50% activation, 25% range
-- balanced     Ã¢â€ â€™ meaningful release first, then activation and range
-- performance  Ã¢â€ â€™ 25% release, 25% activation, 50% range
+- flexibility  -> 50% release, 25% activation, 25% range
+- strength     -> 25% release, 50% activation, 25% range
+- balanced     -> meaningful release first, then activation and range
+- performance  -> 25% release, 25% activation, 50% range
 
 Create ${exerciseCount} total exercises. Cite REAL peer-reviewed studies (JOSPT, BJSM, JSCR, IJSPT).
 Prioritize the approved exercise pool before inventing new exercise names. Stay close to that movement language and phase logic.
-Release phase must contain ONLY stretching Ã¢â‚¬â€ no foam rolling.
+Release phase must contain ONLY stretching - no foam rolling.
 Unless the goal is flexibility, release exercises should default to 1 set each so the session can cover more surrounding structures. Only use 2 sets for release when the goal is flexibility.
 Do not use or mention PAILs or RAILs in this standard routine builder.
 For balanced and flexibility sessions, release must be substantial rather than token. Cover multiple structures around the joint, not just one stretch per region.
