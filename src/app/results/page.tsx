@@ -87,6 +87,25 @@ function formatRoutineFocus(routine: RoutineSummary) {
   return 'General mobility'
 }
 
+function regionDeltaLabel(delta: number) {
+  if (delta > 0) return `improved +${delta}%`
+  if (delta < 0) return `declined ${delta}%`
+  return 'held steady'
+}
+
+function compareScreeningAreas(current: ScreeningResult, previous: ScreeningResult) {
+  const deltas = [
+    { label: 'Hips', delta: current.hip_score - previous.hip_score },
+    { label: 'Shoulders', delta: current.shoulder_score - previous.shoulder_score },
+    { label: 'Spine', delta: current.spine_score - previous.spine_score },
+  ].sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))
+
+  return {
+    strongest: deltas[0],
+    secondary: deltas[1],
+  }
+}
+
 const BATTERY_LABELS: Record<string, string> = {
   deep_squat: 'Deep Squat',
   hip_hinge: 'Hip Hinge',
@@ -157,9 +176,8 @@ export default function ResultsPage() {
       }
       const uid = session.user.id
 
-      const [{ data: screening }, { data: battery }, { data: routines }, pro] = await Promise.all([
+      const [{ data: screening }, { data: routines }, pro] = await Promise.all([
         supabase.from('screening_questionnaires').select('*').eq('user_id', uid).order('created_at', { ascending: false }).limit(10),
-        supabase.from('test_results').select('*').eq('user_id', uid).order('created_at', { ascending: false }).limit(10),
         supabase.from('routines').select('id,title,sport,areas,duration_minutes,goal,created_at').eq('user_id', uid).order('created_at', { ascending: false }).limit(8),
         getIsPro(supabase as never, uid),
       ])
@@ -193,7 +211,7 @@ export default function ResultsPage() {
           }])
         }
       }
-      setBatteryHistory(battery || [])
+      setBatteryHistory([])
       setRoutineHistory(routines || [])
       setIsPro(pro)
       setLoading(false)
@@ -203,6 +221,8 @@ export default function ResultsPage() {
   }, [router, supabase])
 
   const latestScreening = screeningHistory[0] || null
+  const screeningTrend = screeningHistory.slice(0, 3)
+  const latestTrendComparison = screeningTrend.length > 1 ? compareScreeningAreas(screeningTrend[0], screeningTrend[1]) : null
   const latestBattery = batteryHistory[0] || null
   const priorities: { label: string; score: number; color: string; action: string }[] = []
 
@@ -325,6 +345,66 @@ export default function ResultsPage() {
                       <p style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 11, letterSpacing: 3, color: scoreColor(region.score), textTransform: UC }}>{scoreLabel(region.score)}</p>
                     </div>
                   ))}
+                </div>
+              )}
+
+              {screeningTrend.length > 0 && (
+                <div style={{ marginTop: 28, marginBottom: 48 }}>
+                  <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 13, letterSpacing: 4, color: 'var(--cyan)', marginBottom: 20, textTransform: UC }}>Screening Trend</p>
+                  <div className="mg-grid-2" style={{ gap: 14 }}>
+                    <div style={{ background: 'var(--black2)', border: '1px solid var(--border)', padding: '26px 24px' }}>
+                      <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 13, fontWeight: 700, letterSpacing: 3, color: 'var(--white)', marginBottom: 18, textTransform: UC }}>
+                        Last 3 Screenings
+                      </div>
+                      <div style={{ display: 'grid', gap: 14 }}>
+                        {screeningTrend.map((item, index) => (
+                          <div key={item.id} style={{ display: 'grid', gridTemplateColumns: '100px minmax(0,1fr) 58px', gap: 14, alignItems: 'center' }}>
+                            <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 2, color: 'var(--silver3)', textTransform: UC }}>
+                              {formatDate(getScreeningDate(item))}
+                            </div>
+                            <div style={{ height: 3, background: 'var(--silver4)', position: 'relative' }}>
+                              <div style={{ position: 'absolute', top: 0, left: 0, height: '100%', width: `${item.overall_score}%`, background: scoreColor(item.overall_score) }} />
+                            </div>
+                            <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 18, color: scoreColor(item.overall_score), textAlign: 'right' as const }}>
+                              {item.overall_score}
+                            </div>
+                            {index === 0 && (
+                              <div style={{ gridColumn: '1 / -1', fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 2, color: 'var(--cyan)', textTransform: UC }}>
+                                latest result
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div style={{ background: 'var(--black2)', border: '1px solid var(--border)', padding: '26px 24px' }}>
+                      <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 13, fontWeight: 700, letterSpacing: 3, color: 'var(--white)', marginBottom: 18, textTransform: UC }}>
+                        Direction Of Change
+                      </div>
+                      {latestTrendComparison ? (
+                        <div style={{ display: 'grid', gap: 14 }}>
+                          <div style={{ borderLeft: `4px solid ${latestTrendComparison.strongest.delta >= 0 ? '#43d17a' : '#e8a94a'}`, paddingLeft: 14 }}>
+                            <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 16, color: 'var(--white)', lineHeight: 1.6 }}>
+                              {latestTrendComparison.strongest.label} {regionDeltaLabel(latestTrendComparison.strongest.delta)}
+                            </div>
+                          </div>
+                          <div style={{ borderLeft: `4px solid ${latestTrendComparison.secondary.delta >= 0 ? '#43d17a' : '#e8a94a'}`, paddingLeft: 14 }}>
+                            <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 16, color: 'var(--silver2)', lineHeight: 1.6 }}>
+                              {latestTrendComparison.secondary.label} {regionDeltaLabel(latestTrendComparison.secondary.delta)}
+                            </div>
+                          </div>
+                          <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: 'var(--silver2)', lineHeight: 1.7 }}>
+                            Compared with the previous screening on {formatDate(getScreeningDate(screeningTrend[1]))}.
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: 'var(--silver2)', lineHeight: 1.7 }}>
+                          Complete another screening to start seeing which areas are improving or declining over time.
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               )}
 
