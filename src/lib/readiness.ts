@@ -1,5 +1,6 @@
 ﻿import type { IconName } from '@/components/Icons'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { buildReadinessSnapshotFromLog, readLatestPreSessionReadinessLog } from '@/lib/readiness-log'
 
 export type ReadinessQuestion = {
   id: string
@@ -36,11 +37,6 @@ export type RoutineReadinessModifiers = {
   gentlerGoalWeighting: boolean
   promptGuidance: string[]
   userMessage: string | null
-}
-
-type ReadinessLogRow = {
-  checked_at?: string | null
-  responses?: Record<string, unknown> | null
 }
 
 export const READINESS_QUESTIONS: ReadinessQuestion[] = [
@@ -150,21 +146,6 @@ function mapSorenessArea(area: string) {
   return null
 }
 
-function startOfTodayIso() {
-  const now = new Date()
-  now.setHours(0, 0, 0, 0)
-  return now.toISOString()
-}
-
-function asNumber(value: unknown, fallback = 0) {
-  return typeof value === 'number' && Number.isFinite(value) ? value : fallback
-}
-
-function asStringArray(value: unknown) {
-  if (!Array.isArray(value)) return []
-  return value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
-}
-
 function reduceDurationOneStep(duration: number) {
   if (duration <= 15) return 15
   if (duration <= 20) return 15
@@ -224,42 +205,8 @@ export function buildReadinessAdjustmentSnapshot({
 }
 
 export async function readTodayReadinessAdjustmentSnapshot(supabase: SupabaseClient, userId: string) {
-  const { data, error } = await supabase
-    .from('readiness_logs')
-    .select('checked_at,responses')
-    .eq('user_id', userId)
-    .eq('checkin_type', 'pre')
-    .gte('checked_at', startOfTodayIso())
-    .order('checked_at', { ascending: false })
-    .limit(1)
-    .maybeSingle<ReadinessLogRow>()
-
-  if (error) {
-    throw error
-  }
-
-  if (!data?.responses) {
-    return null
-  }
-
-  const responses = data.responses
-  const answers = {
-    sleep: asNumber(responses.sleep, 0),
-    soreness: asNumber(responses.soreness, 0),
-    mood: asNumber(responses.mood, 0),
-  }
-
-  if (!answers.sleep && !answers.soreness && !answers.mood) {
-    return null
-  }
-
-  return buildReadinessAdjustmentSnapshot({
-    answers,
-    sorenessAreas: asStringArray(responses.sorenessAreas),
-    sorenessSeverity: asNumber(responses.sorenessSeverity, 0),
-    sorenessNotes: typeof responses.sorenessNotes === 'string' ? responses.sorenessNotes : '',
-    checkedAt: data.checked_at || new Date().toISOString(),
-  })
+  const row = await readLatestPreSessionReadinessLog(supabase, userId)
+  return buildReadinessSnapshotFromLog(row)
 }
 
 export function deriveRoutineReadinessModifiers({

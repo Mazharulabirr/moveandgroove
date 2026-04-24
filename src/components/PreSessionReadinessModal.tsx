@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { buildPreSessionReadinessInsert, upsertReadinessLog } from '@/lib/readiness-log'
 import { buildReadinessAdjustmentSnapshot } from '@/lib/readiness'
 import { writeStoredPreSessionReadiness } from '@/lib/readiness-storage'
 
@@ -97,12 +98,6 @@ export default function PreSessionReadinessModal({ open, allowClose = false, onC
       }
 
       const checkedAt = new Date().toISOString()
-      const responses = {
-        ...answers,
-        sorenessAreas,
-        sorenessSeverity,
-        sorenessNotes: sorenessNotes.trim() || null,
-      }
       const snapshot = buildReadinessAdjustmentSnapshot({
         answers,
         sorenessAreas,
@@ -113,17 +108,15 @@ export default function PreSessionReadinessModal({ open, allowClose = false, onC
 
       writeStoredPreSessionReadiness(snapshot)
 
-      const { error: insertError } = await supabase.from('readiness_logs').insert([
-        {
-          user_id: uid,
-          responses,
-          readiness_score: snapshot.readinessScore,
-          checkin_type: 'pre',
-          checked_at: checkedAt,
-        },
-      ])
-
-      if (insertError) {
+      try {
+        await upsertReadinessLog(
+          supabase as never,
+          buildPreSessionReadinessInsert({
+            userId: uid,
+            snapshot,
+          }),
+        )
+      } catch (insertError) {
         console.warn('[pre-session-readiness.insert]', insertError)
       }
 
