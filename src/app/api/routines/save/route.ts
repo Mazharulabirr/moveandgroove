@@ -1,5 +1,5 @@
 ﻿import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createAccessTokenClient, createAuthClient } from '@/lib/supabase/admin'
 
 type RoutineExercise = {
   videoId: null
@@ -38,14 +38,6 @@ type SaveRoutineRequest = {
   accessToken?: string | null
 }
 
-function readEnv(name: string) {
-  const value = process.env[name]
-  if (!value) {
-    throw new Error(`Missing required environment variable: ${name}`)
-  }
-  return value
-}
-
 export async function POST(req: NextRequest) {
   try {
     const { userId, routine, sport, areas, duration, goal, accessToken } = await req.json() as SaveRoutineRequest
@@ -54,22 +46,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing required routine save payload.' }, { status: 400 })
     }
 
-    const supabase = createClient(
-      readEnv('NEXT_PUBLIC_SUPABASE_URL'),
-      readEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY'),
-      {
-        global: {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        },
-      },
-    )
+    const authClient = createAuthClient(accessToken)
+    const supabase = createAccessTokenClient(accessToken)
 
     const {
       data: { user },
       error: authError,
-    } = await supabase.auth.getUser(accessToken)
+    } = await authClient.auth.getUser(accessToken)
 
     if (authError || !user || user.id !== userId) {
       return NextResponse.json({ error: 'Routine save is not authorized for this user.' }, { status: 401 })

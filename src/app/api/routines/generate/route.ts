@@ -9,7 +9,7 @@ import {
   type ReadinessAdjustmentSnapshot,
 } from '@/lib/readiness'
 import { SPORT_PROFILE_MAP } from '@/lib/sports'
-import { createAuthClient } from '@/lib/supabase/admin'
+import { createAccessTokenClient, createAuthClient } from '@/lib/supabase/admin'
 
 function readRequiredEnv(name: string) {
   const raw = process.env[name]
@@ -511,7 +511,7 @@ async function persistGeneratedRoutine({
   duration,
   goal,
 }: {
-  supabaseClient: ReturnType<typeof createAuthClient>
+  supabaseClient: ReturnType<typeof createAccessTokenClient>
   userId: string
   routine: GeneratedRoutine
   sport: string | null
@@ -575,7 +575,7 @@ async function maybePersistRoutineForAuthenticatedUser({
   effectiveGoal,
 }: {
   authenticatedUserId: string | null
-  authenticatedSupabase: ReturnType<typeof createAuthClient> | null
+  authenticatedSupabase: ReturnType<typeof createAccessTokenClient> | null
   routine: GeneratedRoutine
   sport: string | null
   targetAreas: string[]
@@ -702,7 +702,7 @@ export async function POST(req: NextRequest) {
     const authenticatedUserId = await validateAuthenticatedUser(req, userId)
     const accessToken = authenticatedUserId ? readAccessToken(req) : ''
     const authenticatedSupabase = authenticatedUserId && accessToken
-      ? createAuthClient(accessToken)
+      ? createAccessTokenClient(accessToken)
       : null
 
     if (authenticatedUserId) {
