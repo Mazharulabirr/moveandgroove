@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
+﻿import { createClient } from '@supabase/supabase-js'
 import { NextRequest } from 'next/server'
 
 function readEnv(name: string) {
@@ -30,6 +30,12 @@ export function createAuthClient(accessToken: string) {
     readEnv('NEXT_PUBLIC_SUPABASE_URL'),
     readEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY'),
     {
+      accessToken: async () => accessToken,
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+      },
       global: {
         headers: {
           Authorization: `Bearer ${accessToken}`,
