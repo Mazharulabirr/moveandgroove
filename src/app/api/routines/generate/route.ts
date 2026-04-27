@@ -83,11 +83,15 @@ function startOfTodayUtcIso() {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0)).toISOString()
 }
 
-async function validateAuthenticatedUser(req: NextRequest, requestedUserId: string | null) {
+function readAccessToken(req: NextRequest) {
   const authHeader = req.headers.get('authorization') || ''
-  const accessToken = authHeader.startsWith('Bearer ')
+  return authHeader.startsWith('Bearer ')
     ? authHeader.slice('Bearer '.length).trim()
     : ''
+}
+
+async function validateAuthenticatedUser(req: NextRequest, requestedUserId: string | null) {
+  const accessToken = readAccessToken(req)
 
   if (!accessToken || !requestedUserId) {
     return null
@@ -499,6 +503,7 @@ function normalizeRoutineExerciseNames(routine: GeneratedRoutine, targetAreas: s
 }
 
 async function persistGeneratedRoutine({
+  supabaseClient,
   userId,
   routine,
   sport,
@@ -506,6 +511,7 @@ async function persistGeneratedRoutine({
   duration,
   goal,
 }: {
+  supabaseClient: ReturnType<typeof createAuthClient>
   userId: string
   routine: GeneratedRoutine
   sport: string | null
@@ -513,7 +519,7 @@ async function persistGeneratedRoutine({
   duration: number
   goal: string
 }) {
-  const { data: savedRoutine, error: routineError } = await supabase
+  const { data: savedRoutine, error: routineError } = await supabaseClient
     .from('routines')
     .insert([{
       user_id: userId,
@@ -550,7 +556,7 @@ async function persistGeneratedRoutine({
   )
 
   if (items.length > 0) {
-    const { error: itemsError } = await supabase.from('routine_items').insert(items)
+    const { error: itemsError } = await supabaseClient.from('routine_items').insert(items)
     if (itemsError) {
       throw new Error(`[generate.persistRoutineItems] ${itemsError.message}`)
     }
@@ -561,6 +567,7 @@ async function persistGeneratedRoutine({
 
 async function maybePersistRoutineForAuthenticatedUser({
   authenticatedUserId,
+  authenticatedSupabase,
   routine,
   sport,
   targetAreas,
@@ -568,17 +575,19 @@ async function maybePersistRoutineForAuthenticatedUser({
   effectiveGoal,
 }: {
   authenticatedUserId: string | null
+  authenticatedSupabase: ReturnType<typeof createAuthClient> | null
   routine: GeneratedRoutine
   sport: string | null
   targetAreas: string[]
   sessionDuration: number
   effectiveGoal: string
 }) {
-  if (!authenticatedUserId) {
+  if (!authenticatedUserId || !authenticatedSupabase) {
     return routine
   }
 
   const savedId = await persistGeneratedRoutine({
+    supabaseClient: authenticatedSupabase,
     userId: authenticatedUserId,
     routine,
     sport,
@@ -691,6 +700,10 @@ export async function POST(req: NextRequest) {
   try {
     ;({ userId, mode, sport, areas, duration, goal, includeFoamRoll, readiness = null } = await req.json() as GenerateRequest)
     const authenticatedUserId = await validateAuthenticatedUser(req, userId)
+    const accessToken = authenticatedUserId ? readAccessToken(req) : ''
+    const authenticatedSupabase = authenticatedUserId && accessToken
+      ? createAuthClient(accessToken)
+      : null
 
     if (authenticatedUserId) {
       const startOfToday = startOfTodayUtcIso()
@@ -783,6 +796,7 @@ export async function POST(req: NextRequest) {
       console.error('[generate.env]', error)
       return NextResponse.json(await maybePersistRoutineForAuthenticatedUser({
         authenticatedUserId,
+        authenticatedSupabase,
         routine: fallbackRoutine,
         sport,
         targetAreas,
@@ -952,6 +966,7 @@ Respond ONLY in valid JSON (no markdown):
         console.warn('[generate.ai] AI routine failed phase-balance guardrail, returning curated fallback routine')
         return NextResponse.json(await maybePersistRoutineForAuthenticatedUser({
           authenticatedUserId,
+          authenticatedSupabase,
           routine: fallbackRoutine,
           sport,
           targetAreas,
@@ -962,6 +977,7 @@ Respond ONLY in valid JSON (no markdown):
 
       return NextResponse.json(await maybePersistRoutineForAuthenticatedUser({
         authenticatedUserId,
+        authenticatedSupabase,
         routine,
         sport,
         targetAreas,
@@ -976,6 +992,7 @@ Respond ONLY in valid JSON (no markdown):
       }
       return NextResponse.json(await maybePersistRoutineForAuthenticatedUser({
         authenticatedUserId,
+        authenticatedSupabase,
         routine: fallbackRoutine,
         sport,
         targetAreas,

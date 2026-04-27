@@ -25,7 +25,10 @@ export default function RecoveryPage() {
     try {
       const response = await fetch('/api/routines/generate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
         body: JSON.stringify({
           userId: session?.user?.id || null,
           mode: 'area',
