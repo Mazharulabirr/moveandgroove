@@ -255,7 +255,6 @@ export default function RoutinePage() {
       const exerciseNames = [...new Set(
         routine.phases
           .flatMap((phase) => phase.exercises)
-          .filter((exercise) => !exercise.isFoamRoll)
           .map((exercise) => exercise.name.trim())
           .filter(Boolean),
       )]
@@ -656,18 +655,16 @@ export default function RoutinePage() {
                   const completedSetCount = Math.min(completedSets[flatIndex] || 0, exercise.sets)
                   const isDone = completedSetCount >= exercise.sets
                   const isLocked = phaseIndex > activePhaseIndex && !sessionFinished
-                  const overrideVideoId = exercise.isFoamRoll ? null : videoOverrides[exercise.name] || null
-                  const mappedVideo = exercise.isFoamRoll
-                    ? null
-                    : overrideVideoId
-                      ? {
-                          slug: `override-${exercise.name}`,
-                          title: exercise.name,
-                          youtubeVideoId: overrideVideoId,
-                          aliases: [],
-                          area: exercise.targetArea,
-                        }
-                      : getExerciseVideo(exercise.name)
+                  const overrideVideoId = videoOverrides[exercise.name] || null
+                  const mappedVideo = overrideVideoId
+                    ? {
+                        slug: `override-${exercise.name}`,
+                        title: exercise.name,
+                        youtubeVideoId: overrideVideoId,
+                        aliases: [],
+                        area: exercise.targetArea,
+                      }
+                    : getExerciseVideo(exercise.name)
 
                   return (
                   <div
@@ -710,10 +707,10 @@ export default function RoutinePage() {
                               <polygon points="10,9 16,12 10,15" fill="currentColor" stroke="none" opacity="0.5" />
                             </svg>
                             <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, letterSpacing: 3, color: 'var(--silver4)', textTransform: 'uppercase' }}>
-                              {exercise.isFoamRoll ? 'FOAM ROLL' : 'VIDEO'}
+                              {exercise.isFoamRoll ? 'FOAM ROLL VIDEO' : 'VIDEO'}
                             </div>
                             <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 13, lineHeight: 1.6, color: 'var(--silver3)', maxWidth: 180 }}>
-                              {exercise.isFoamRoll ? 'Map this foam-roll drill to your unlisted YouTube library when ready.' : 'No linked exercise video yet. Add a YouTube mapping for this exercise.'}
+                              {exercise.isFoamRoll ? 'No linked foam-roll video yet. Add a YouTube mapping in admin for this drill.' : 'No linked exercise video yet. Add a YouTube mapping for this exercise.'}
                             </div>
                           </div>
                         )}
