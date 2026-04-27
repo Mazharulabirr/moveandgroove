@@ -289,6 +289,14 @@ function needsCuratedFallback(routine: GeneratedRoutine, goal: string, targetAre
     return true
   }
 
+  if (normalizedAreas.some((area) =>
+    !phaseTargetsArea(routine, 'release', area)
+    || !phaseTargetsArea(routine, 'activation', area)
+    || !phaseTargetsArea(routine, 'range', area)
+  )) {
+    return true
+  }
+
   if (goal === 'balanced') {
     if (releaseCount < Math.min(Math.max(normalizedAreas.length, 2), 3)) return true
     if (activationCount < 2) return true
@@ -404,15 +412,9 @@ function resolveTargetAreas(mode: 'sport' | 'area', sport: string | null, areas:
   return ['hips', 'shoulders', 'spine']
 }
 
-function getRoutineAreas(targetAreas: string[], readiness: ReadinessAdjustmentSnapshot | null | undefined) {
+function getRoutineAreas(targetAreas: string[]) {
   const base = targetAreas.length > 0 ? targetAreas : ['hips', 'shoulders', 'spine']
-  if (!readiness || (readiness.modificationMode !== 'avoid_sore_areas' && readiness.modificationMode !== 'recovery')) {
-    return base
-  }
-
-  const restricted = new Set(readiness.restrictedAreas)
-  const filtered = base.filter((area) => !restricted.has(area))
-  return filtered.length > 0 ? filtered : base
+  return base
 }
 
 function getAreaCycleForPillar({
@@ -435,8 +437,39 @@ function getAreaCycleForPillar({
     return [...preferred, ...remaining]
   }
 
-  const filtered = base.filter((area) => !reduced.has(area))
-  return filtered.length > 0 ? filtered : base
+  const preferred = base.filter((area) => !reduced.has(area))
+  const reducedAreas = base.filter((area) => reduced.has(area))
+  return [...preferred, ...reducedAreas]
+}
+
+function addExerciseToPhase({
+  phases,
+  pillar,
+  area,
+  preferredIndex = 0,
+}: {
+  phases: RoutinePhase[]
+  pillar: CuratedPillar
+  area: string
+  preferredIndex?: number
+}) {
+  const phase = phases.find((item) => item.pillar === pillar)
+  const library = getCuratedLibrary(area, pillar)
+
+  if (!phase || library.length === 0) {
+    return false
+  }
+
+  const nextPick =
+    library.find((exercise) => !phase.exercises.some((existing) => existing.name === exercise.name))
+    || library[preferredIndex % library.length]
+
+  if (!nextPick || phase.exercises.some((exercise) => exercise.name === nextPick.name)) {
+    return false
+  }
+
+  phase.exercises.push(toRoutineExercise(nextPick))
+  return true
 }
 
 function getCuratedLibrary(area: string, pillar: CuratedPillar) {
@@ -621,8 +654,9 @@ function buildFallbackRoutine({
   releaseBiasAreas?: string[]
 }): GeneratedRoutine {
   const pillars: Array<'release' | 'activation' | 'range'> = ['release', 'activation', 'range']
-  const exerciseTarget = Math.max(4, Math.min(8, Math.round(duration / 4)))
-  const chosenAreas = getRoutineAreas(targetAreas, readiness)
+  const chosenAreas = getRoutineAreas(targetAreas)
+  const minimumDoseExerciseCount = chosenAreas.length * pillars.length
+  const exerciseTarget = Math.max(minimumDoseExerciseCount, Math.max(4, Math.min(8, Math.round(duration / 4))))
   const phaseSlots = buildPhaseSlots(goal, exerciseTarget, chosenAreas.length)
   const phases: RoutinePhase[] = pillars.map((pillar) => ({
     pillar,
@@ -635,7 +669,13 @@ function buildFallbackRoutine({
     exercises: [],
   }))
 
-  for (let index = 0; index < exerciseTarget; index += 1) {
+  for (const area of chosenAreas) {
+    addExerciseToPhase({ phases, pillar: 'release', area })
+    addExerciseToPhase({ phases, pillar: 'activation', area })
+    addExerciseToPhase({ phases, pillar: 'range', area })
+  }
+
+  for (let index = minimumDoseExerciseCount; index < exerciseTarget; index += 1) {
     const pillar = phaseSlots[index % phaseSlots.length]
     const areaCycle = getAreaCycleForPillar({
       targetAreas: chosenAreas,
@@ -644,13 +684,12 @@ function buildFallbackRoutine({
       releaseBiasAreas,
     })
     const area = areaCycle[index % areaCycle.length]
-    const library = getCuratedLibrary(area, pillar)
-    const pick = library?.[Math.floor(index / areaCycle.length) % library.length]
-    if (!pick) continue
-    const phase = phases.find((item) => item.pillar === pillar)
-    if (phase && !phase.exercises.some((exercise) => exercise.name === pick.name)) {
-      phase.exercises.push(toRoutineExercise(pick))
-    }
+    addExerciseToPhase({
+      phases,
+      pillar,
+      area,
+      preferredIndex: Math.floor(index / Math.max(areaCycle.length, 1)),
+    })
   }
 
   for (const pillar of pillars) {
@@ -896,6 +935,7 @@ If readiness indicates soreness or restriction:
 - where possible, shift focus away from sore areas instead of hammering them
 - if the only selected focus area is sore, keep the work gentle, recovery-biased, and non-provocative
 - if modification mode is recovery, keep the full session restorative and conservative
+MINIMUM DOSE RULE: Every targeted area MUST have at least 1 exercise in each phase (release, activation, range) regardless of readiness state or goal weighting. Readiness modifiers reduce volume within phases, never eliminate a phase. A routine missing any phase for a targeted area is clinically inadequate and will be rejected.
 Routine names must be athletic, evocative, and professional.
 Routine names must be concise, maximum 6 words.
 Routine names must use this format: [Focus] — [Context]

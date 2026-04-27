@@ -254,19 +254,19 @@ export function deriveRoutineReadinessModifiers({
 
   if (sorenessSeverity >= 4 && reducedTargetAreas.length > 0) {
     promptGuidance.push(
-      `High soreness is present in ${reducedTargetAreas.join(', ')}. Reduce exercises targeting those regions and increase release weighting there before any gentle control work.`,
+      `High soreness is present in ${reducedTargetAreas.join(', ')}. Increase release weighting, reduce range volume and loading there, but still keep at least one release, one activation, and one range exercise for each targeted area.`,
     )
   }
 
   if (poorSleep) {
     promptGuidance.push(
-      'Sleep quality is poor today. Reduce the session by one duration step and bias the session more toward release than range-intensive loading.',
+      'Sleep quality is poor today. Reduce the session by one duration step and bias the session more toward release than range-intensive loading, but keep all three phases present for every targeted area.',
     )
   }
 
   if (lowMood) {
     promptGuidance.push(
-      'Mood is low today. Keep the session shorter, simpler, and gentler rather than aggressive or highly demanding.',
+      'Mood is low today. Keep the session shorter, simpler, and gentler rather than aggressive or highly demanding, while still keeping release, activation, and range present for every targeted area.',
     )
   }
 
