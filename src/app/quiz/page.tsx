@@ -35,6 +35,18 @@ type Mode = 'sport' | 'area' | null
 type Step = 1 | '2a' | '2b' | 3 | 4 | 5
 
 const API = '/api'
+const ROUTINE_GENERATION_TIMEOUT_MS = 40000
+
+function isAbortLikeError(error: unknown) {
+  if (!(error instanceof Error)) {
+    return false
+  }
+
+  return error.name === 'AbortError'
+    || error.message === 'This operation was aborted'
+    || error.message.includes('aborted')
+    || error.message.includes('signal is aborted')
+}
 
 export default function QuizPage() {
   const router = useRouter()
@@ -80,7 +92,7 @@ export default function QuizPage() {
 
     try {
       const controller = new AbortController()
-      const timeoutId = window.setTimeout(() => controller.abort(), 25000)
+      const timeoutId = window.setTimeout(() => controller.abort('Routine generation timed out.'), ROUTINE_GENERATION_TIMEOUT_MS)
       const response = await fetch(`${API}/routines/generate`, {
         method: 'POST',
         headers: {
@@ -128,7 +140,7 @@ export default function QuizPage() {
     } catch (err: unknown) {
       console.error('Generation error:', err)
       const message = err instanceof Error ? err.message : 'Failed to connect to server'
-      setError(message === 'This operation was aborted' ? 'Routine generation took too long. Please try again.' : message)
+      setError(isAbortLikeError(err) ? 'Routine generation took too long. Please try again.' : message)
       setLoading(false)
     }
   }
