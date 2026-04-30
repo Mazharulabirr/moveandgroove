@@ -126,6 +126,33 @@ function readInitialRouteState() {
   }
 }
 
+type StoredRoutineMeta = {
+  routine?: {
+    savedId?: number | null
+  } | null
+  sport?: string | null
+  areas?: string[] | null
+  duration?: number
+  goal?: string | null
+}
+
+function readStoredRoutineMeta(): StoredRoutineMeta | null {
+  if (typeof window === 'undefined') {
+    return null
+  }
+
+  const raw = window.localStorage.getItem('mg_routine')
+  if (!raw) {
+    return null
+  }
+
+  try {
+    return JSON.parse(raw) as StoredRoutineMeta
+  } catch {
+    return null
+  }
+}
+
 export default function SessionCheckinPage() {
   const router = useRouter()
   const supabase = createClient()
@@ -243,6 +270,31 @@ export default function SessionCheckinPage() {
           }
         } catch {
           await upsertReadinessLog(supabase as never, row)
+        }
+
+        const routineMeta = readStoredRoutineMeta()
+        const progressResponse = await fetch('/api/progress', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({
+            row: {
+              user_id: uid,
+              routine_id: routineMeta?.routine?.savedId ?? null,
+              duration_minutes: routineMeta?.duration ?? null,
+              completed_at: new Date().toISOString(),
+              sport: routineMeta?.sport ?? null,
+              areas: routineMeta?.areas ?? null,
+              goal: routineMeta?.goal ?? null,
+            },
+          }),
+        })
+
+        if (!progressResponse.ok) {
+          const payload = await progressResponse.json().catch(() => null)
+          throw new Error(payload?.error || 'Could not log session progress.')
         }
       }
     } catch (error) {

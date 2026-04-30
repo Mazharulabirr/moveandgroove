@@ -23,6 +23,7 @@ interface Stats {
 
 interface ProgressEntry {
   created_at: string
+  completed_at?: string | null
   duration_minutes?: number | null
 }
 
@@ -93,8 +94,9 @@ function buildWeeklyMinutes(entries: ProgressEntry[]) {
   const dayBuckets = Array.from({ length: 7 }, () => 0)
 
   for (const entry of entries) {
-    if (!entry.created_at) continue
-    const created = new Date(entry.created_at)
+    const timestamp = entry.completed_at || entry.created_at
+    if (!timestamp) continue
+    const created = new Date(timestamp)
     if (Number.isNaN(created.getTime()) || created < start) continue
 
     const bucketIndex = Math.floor((created.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
@@ -104,13 +106,6 @@ function buildWeeklyMinutes(entries: ProgressEntry[]) {
   }
 
   return dayBuckets
-}
-
-function toProgressFallbackEntries(routines: Routine[]): ProgressEntry[] {
-  return routines.map((routine) => ({
-    created_at: routine.created_at,
-    duration_minutes: routine.duration_minutes || 0,
-  }))
 }
 
 function formatDate(dateStr: string) {
@@ -162,37 +157,47 @@ export default function DashboardPage() {
   const [showWhyFirst, setShowWhyFirst] = useState(false)
   const [weeklyMinutes, setWeeklyMinutes] = useState<number[]>(() => Array.from({ length: 7 }, () => 0))
 
-  const loadData = useCallback(async (userId: string) => {
+  const loadData = useCallback(async (userId: string, accessToken: string) => {
     try {
       const startOfTodayUtc = (() => {
         const now = new Date()
         return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0)).toISOString()
       })()
+      const progressPromise = fetch('/api/progress', {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }).then(async (response) => {
+        const payload = await response.json().catch(() => null)
+        if (!response.ok) {
+          throw new Error(payload?.error || 'Could not load progress.')
+        }
+        return (payload?.progress || []) as ProgressEntry[]
+      })
       const [
-        { data: progress },
+        progress,
         { data: savedRoutines },
         { data: screening },
         { count: routinesToday },
         basicDailyRoutineLimit,
       ] = await Promise.all([
-        supabase.from('progress').select('*').eq('user_id', userId),
+        progressPromise,
         supabase.from('routines').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
         supabase.from('screening_questionnaires').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
         supabase.from('routines').select('*', { count: 'exact', head: true }).eq('user_id', userId).gte('created_at', startOfTodayUtc),
         readBasicDailyRoutineLimit(supabase as never),
       ])
 
-      const progressEntries = progress && progress.length > 0
-        ? progress as ProgressEntry[]
-        : toProgressFallbackEntries(savedRoutines || [])
-
-      if (progressEntries.length > 0) {
+      if (progress.length > 0) {
         const weekAgo = new Date()
         weekAgo.setDate(weekAgo.getDate() - 7)
-        const thisWeek = progressEntries.filter((entry) => new Date(entry.created_at) > weekAgo).length
-        const totalMinutes = progressEntries.reduce((sum, entry) => sum + (entry.duration_minutes || 0), 0)
-        setStats({ totalSessions: progressEntries.length, totalMinutes, thisWeek })
-        setWeeklyMinutes(buildWeeklyMinutes(progressEntries))
+        const thisWeek = progress.filter((entry) => new Date(entry.completed_at || entry.created_at) > weekAgo).length
+        const totalMinutes = progress.reduce((sum, entry) => sum + (entry.duration_minutes || 0), 0)
+        setStats({ totalSessions: progress.length, totalMinutes, thisWeek })
+        setWeeklyMinutes(buildWeeklyMinutes(progress))
+      } else {
+        setStats({ totalSessions: 0, totalMinutes: 0, thisWeek: 0 })
+        setWeeklyMinutes(Array.from({ length: 7 }, () => 0))
       }
 
       if (savedRoutines) {
@@ -230,7 +235,7 @@ export default function DashboardPage() {
         router.push('/auth')
         return
       }
-      void loadData(session.user.id)
+      void loadData(session.user.id, session.access_token)
     })
   }, [loadData, router, supabase])
 
