@@ -24,6 +24,11 @@ interface Stats {
   thisWeek: number
 }
 
+interface ProgressEntry {
+  created_at: string
+  duration_minutes?: number | null
+}
+
 interface Routine {
   id: number
   title: string
@@ -86,6 +91,37 @@ const PREMIUM_PATH = [
   'Programs, calendar, and daily routine flow',
 ]
 
+function getLastSevenDayLabels() {
+  const formatter = new Intl.DateTimeFormat('en-AU', { weekday: 'short' })
+  return Array.from({ length: 7 }, (_, index) => {
+    const date = new Date()
+    date.setDate(date.getDate() - (6 - index))
+    return formatter.format(date).slice(0, 3).toUpperCase()
+  })
+}
+
+function buildWeeklyMinutes(entries: ProgressEntry[]) {
+  const today = new Date()
+  const start = new Date(today)
+  start.setHours(0, 0, 0, 0)
+  start.setDate(start.getDate() - 6)
+
+  const dayBuckets = Array.from({ length: 7 }, () => 0)
+
+  for (const entry of entries) {
+    if (!entry.created_at) continue
+    const created = new Date(entry.created_at)
+    if (Number.isNaN(created.getTime()) || created < start) continue
+
+    const bucketIndex = Math.floor((created.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
+    if (bucketIndex >= 0 && bucketIndex < 7) {
+      dayBuckets[bucketIndex] += entry.duration_minutes || 0
+    }
+  }
+
+  return dayBuckets
+}
+
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })
 }
@@ -146,6 +182,7 @@ export default function DashboardPage() {
   const [previewMode, setPreviewMode] = useState<'basic' | 'pro' | null>(() => getPreviewModeFromLocation())
   const [showWhyFirst, setShowWhyFirst] = useState(false)
   const [showPremiumTeaser, setShowPremiumTeaser] = useState(false)
+  const [weeklyMinutes, setWeeklyMinutes] = useState<number[]>(() => Array.from({ length: 7 }, () => 0))
 
   const loadData = useCallback(async (userId: string) => {
     try {
@@ -173,6 +210,7 @@ export default function DashboardPage() {
         const thisWeek = progress.filter((entry) => new Date(entry.created_at) > weekAgo).length
         const totalMinutes = progress.reduce((sum: number, entry: { duration_minutes?: number }) => sum + (entry.duration_minutes || 0), 0)
         setStats({ totalSessions: progress.length, totalMinutes, thisWeek })
+        setWeeklyMinutes(buildWeeklyMinutes(progress as ProgressEntry[]))
       }
 
       if (savedRoutines) {
@@ -282,10 +320,16 @@ export default function DashboardPage() {
     { val: stats.totalMinutes, label: 'Minutes Moved' },
     { val: stats.thisWeek, label: 'This Week' },
   ]
-  const recentRoutines = routines.slice(0, 3)
   const profileHistoryText = latestScreening
     ? `Latest overall ${latestScreening.overall_score}%${latestScreeningDate ? ` / ${formatDate(latestScreeningDate)}` : ''}`
     : 'No screening saved yet'
+  const weeklyLabels = getLastSevenDayLabels()
+  const weeklyMinutesTotal = weeklyMinutes.reduce((sum, value) => sum + value, 0)
+  const weeklyActiveDays = weeklyMinutes.filter((value) => value > 0).length
+  const weeklyPeak = Math.max(...weeklyMinutes, 0)
+  const weeklyAverage = weeklyActiveDays > 0 ? Math.round(weeklyMinutesTotal / weeklyActiveDays) : 0
+  const consistencyPct = Math.round((weeklyActiveDays / 7) * 100)
+  const latestRoutineFocus = latestRoutine ? formatRoutineFocus(latestRoutine).toUpperCase() : 'NO SAVED ROUTINE'
 
   let stageLabel = 'Start with your mobility baseline'
   let stageTitle = 'MOBILITY SCREENING'
@@ -601,38 +645,79 @@ export default function DashboardPage() {
                       </button>
                     ))}
                   </div>
-                  <div style={{ marginTop: 18, borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 18 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
-                      <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: 'var(--silver3)', textTransform: UC }}>
-                        {'// Saved Workouts'}
+                  <div style={{ marginTop: 20, borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 20 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 14 }}>
+                      <div>
+                        <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 4, color: 'var(--silver4)', textTransform: UC, marginBottom: 8 }}>
+                          {'// Mobility Analytics'}
+                        </div>
+                        <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 19, fontWeight: 700, letterSpacing: 2, color: 'var(--white)' }}>
+                          WEEKLY LOAD
+                        </div>
                       </div>
-                      <button className="btn-outline" onClick={() => router.push('/results')}>
-                        VIEW ALL
-                      </button>
+                      <div style={{ display: 'grid', justifyItems: 'end', gap: 4 }}>
+                        <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, letterSpacing: 3, color: 'var(--silver4)', textTransform: UC }}>
+                          This Week
+                        </div>
+                        <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 18, fontWeight: 700, letterSpacing: 2, color: 'var(--cyan)' }}>
+                          {weeklyMinutesTotal} MIN
+                        </div>
+                      </div>
                     </div>
-                    {recentRoutines.length > 0 ? (
-                      <div style={{ display: 'grid', gap: 10 }}>
-                        {recentRoutines.map((routine) => (
-                          <div key={routine.id} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', padding: '14px 14px 13px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 6 }}>
-                              <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 12, fontWeight: 700, letterSpacing: 2, color: 'var(--white)' }}>
-                                {routine.title}
-                              </div>
-                              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 2, color: 'var(--silver3)', textTransform: UC }}>
-                                {formatDate(routine.created_at)}
-                              </div>
+                    <div style={{ border: '1px solid rgba(139,231,255,0.14)', background: 'linear-gradient(180deg, rgba(14,18,24,0.98) 0%, rgba(6,8,12,0.98) 100%)', padding: '16px 16px 14px', marginBottom: 14, boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
+                        <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 3, color: 'var(--silver3)', textTransform: UC }}>
+                          Weekly Mobility Minutes
+                        </div>
+                        <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 12, fontWeight: 700, letterSpacing: 2, color: 'var(--cyan)' }}>
+                          PEAK {weeklyPeak} MIN
+                        </div>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0,1fr))', gap: 8, alignItems: 'end', minHeight: 92 }}>
+                        {weeklyLabels.map((label, index) => (
+                          <div key={label} style={{ textAlign: 'center' }}>
+                            <div style={{ height: 54, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', marginBottom: 8 }}>
+                              <div
+                                style={{
+                                  width: 16,
+                                  height: `${Math.max(10, Math.round((weeklyMinutes[index] / Math.max(weeklyPeak, 1)) * 54))}px`,
+                                  borderRadius: 999,
+                                  background: weeklyMinutes[index] > 0
+                                    ? 'linear-gradient(180deg, rgba(139,231,255,0.95) 0%, rgba(0,180,216,0.42) 100%)'
+                                    : 'rgba(255,255,255,0.08)',
+                                  boxShadow: weeklyMinutes[index] > 0 ? '0 0 16px rgba(139,231,255,0.14)' : 'none',
+                                }}
+                              />
                             </div>
-                            <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 13, color: 'var(--silver2)', lineHeight: 1.65 }}>
-                              {formatRoutineFocus(routine)} · {routine.goal || 'balanced'} · {routine.duration_minutes} min
+                            <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, letterSpacing: 2, color: 'var(--silver4)', textTransform: UC, marginBottom: 4 }}>
+                              {label}
+                            </div>
+                            <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 1.5, color: weeklyMinutes[index] > 0 ? 'var(--silver2)' : 'var(--silver4)' }}>
+                              {weeklyMinutes[index]}
                             </div>
                           </div>
                         ))}
                       </div>
-                    ) : (
-                      <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 14, color: 'var(--silver2)', lineHeight: 1.7 }}>
-                        Your saved workouts will show up here once you build and save them.
-                      </div>
-                    )}
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px,1fr))', gap: 10 }}>
+                      {[
+                        { label: '7-Day Consistency', value: `${consistencyPct}%`, sub: `${weeklyActiveDays} of 7 days active` },
+                        { label: 'Average Session', value: `${weeklyAverage} MIN`, sub: 'Average on active days' },
+                        { label: 'Current Focus', value: latestRoutineFocus, sub: latestRoutine ? latestRoutine.title : 'Generate your next routine' },
+                      ].map((item) => (
+                        <div key={item.label} style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.028) 0%, rgba(10,12,16,0.98) 100%)', border: '1px solid rgba(255,255,255,0.06)', padding: '14px 14px 13px', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.03)' }}>
+                          <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, letterSpacing: 3, color: 'var(--silver4)', textTransform: UC, marginBottom: 8 }}>
+                            {item.label}
+                          </div>
+                          <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: item.label === 'Current Focus' ? 13 : 16, fontWeight: 700, letterSpacing: 2, color: item.label === 'Current Focus' ? 'var(--white)' : 'var(--cyan)', lineHeight: 1.35, marginBottom: 6 }}>
+                            {item.value}
+                          </div>
+                          <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 12, color: 'var(--silver3)', lineHeight: 1.55 }}>
+                            {item.sub}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}
