@@ -236,6 +236,68 @@ function releaseSetCount(goal: string) {
   return goal === 'flexibility' ? 2 : 1
 }
 
+const RELEASE_REP_SECONDS = 4
+const ACTIVE_REP_SECONDS = 3.5
+const HOLD_REST_SECONDS = 15
+const REP_REST_SECONDS = 12
+const EXERCISE_SETUP_SECONDS = 15
+
+function estimateExerciseDurationSeconds(
+  exercise: Pick<RoutineExercise, 'sets' | 'reps' | 'holdSeconds'>,
+  pillar: RoutinePhase['pillar'],
+) {
+  const setCount = Math.max(exercise.sets, 1)
+
+  if (exercise.holdSeconds) {
+    return EXERCISE_SETUP_SECONDS + (setCount * exercise.holdSeconds) + (Math.max(setCount - 1, 0) * HOLD_REST_SECONDS)
+  }
+
+  const repCount = Math.max(exercise.reps || 0, 1)
+  const repSeconds = pillar === 'release' ? RELEASE_REP_SECONDS : ACTIVE_REP_SECONDS
+  return EXERCISE_SETUP_SECONDS + (setCount * repCount * repSeconds) + (Math.max(setCount - 1, 0) * REP_REST_SECONDS)
+}
+
+function estimatePhaseDurationMinutes(phase: RoutinePhase | null) {
+  if (!phase) return 0
+  const totalSeconds = phase.exercises.reduce(
+    (sum, exercise) => sum + estimateExerciseDurationSeconds(exercise, phase.pillar),
+    0,
+  )
+  return totalSeconds / 60
+}
+
+function estimateRoutineDurationMinutes(routine: GeneratedRoutine) {
+  return routine.phases.reduce((sum, phase) => sum + estimatePhaseDurationMinutes(phase), 0)
+}
+
+function estimateTargetMainDurationMinutes(duration: number, prepPhase: RoutinePhase | null) {
+  const prepMinutes = estimatePhaseDurationMinutes(prepPhase)
+  return Math.max(6, duration - prepMinutes)
+}
+
+function buildExerciseTargetFromDuration({
+  duration,
+  goal,
+  areaCount,
+}: {
+  duration: number
+  goal: string
+  areaCount: number
+}) {
+  const minimumDoseCount = areaCount * 3
+  const averageExtraExerciseMinutes = goal === 'flexibility' ? 1.6 : 1.4
+  const minimumDoseMinutes = areaCount * 3.9
+  const remainingMinutes = Math.max(0, duration - minimumDoseMinutes)
+  return minimumDoseCount + Math.max(0, Math.round(remainingMinutes / averageExtraExerciseMinutes))
+}
+
+function isRoutineDurationOutsideWindow(routine: GeneratedRoutine, requestedDuration: number) {
+  const estimatedDuration = estimateRoutineDurationMinutes(routine)
+  const lowerBound = Math.max(6, requestedDuration * 0.8)
+  const upperBound = Math.max(lowerBound + 2, requestedDuration * 1.2)
+  return estimatedDuration < lowerBound || estimatedDuration > upperBound
+}
+
 function normalizeRoutineForGoal(routine: GeneratedRoutine, goal: string): GeneratedRoutine {
   return {
     ...routine,
@@ -318,6 +380,18 @@ function needsCuratedFallback(routine: GeneratedRoutine, goal: string, targetAre
   }
 
   return false
+}
+
+function canAddAnyExercise(
+  phases: RoutinePhase[],
+  targetAreas: string[],
+  pillar: CuratedPillar,
+) {
+  return targetAreas.some((area) => {
+    const phase = phases.find((item) => item.pillar === pillar)
+    const library = getCuratedLibrary(area, pillar)
+    return Boolean(phase && library.some((exercise) => !phase.exercises.some((existing) => existing.name === exercise.name)))
+  })
 }
 
 function formatAreaLabel(area: string) {
@@ -442,6 +516,11 @@ function getAreaCycleForPillar({
   return [...preferred, ...reducedAreas]
 }
 
+function readSportSeed(sport: string | null, area: string, pillar: CuratedPillar) {
+  const source = `${sport || 'generic'}:${area}:${pillar}`
+  return Array.from(source).reduce((sum, character) => sum + character.charCodeAt(0), 0)
+}
+
 function addExerciseToPhase({
   phases,
   pillar,
@@ -460,8 +539,17 @@ function addExerciseToPhase({
     return false
   }
 
+  const orderedLibrary = library.map((exercise, index) => ({
+    exercise,
+    index,
+    distance: (index - preferredIndex + library.length) % library.length,
+  }))
+
   const nextPick =
-    library.find((exercise) => !phase.exercises.some((existing) => existing.name === exercise.name))
+    orderedLibrary
+      .sort((left, right) => left.distance - right.distance)
+      .map((entry) => entry.exercise)
+      .find((exercise) => !phase.exercises.some((existing) => existing.name === exercise.name))
     || library[preferredIndex % library.length]
 
   if (!nextPick || phase.exercises.some((exercise) => exercise.name === nextPick.name)) {
@@ -656,7 +744,15 @@ function buildFallbackRoutine({
   const pillars: Array<'release' | 'activation' | 'range'> = ['release', 'activation', 'range']
   const chosenAreas = getRoutineAreas(targetAreas)
   const minimumDoseExerciseCount = chosenAreas.length * pillars.length
-  const exerciseTarget = Math.max(minimumDoseExerciseCount, Math.max(4, Math.min(8, Math.round(duration / 4))))
+  const targetMainDuration = estimateTargetMainDurationMinutes(duration, prepPhase)
+  const exerciseTarget = Math.max(
+    minimumDoseExerciseCount,
+    buildExerciseTargetFromDuration({
+      duration: targetMainDuration,
+      goal,
+      areaCount: chosenAreas.length,
+    }),
+  )
   const phaseSlots = buildPhaseSlots(goal, exerciseTarget, chosenAreas.length)
   const phases: RoutinePhase[] = pillars.map((pillar) => ({
     pillar,
@@ -670,9 +766,9 @@ function buildFallbackRoutine({
   }))
 
   for (const area of chosenAreas) {
-    addExerciseToPhase({ phases, pillar: 'release', area })
-    addExerciseToPhase({ phases, pillar: 'activation', area })
-    addExerciseToPhase({ phases, pillar: 'range', area })
+    addExerciseToPhase({ phases, pillar: 'release', area, preferredIndex: readSportSeed(sport, area, 'release') })
+    addExerciseToPhase({ phases, pillar: 'activation', area, preferredIndex: readSportSeed(sport, area, 'activation') })
+    addExerciseToPhase({ phases, pillar: 'range', area, preferredIndex: readSportSeed(sport, area, 'range') })
   }
 
   for (let index = minimumDoseExerciseCount; index < exerciseTarget; index += 1) {
@@ -688,8 +784,41 @@ function buildFallbackRoutine({
       phases,
       pillar,
       area,
-      preferredIndex: Math.floor(index / Math.max(areaCycle.length, 1)),
+      preferredIndex: readSportSeed(sport, area, pillar) + Math.floor(index / Math.max(areaCycle.length, 1)),
     })
+  }
+
+  let currentMainDuration = phases.reduce((sum, phase) => sum + estimatePhaseDurationMinutes(phase), 0)
+  const desiredMainDuration = Math.max(6, targetMainDuration * 0.9)
+  let fillIndex = exerciseTarget
+  let stalledPasses = 0
+
+  while (currentMainDuration < desiredMainDuration && stalledPasses < phaseSlots.length * Math.max(chosenAreas.length, 1)) {
+    const pillar = phaseSlots[fillIndex % phaseSlots.length]
+    const areaCycle = getAreaCycleForPillar({
+      targetAreas: chosenAreas,
+      pillar,
+      reducedTargetAreas,
+      releaseBiasAreas,
+    })
+    const area = areaCycle[fillIndex % Math.max(areaCycle.length, 1)]
+    const added = addExerciseToPhase({
+      phases,
+      pillar,
+      area,
+      preferredIndex: readSportSeed(sport, area, pillar) + Math.floor(fillIndex / Math.max(areaCycle.length, 1)),
+    })
+
+    if (added) {
+      currentMainDuration = phases.reduce((sum, phase) => sum + estimatePhaseDurationMinutes(phase), 0)
+      stalledPasses = 0
+    } else if (!canAddAnyExercise(phases, chosenAreas, pillar)) {
+      stalledPasses += areaCycle.length
+    } else {
+      stalledPasses += 1
+    }
+
+    fillIndex += 1
   }
 
   for (const pillar of pillars) {
@@ -844,13 +973,12 @@ export async function POST(req: NextRequest) {
       }))
     }
 
-    const prepMinutes   = prepPhase ? prepPhase.exercises.length * 3 : 0
-    const aiDuration    = sessionDuration - prepMinutes
-    const baseExerciseCount = Math.max(4, Math.round(aiDuration / 4))
-    const exerciseCount =
-      effectiveGoal === 'balanced' || effectiveGoal === 'flexibility'
-        ? Math.max(baseExerciseCount, aiDuration >= 18 ? 6 : 5)
-        : baseExerciseCount
+    const aiDuration = estimateTargetMainDurationMinutes(sessionDuration, prepPhase)
+    const exerciseCount = buildExerciseTargetFromDuration({
+      duration: aiDuration,
+      goal: effectiveGoal,
+      areaCount: targetAreas.length,
+    })
 
     const prompt = `You are an expert sports physiotherapist and strength and conditioning coach building an evidence-based joint mobility routine.
 
@@ -1002,8 +1130,8 @@ Respond ONLY in valid JSON (no markdown):
         routine.totalExercises += prepPhase.exercises.length
       }
 
-      if (needsCuratedFallback(routine, effectiveGoal, targetAreas)) {
-        console.warn('[generate.ai] AI routine failed phase-balance guardrail, returning curated fallback routine')
+      if (needsCuratedFallback(routine, effectiveGoal, targetAreas) || isRoutineDurationOutsideWindow(routine, sessionDuration)) {
+        console.warn('[generate.ai] AI routine failed guardrails, returning curated fallback routine')
         return NextResponse.json(await maybePersistRoutineForAuthenticatedUser({
           authenticatedUserId,
           authenticatedSupabase,
