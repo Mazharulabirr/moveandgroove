@@ -106,6 +106,13 @@ function buildWeeklyMinutes(entries: ProgressEntry[]) {
   return dayBuckets
 }
 
+function toProgressFallbackEntries(routines: Routine[]): ProgressEntry[] {
+  return routines.map((routine) => ({
+    created_at: routine.created_at,
+    duration_minutes: routine.duration_minutes || 0,
+  }))
+}
+
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })
 }
@@ -175,13 +182,17 @@ export default function DashboardPage() {
         readBasicDailyRoutineLimit(supabase as never),
       ])
 
-      if (progress) {
+      const progressEntries = progress && progress.length > 0
+        ? progress as ProgressEntry[]
+        : toProgressFallbackEntries(savedRoutines || [])
+
+      if (progressEntries.length > 0) {
         const weekAgo = new Date()
         weekAgo.setDate(weekAgo.getDate() - 7)
-        const thisWeek = progress.filter((entry) => new Date(entry.created_at) > weekAgo).length
-        const totalMinutes = progress.reduce((sum: number, entry: { duration_minutes?: number }) => sum + (entry.duration_minutes || 0), 0)
-        setStats({ totalSessions: progress.length, totalMinutes, thisWeek })
-        setWeeklyMinutes(buildWeeklyMinutes(progress as ProgressEntry[]))
+        const thisWeek = progressEntries.filter((entry) => new Date(entry.created_at) > weekAgo).length
+        const totalMinutes = progressEntries.reduce((sum: number, entry: { duration_minutes?: number }) => sum + (entry.duration_minutes || 0), 0)
+        setStats({ totalSessions: progressEntries.length, totalMinutes, thisWeek })
+        setWeeklyMinutes(buildWeeklyMinutes(progressEntries))
       }
 
       if (savedRoutines) {

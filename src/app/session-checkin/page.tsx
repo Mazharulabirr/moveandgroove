@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Header from '@/components/Header'
 import { IconBattery, IconCheckin, IconCheckbox, IconFocus, IconMotivation, IconPain, IconReadiness, IconSleep, IconSoreness } from '@/components/Icons'
-import { buildPostSessionCheckinInsert, buildPreSessionReadinessInsert } from '@/lib/readiness-log'
+import { buildPostSessionCheckinInsert, buildPreSessionReadinessInsert, upsertReadinessLog } from '@/lib/readiness-log'
 import { buildReadinessAdjustmentSnapshot } from '@/lib/readiness'
 import { writeStoredPreSessionReadiness } from '@/lib/readiness-storage'
 import { createClient } from '@/lib/supabase/client'
@@ -203,6 +203,31 @@ export default function SessionCheckinPage() {
             userId: uid,
             snapshot,
           })
+          try {
+            const response = await fetch('/api/readiness-logs', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${accessToken}`,
+              },
+              body: JSON.stringify({ row }),
+            })
+
+            if (!response.ok) {
+              const payload = await response.json().catch(() => null)
+              throw new Error(payload?.error || 'Could not save pre-session check-in.')
+            }
+          } catch {
+            await upsertReadinessLog(supabase as never, row)
+          }
+        }
+      }
+      if (uid && accessToken && type === 'post') {
+        const row = buildPostSessionCheckinInsert({
+          userId: uid,
+          answers,
+        })
+        try {
           const response = await fetch('/api/readiness-logs', {
             method: 'POST',
             headers: {
@@ -214,42 +239,31 @@ export default function SessionCheckinPage() {
 
           if (!response.ok) {
             const payload = await response.json().catch(() => null)
-            throw new Error(payload?.error || 'Could not save pre-session check-in.')
+            throw new Error(payload?.error || 'Could not save post-session check-in.')
           }
-        }
-      }
-      if (uid && accessToken && type === 'post') {
-        const row = buildPostSessionCheckinInsert({
-          userId: uid,
-          answers,
-        })
-        const response = await fetch('/api/readiness-logs', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${accessToken}`,
-          },
-          body: JSON.stringify({ row }),
-        })
-
-        if (!response.ok) {
-          const payload = await response.json().catch(() => null)
-          throw new Error(payload?.error || 'Could not save post-session check-in.')
+        } catch {
+          await upsertReadinessLog(supabase as never, row)
         }
       }
     } catch (error) {
-      console.error('[session-checkin]', {
+      const message = error instanceof Error ? error.message : 'Unknown error'
+      console.warn('[session-checkin]', {
         type,
         answers,
         sorenessAreas,
         sorenessSeverity,
+        message,
         error,
       })
       failed = true
-      setSaveError('We could not sync this check-in right now. Please try again.')
+      setSaveError(
+        type === 'post'
+          ? 'We could not sync this post-session check-in right now, but your workout is complete.'
+          : 'We could not sync this check-in right now. Please try again.'
+      )
     }
     setSaving(false)
-    if (!failed) {
+    if (!failed || type === 'post') {
       setDone(true)
     }
   }
@@ -446,6 +460,12 @@ export default function SessionCheckinPage() {
                     : 'Great work today. Your post-session feedback is saved and your dashboard is ready for the next step.'}
                 </p>
               </div>
+
+              {saveError && (
+                <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 14, color: '#ffcf9f', marginBottom: 18, padding: '12px 14px', border: '1px solid rgba(255,207,159,0.22)', background: 'rgba(255,207,159,0.08)' }}>
+                  {saveError}
+                </div>
+              )}
 
               <div className="mg-mobile-stack">
                 {type === 'pre' && <button className="btn-primary" onClick={() => router.push('/quiz')}>START ROUTINE</button>}
