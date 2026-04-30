@@ -2,19 +2,16 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import type { User } from '@supabase/supabase-js'
 import Header from '@/components/Header'
 import {
   IconCheckin,
   IconScreening,
-  IconPrograms,
   IconRecovery,
   IconResults,
   IconRoutine,
 } from '@/components/Icons'
 import { DEFAULT_BASIC_DAILY_ROUTINE_LIMIT, readBasicDailyRoutineLimit } from '@/lib/app-config'
 import { createClient } from '@/lib/supabase/client'
-import { getIsPro } from '@/lib/profiles'
 import { deriveScreeningSnapshot } from '@/lib/screening-cloud-v2'
 import { readStoredScreening } from '@/lib/screening-storage'
 
@@ -73,22 +70,9 @@ const METALLIC_TEXT = {
 
 const QUICK_ACTIONS = [
   { Icon: IconRoutine, title: 'Daily Routine', sub: 'Jump straight into a guided daily mobility session.', badge: 'AI GENERATED', href: '/quiz' },
-  { Icon: IconPrograms, title: 'Programs + Calendar', sub: 'Review your weekly flow and session rhythm.', badge: 'PLAN AHEAD', href: '/programs' },
   { Icon: IconResults, title: 'Score History', sub: 'See how your mobility scores are trending over time.', badge: 'PROFILE DATA', href: '/results' },
   { Icon: IconCheckin, title: 'Session Check-in', sub: 'Log readiness before training or feedback after training.', badge: 'PRE + POST', href: '/session-checkin' },
   { Icon: IconRecovery, title: 'Recovery Session', sub: 'Run a recovery-focused session when you need extra reset work.', badge: '15-30 MIN', href: '/recovery' },
-]
-
-const BASIC_PATH = [
-  'Mobility screening baseline',
-  'Choose sport or body-area focus',
-  'Build daily routine from screening data',
-]
-
-const PREMIUM_PATH = [
-  'Mobility screening baseline',
-  'Movement battery assessment',
-  'Programs, calendar, and daily routine flow',
 ]
 
 function getLastSevenDayLabels() {
@@ -143,15 +127,6 @@ function getAssessmentDate(entry: { assessed_at?: string | null; created_at?: st
   return entry?.assessed_at || entry?.created_at || null
 }
 
-function getPreviewModeFromLocation() {
-  if (typeof window === 'undefined') {
-    return null
-  }
-
-  const preview = new URLSearchParams(window.location.search).get('preview')
-  return preview === 'basic' || preview === 'pro' ? preview : null
-}
-
 function scoreColor(score: number) {
   if (score >= 80) return '#00b4d8'
   if (score >= 60) return '#4ac8e8'
@@ -170,18 +145,14 @@ function applyHoverState(element: HTMLDivElement, hovered: boolean) {
 export default function DashboardPage() {
   const router = useRouter()
   const supabase = createClient()
-  const [user, setUser] = useState<User | null>(null)
   const [stats, setStats] = useState<Stats>({ totalSessions: 0, totalMinutes: 0, thisWeek: 0 })
   const [routines, setRoutines] = useState<Routine[]>([])
   const [latestScreening, setLatestScreening] = useState<ScreeningResult | null>(null)
   const [latestBattery, setLatestBattery] = useState<BatteryResult | null>(null)
   const [loading, setLoading] = useState(true)
-  const [isPro, setIsPro] = useState(false)
   const [dailyRoutineCount, setDailyRoutineCount] = useState(0)
   const [dailyRoutineLimit, setDailyRoutineLimit] = useState(DEFAULT_BASIC_DAILY_ROUTINE_LIMIT)
-  const [previewMode, setPreviewMode] = useState<'basic' | 'pro' | null>(() => getPreviewModeFromLocation())
   const [showWhyFirst, setShowWhyFirst] = useState(false)
-  const [showPremiumTeaser, setShowPremiumTeaser] = useState(false)
   const [weeklyMinutes, setWeeklyMinutes] = useState<number[]>(() => Array.from({ length: 7 }, () => 0))
 
   const loadData = useCallback(async (userId: string) => {
@@ -233,7 +204,6 @@ export default function DashboardPage() {
         } : null)
       }
       setLatestBattery(null)
-      setIsPro(await getIsPro(supabase as never, userId))
       setDailyRoutineCount(routinesToday || 0)
       setDailyRoutineLimit(basicDailyRoutineLimit)
     } catch (error) {
@@ -249,28 +219,19 @@ export default function DashboardPage() {
         router.push('/auth')
         return
       }
-      setUser(session.user)
       void loadData(session.user.id)
     })
   }, [loadData, router, supabase])
 
-  const effectiveIsPro = previewMode === 'pro' ? true : previewMode === 'basic' ? false : isPro
+  const effectiveIsPro = false
   const hasScreening = Boolean(latestScreening)
   const hasBattery = Boolean(latestBattery)
   const latestScreeningDate = latestScreening?.completed_at || latestScreening?.created_at || null
   const latestBatteryDate = getAssessmentDate(latestBattery)
   const canRetakeScreening = !latestScreeningDate || addDays(latestScreeningDate, 30) <= new Date()
   const nextScreeningDate = latestScreeningDate ? addDays(latestScreeningDate, 30) : null
-  const membershipLabel = effectiveIsPro ? 'FULL / PREMIUM' : 'BASIC'
-  const membershipTone = effectiveIsPro ? 'var(--silver2)' : 'var(--cyan)'
-  const membershipSummary = effectiveIsPro
-    ? 'Premium adds the movement battery and planning layer after the shared screening baseline.'
-    : 'Basic keeps the onboarding lighter and routes straight from screening into sport or body-area routines.'
   const basicRoutineCounter = `${dailyRoutineCount}/${dailyRoutineLimit} routines used today`
-  const journeySteps = effectiveIsPro ? PREMIUM_PATH : BASIC_PATH
-  const visibleQuickActions = effectiveIsPro
-    ? QUICK_ACTIONS.filter((action) => ['/quiz', '/programs', '/session-checkin'].includes(action.href))
-    : QUICK_ACTIONS.filter((action) => ['/quiz', '/results', '/session-checkin'].includes(action.href))
+  const visibleQuickActions = QUICK_ACTIONS.filter((action) => ['/quiz', '/results', '/session-checkin', '/recovery'].includes(action.href))
   const latestRoutine = routines[0] || null
   const showPremiumModeChoice = hasScreening && effectiveIsPro && hasBattery
   const basicChecklist = [
@@ -372,12 +333,6 @@ export default function DashboardPage() {
     secondaryAction = { label: 'VIEW PROFILE HISTORY', href: '/results', mode: 'route' as const }
   }
 
-  function setPreview(nextMode: 'basic' | 'pro' | null) {
-    const target = nextMode ? `/dashboard?preview=${nextMode}` : '/dashboard'
-    setPreviewMode(nextMode)
-    router.replace(target)
-  }
-
   if (loading) {
     return (
       <>
@@ -416,20 +371,11 @@ export default function DashboardPage() {
               </button>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 20 }}>
-              <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 3, color: 'var(--silver3)', textTransform: UC }}>
-                Dashboard Preview
+              <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 3, color: 'var(--cyan)', textTransform: UC }}>
+                Basic Beta Active
               </span>
-              <button className="btn-outline" onClick={() => setPreview('basic')} style={{ opacity: previewMode === 'basic' ? 1 : 0.72 }}>
-                BASIC
-              </button>
-              <button className="btn-outline" onClick={() => setPreview('pro')} style={{ opacity: previewMode === 'pro' ? 1 : 0.72 }}>
-                FULL / PREMIUM
-              </button>
-              <button className="btn-outline" onClick={() => setPreview(null)} style={{ opacity: previewMode === null ? 1 : 0.72 }}>
-                REAL ACCOUNT
-              </button>
-              <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 14, color: previewMode ? 'var(--silver2)' : 'var(--silver3)' }}>
-                {previewMode ? `Previewing the ${previewMode === 'pro' ? 'Full / Premium' : 'Basic'} dashboard.` : 'Showing your actual subscription state.'}
+              <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 14, color: 'var(--silver3)' }}>
+                Premium surfaces are hidden for now while we polish the Basic experience.
               </span>
             </div>
           </div>
@@ -463,7 +409,6 @@ export default function DashboardPage() {
                     <span className="meta-chip">Mobility {latestScreening.overall_score}%</span>
                     {latestScreeningDate && <span className="meta-chip">Saved {formatDate(latestScreeningDate)}</span>}
                     {!canRetakeScreening && nextScreeningDate && <span className="meta-chip">Next screen {formatDate(nextScreeningDate.toISOString())}</span>}
-                    {latestBattery && <span className="meta-chip">Battery {latestBattery.total_score}/{latestBattery.max_score}</span>}
                   </div>
                 )}
 
@@ -1009,52 +954,6 @@ export default function DashboardPage() {
               )}
             </div>
           </div>
-
-          {!effectiveIsPro && (
-            <div
-              style={{
-                background: 'linear-gradient(180deg, rgba(0,180,216,0.08) 0%, rgba(10,12,16,0.98) 100%)',
-                border: '1px solid rgba(0,180,216,0.18)',
-                padding: '26px 28px',
-                marginBottom: 32,
-              }}
-            >
-              <div className="mg-split-section" style={{ alignItems: 'center' }}>
-                <div>
-                  <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: 'var(--cyan)', textTransform: UC, marginBottom: 10 }}>
-                    {'// Premium Coming Soon'}
-                  </div>
-                  <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 18, fontWeight: 700, letterSpacing: 2, color: 'var(--white)', marginBottom: 8 }}>
-                    PREMIUM IS COMING
-                  </div>
-                  <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: 'var(--silver2)', lineHeight: 1.7 }}>
-                    Basic stays lean for beta. Premium will add the deeper testing and longer-term planning layer next.
-                  </div>
-                </div>
-                <button className="btn-primary" onClick={() => setShowPremiumTeaser((current) => !current)}>
-                  {showPremiumTeaser ? 'HIDE TEASER' : 'SEE WHAT IS COMING'}
-                </button>
-              </div>
-              {showPremiumTeaser && (
-                <div style={{ marginTop: 18, display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))' }}>
-                  {[
-                    { title: 'Movement Battery', sub: 'A premium-only second layer that scores movement quality, not just mobility.' },
-                    { title: '4 / 8 / 12 Week Blocks', sub: 'Structured training plans built from your profile instead of one-off sessions.' },
-                    { title: 'Calendar Flow', sub: 'A clearer weekly training rhythm with planned sessions and progression.' },
-                  ].map((item) => (
-                    <div key={item.title} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.08)', padding: '16px 16px 14px' }}>
-                      <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 12, fontWeight: 700, letterSpacing: 2, color: 'var(--white)', marginBottom: 8 }}>
-                        {item.title}
-                      </div>
-                      <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 14, color: 'var(--silver2)', lineHeight: 1.65 }}>
-                        {item.sub}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
 
           {effectiveIsPro && (
             <>

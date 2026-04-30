@@ -14,7 +14,6 @@ import {
 } from '@/lib/mobility-screening'
 import { buildScreeningQuestionnaireInsert, deriveScreeningSnapshot } from '@/lib/screening-cloud-v2'
 import { createClient } from '@/lib/supabase/client'
-import { getIsPro } from '@/lib/profiles'
 import { readStoredScreening, writeStoredScreening } from '@/lib/screening-storage'
 
 type Scores = ReturnType<typeof calculateMobilityScreeningScores>
@@ -59,7 +58,6 @@ export default function ScreeningClient() {
   const [saving, setSaving] = useState(false)
   const [done, setDone] = useState(false)
   const [scores, setScores] = useState<Scores | null>(null)
-  const [isPro, setIsPro] = useState(false)
   const [latestScreening, setLatestScreening] = useState<LatestScreening>(null)
   const [eligibilityChecked, setEligibilityChecked] = useState(false)
   const [saveError, setSaveError] = useState('')
@@ -95,9 +93,8 @@ export default function ScreeningClient() {
         return
       }
 
-      const [{ data: latest }, pro] = await Promise.all([
+      const [{ data: latest }] = await Promise.all([
         supabase.from('screening_questionnaires').select('*').eq('user_id', uid).order('created_at', { ascending: false }).limit(1).maybeSingle(),
-        getIsPro(supabase as never, uid),
       ])
 
       const localSnapshot = readStoredScreening()
@@ -108,7 +105,6 @@ export default function ScreeningClient() {
         assessed_at: null,
         responses: localSnapshot.answers || null,
       } : null))
-      setIsPro(pro)
       setEligibilityChecked(true)
     }
 
@@ -462,16 +458,14 @@ export default function ScreeningClient() {
                   What happens next
                 </p>
                 <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 'clamp(18px, 4.2vw, 24px)', color: 'var(--silver2)', lineHeight: 1.8 }}>
-                  {isPro
-                    ? 'Premium members can continue into the movement battery to add control and pattern quality on top of this baseline.'
-                    : 'Your screening is done. Head back to the dashboard and create your routine from this baseline.'}
+                  Your screening is done. Head back to the dashboard and create your routine from this baseline.
                 </p>
               </div>
 
               <div className="mg-assessment-action-row">
                 <button className="btn-outline" onClick={() => router.push('/results')}>VIEW ALL RESULTS</button>
-                <button className="btn-primary" onClick={() => router.push(isPro ? '/battery' : '/dashboard')}>
-                  {isPro ? 'CONTINUE TO BATTERY' : 'BACK TO DASHBOARD'}
+                <button className="btn-primary" onClick={() => router.push('/dashboard')}>
+                  BACK TO DASHBOARD
                 </button>
               </div>
             </div>

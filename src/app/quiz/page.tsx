@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Header from '@/components/Header'
 import PreSessionReadinessModal from '@/components/PreSessionReadinessModal'
@@ -463,10 +463,10 @@ export default function QuizPage() {
               {dailyLimitReached && (
                 <div style={{ marginBottom: 18, border: '1px solid rgba(0,180,216,0.18)', background: 'rgba(0,180,216,0.08)', padding: '14px 16px' }}>
                   <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: 'var(--silver2)', lineHeight: 1.7, marginBottom: 12 }}>
-                    You've used your 2 free routines today. Upgrade to Pro for unlimited access.
+                    You&apos;ve used your 2 free routines today. Want unlimited routines? Premium is coming soon.
                   </div>
-                  <button className="btn-primary" onClick={() => router.push('/upgrade')}>
-                    UPGRADE TO PRO
+                  <button className="btn-primary" onClick={() => router.push('/dashboard')}>
+                    BACK TO DASHBOARD
                   </button>
                 </div>
               )}

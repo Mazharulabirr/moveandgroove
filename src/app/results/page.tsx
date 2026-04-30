@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Header from '@/components/Header'
-import ProGate from '@/components/ProGate'
 import {
   IconBalance,
   IconBattery,
@@ -18,7 +17,6 @@ import {
   IconSquat,
 } from '@/components/Icons'
 import { createClient } from '@/lib/supabase/client'
-import { getIsPro } from '@/lib/profiles'
 import { deriveScreeningSnapshot } from '@/lib/screening-cloud-v2'
 import { readStoredScreening } from '@/lib/screening-storage'
 
@@ -164,7 +162,6 @@ export default function ResultsPage() {
   const [screeningHistory, setScreeningHistory] = useState<ScreeningResult[]>([])
   const [batteryHistory, setBatteryHistory] = useState<BatteryResult[]>([])
   const [routineHistory, setRoutineHistory] = useState<RoutineSummary[]>([])
-  const [isPro, setIsPro] = useState(false)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -176,10 +173,9 @@ export default function ResultsPage() {
       }
       const uid = session.user.id
 
-      const [{ data: screening }, { data: routines }, pro] = await Promise.all([
+      const [{ data: screening }, { data: routines }] = await Promise.all([
         supabase.from('screening_questionnaires').select('*').eq('user_id', uid).order('created_at', { ascending: false }).limit(10),
         supabase.from('routines').select('id,title,sport,areas,duration_minutes,goal,created_at').eq('user_id', uid).order('created_at', { ascending: false }).limit(8),
-        getIsPro(supabase as never, uid),
       ])
 
       const cloudHistory = (screening || [])
@@ -213,7 +209,6 @@ export default function ResultsPage() {
       }
       setBatteryHistory([])
       setRoutineHistory(routines || [])
-      setIsPro(pro)
       setLoading(false)
     }
 
@@ -266,7 +261,7 @@ export default function ResultsPage() {
   }
 
   const hasNoData = !latestScreening && !latestBattery && routineHistory.length === 0
-  const showBattery = isPro || Boolean(latestBattery)
+  const showBattery = false
   const resultsIntro = showBattery
     ? 'Your mobility screening and movement battery scores over time.'
     : 'Your mobility screening scores and baseline progress.'
@@ -482,54 +477,24 @@ export default function ResultsPage() {
                 </div>
               </div>
 
-              {(screeningHistory.length > 1 || batteryHistory.length > 1) && (
-                <ProGate
-                  title="SCORE HISTORY"
-                  description="Extended assessment history is a Pro feature. Your latest results stay visible, and Pro unlocks the deeper trend view."
-                  features={['Screening history over time', 'Battery history trends', 'Progress context for planning']}
-                >
-                  <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 13, letterSpacing: 4, color: 'var(--cyan)', marginBottom: 24, textTransform: UC }}>Score History</p>
-                  <div className={screeningHistory.length > 1 && batteryHistory.length > 1 ? 'mg-grid-2' : ''} style={{ display: 'grid', gridTemplateColumns: screeningHistory.length > 1 && batteryHistory.length > 1 ? undefined : '1fr', gap: 2, marginBottom: 48 }}>
-                    {screeningHistory.length > 1 && (
-                      <div style={{ background: 'var(--black2)', border: '1px solid var(--border)', padding: '32px 36px' }}>
-                        <p style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 13, fontWeight: 700, letterSpacing: 3, color: 'var(--white)', marginBottom: 28, textTransform: UC }}>Screening History</p>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                          {screeningHistory.map((item, index) => (
-                            <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
-                              <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, letterSpacing: 2, color: 'var(--silver3)', minWidth: 100 }}>{formatDate(getScreeningDate(item))}</p>
-                              <div style={{ flex: 1, height: 3, background: 'var(--silver4)', position: 'relative' }}>
-                                <div style={{ position: 'absolute', top: 0, left: 0, height: '100%', width: `${item.overall_score}%`, background: scoreColor(item.overall_score) }} />
-                              </div>
-                              <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 16, color: scoreColor(item.overall_score), minWidth: 48, textAlign: 'right' as const }}>{item.overall_score}</p>
-                              {index === 0 && <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 2, color: 'var(--cyan)', background: 'rgba(0,180,216,0.1)', border: '1px solid rgba(0,180,216,0.2)', padding: '3px 8px' }}>LATEST</span>}
-                            </div>
-                          ))}
+              {screeningHistory.length > 1 && (
+                <div style={{ marginBottom: 48 }}>
+                  <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 13, letterSpacing: 4, color: 'var(--cyan)', marginBottom: 24, textTransform: UC }}>Screening History</p>
+                  <div style={{ background: 'var(--black2)', border: '1px solid var(--border)', padding: '32px 36px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                      {screeningHistory.map((item, index) => (
+                        <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+                          <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, letterSpacing: 2, color: 'var(--silver3)', minWidth: 100 }}>{formatDate(getScreeningDate(item))}</p>
+                          <div style={{ flex: 1, height: 3, background: 'var(--silver4)', position: 'relative' }}>
+                            <div style={{ position: 'absolute', top: 0, left: 0, height: '100%', width: `${item.overall_score}%`, background: scoreColor(item.overall_score) }} />
+                          </div>
+                          <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 16, color: scoreColor(item.overall_score), minWidth: 48, textAlign: 'right' as const }}>{item.overall_score}</p>
+                          {index === 0 && <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 2, color: 'var(--cyan)', background: 'rgba(0,180,216,0.1)', border: '1px solid rgba(0,180,216,0.2)', padding: '3px 8px' }}>LATEST</span>}
                         </div>
-                      </div>
-                    )}
-
-                    {batteryHistory.length > 1 && (
-                      <div style={{ background: 'var(--black2)', border: '1px solid var(--border)', padding: '32px 36px' }}>
-                        <p style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 13, fontWeight: 700, letterSpacing: 3, color: 'var(--white)', marginBottom: 28, textTransform: UC }}>Battery History</p>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                          {batteryHistory.map((item, index) => {
-                            const pct = Math.round((item.total_score / item.max_score) * 100)
-                            return (
-                              <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
-                                <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, letterSpacing: 2, color: 'var(--silver3)', minWidth: 100 }}>{formatDate(getAssessmentDate(item))}</p>
-                                <div style={{ flex: 1, height: 3, background: 'var(--silver4)', position: 'relative' }}>
-                                  <div style={{ position: 'absolute', top: 0, left: 0, height: '100%', width: `${pct}%`, background: scoreColor(pct) }} />
-                                </div>
-                                <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 16, color: scoreColor(pct), minWidth: 48, textAlign: 'right' as const }}>{item.total_score}/{item.max_score}</p>
-                                {index === 0 && <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 2, color: 'var(--cyan)', background: 'rgba(0,180,216,0.1)', border: '1px solid rgba(0,180,216,0.2)', padding: '3px 8px' }}>LATEST</span>}
-                              </div>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    )}
+                      ))}
+                    </div>
                   </div>
-                </ProGate>
+                </div>
               )}
 
               <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
