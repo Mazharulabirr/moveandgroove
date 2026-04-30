@@ -190,7 +190,7 @@ export default function DashboardPage() {
         const weekAgo = new Date()
         weekAgo.setDate(weekAgo.getDate() - 7)
         const thisWeek = progressEntries.filter((entry) => new Date(entry.created_at) > weekAgo).length
-        const totalMinutes = progressEntries.reduce((sum: number, entry: { duration_minutes?: number }) => sum + (entry.duration_minutes || 0), 0)
+        const totalMinutes = progressEntries.reduce((sum, entry) => sum + (entry.duration_minutes || 0), 0)
         setStats({ totalSessions: progressEntries.length, totalMinutes, thisWeek })
         setWeeklyMinutes(buildWeeklyMinutes(progressEntries))
       }
@@ -876,40 +876,6 @@ export default function DashboardPage() {
             </div>
 
             <div style={{ display: 'grid', gap: 12, minWidth: 0 }}>
-              {effectiveIsPro && (
-                <div style={{ display: 'grid', gap: 1, background: 'rgba(255,255,255,0.08)', border: '1px solid var(--border)', minWidth: 0 }}>
-                  <div style={{ background: 'linear-gradient(180deg, rgba(216,228,234,0.14) 0%, rgba(8,10,14,0.96) 100%)', padding: '26px 24px' }}>
-                    <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: membershipTone, marginBottom: 10, textTransform: UC }}>
-                      {'// Account Tier'}
-                    </div>
-                    <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 22, fontWeight: 700, letterSpacing: 2, color: membershipTone, marginBottom: 10 }}>
-                      {membershipLabel}
-                    </div>
-                    <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 14, color: 'var(--silver2)', lineHeight: 1.7 }}>
-                      {membershipSummary}
-                    </div>
-                  </div>
-
-                  <div style={{ background: 'rgba(8,10,14,0.95)', padding: '24px' }}>
-                    <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: 'var(--silver3)', marginBottom: 12, textTransform: UC }}>
-                      {'// Your Path'}
-                    </div>
-                    <div style={{ display: 'grid', gap: 10 }}>
-                      {journeySteps.map((step, index) => (
-                        <div key={step} style={{ display: 'grid', gridTemplateColumns: '26px minmax(0,1fr)', gap: 12, alignItems: 'start' }}>
-                          <div style={{ width: 26, height: 26, borderRadius: 999, border: `1px solid ${membershipTone}`, color: membershipTone, display: 'grid', placeItems: 'center', fontFamily: "'DM Mono',monospace", fontSize: 11 }}>
-                            {index + 1}
-                          </div>
-                          <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 14, color: 'var(--silver2)', lineHeight: 1.6 }}>
-                            {step}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-
               <div style={{ display: 'grid', gap: 10 }}>
                 {railStats.map((item) => (
                   <div key={item.label} style={{ background: 'rgba(8,10,14,0.95)', border: '1px solid var(--border)', padding: '18px 20px' }}>
