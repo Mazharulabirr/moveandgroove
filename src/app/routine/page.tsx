@@ -183,6 +183,10 @@ function ExerciseTimer({ sets, holdSeconds }: { sets: number; holdSeconds: numbe
   )
 }
 
+function getYoutubeThumbnailUrl(youtubeVideoId: string) {
+  return `https://img.youtube.com/vi/${youtubeVideoId}/hqdefault.jpg`
+}
+
 export default function RoutinePage() {
   const router = useRouter()
   const supabase = createClient()
@@ -209,6 +213,7 @@ export default function RoutinePage() {
   const [hasTodayReadiness, setHasTodayReadiness] = useState(false)
   const [completedSets, setCompletedSets] = useState<Record<number, number>>({})
   const [videoOverrides, setVideoOverrides] = useState<Record<string, string>>({})
+  const [expandedVideo, setExpandedVideo] = useState<{ title: string; youtubeVideoId: string } | null>(null)
 
   useEffect(() => {
     if (!routine) {
@@ -490,8 +495,8 @@ export default function RoutinePage() {
       <Header />
 
       <main style={{ position: 'relative', zIndex: 2, paddingTop: 64 }}>
-        <div className="mg-page-shell" style={{ maxWidth: 980 }}>
-          <div className="mg-split-section" style={{ alignItems: 'flex-start', marginBottom: 48, paddingBottom: 32, borderBottom: '1px solid var(--border)', gap: 24 }}>
+        <div className="mg-page-shell routine-page-shell" style={{ maxWidth: 980 }}>
+          <div className="mg-split-section routine-hero-shell" style={{ alignItems: 'flex-start', marginBottom: 48, paddingBottom: 32, borderBottom: '1px solid var(--border)', gap: 24 }}>
             <div>
               <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 4, color: 'var(--cyan)', marginBottom: 12, textTransform: 'uppercase' }}>
                 {'// MOVE&GROOVE / '}{new Date().toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long' }).toUpperCase()}
@@ -569,13 +574,14 @@ export default function RoutinePage() {
                 </div>
               )}
             </div>
-            <div style={{ flexShrink: 0, width: 'min(100%, 320px)' }}>
+            <div className="routine-sidebar" style={{ flexShrink: 0, width: 'min(100%, 320px)' }}>
               <div className="mg-mobile-stack" style={{ marginBottom: 16 }}>
                 <button className="btn-outline" onClick={() => router.push(builderHref)}>ADJUST</button>
                 <button className="btn-primary" onClick={() => router.push(builderHref)}>REGENERATE</button>
               </div>
               {sidebarStudies.length > 0 && (
                 <div
+                  className="routine-sidebar-card"
                   style={{
                     border: '1px solid rgba(0,180,216,0.16)',
                     background: 'linear-gradient(180deg, rgba(12,16,22,0.96) 0%, rgba(6,8,12,0.98) 100%)',
@@ -681,24 +687,79 @@ export default function RoutinePage() {
                     onMouseLeave={(event) => { event.currentTarget.style.background = isLocked ? 'rgba(255,255,255,0.015)' : 'var(--black)' }}
                   >
                     <div className="mg-routine-exercise-row">
-                      <div className="mg-routine-media" style={{ background: 'var(--black3)', display: 'flex', flexDirection: 'column', alignItems: 'stretch', justifyContent: 'center', gap: 12, borderRight: '1px solid var(--border)', overflow: 'hidden' }}>
+                      <div className="mg-routine-media routine-media-panel" style={{ background: 'var(--black3)', display: 'flex', flexDirection: 'column', alignItems: 'stretch', justifyContent: 'center', gap: 12, borderRight: '1px solid var(--border)', overflow: 'hidden' }}>
                         {mappedVideo ? (
                           <>
-                            <iframe
-                              src={getExerciseVideoEmbedUrl(mappedVideo.youtubeVideoId)}
-                              title={mappedVideo.title}
-                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                              allowFullScreen
-                              style={{ width: '100%', minHeight: 180, border: 'none', display: 'block' }}
-                            />
-                            <a
-                              href={getExerciseVideoWatchUrl(mappedVideo.youtubeVideoId)}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '10px 12px', textDecoration: 'none', borderTop: '1px solid var(--border)', fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 2, color: 'var(--cyan)', textTransform: 'uppercase' }}
+                            <button
+                              type="button"
+                              onClick={() => setExpandedVideo({ title: mappedVideo.title, youtubeVideoId: mappedVideo.youtubeVideoId })}
+                              style={{
+                                position: 'relative',
+                                width: '100%',
+                                minHeight: 180,
+                                border: 'none',
+                                padding: 0,
+                                cursor: 'pointer',
+                                background: '#05070a',
+                                display: 'block',
+                                overflow: 'hidden',
+                              }}
                             >
-                              Watch on YouTube
-                            </a>
+                              <div
+                                aria-hidden="true"
+                                style={{
+                                  width: '100%',
+                                  minHeight: 180,
+                                  backgroundImage: `url(${getYoutubeThumbnailUrl(mappedVideo.youtubeVideoId)})`,
+                                  backgroundSize: 'cover',
+                                  backgroundPosition: 'center',
+                                  opacity: 0.9,
+                                }}
+                              />
+                              <div
+                                style={{
+                                  position: 'absolute',
+                                  inset: 0,
+                                  background: 'linear-gradient(180deg, rgba(0,0,0,0.18) 0%, rgba(0,0,0,0.74) 100%)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  flexDirection: 'column',
+                                  gap: 10,
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    width: 58,
+                                    height: 58,
+                                    borderRadius: 999,
+                                    border: '1px solid rgba(255,255,255,0.24)',
+                                    background: 'rgba(0,0,0,0.64)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    color: 'var(--white)',
+                                    fontSize: 24,
+                                    paddingLeft: 4,
+                                  }}
+                                >
+                                  ▶
+                                </div>
+                                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, letterSpacing: 2, textTransform: 'uppercase', color: 'var(--white)' }}>
+                                  Tap video to enlarge
+                                </div>
+                              </div>
+                            </button>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr', borderTop: '1px solid var(--border)' }}>
+                              <a
+                                href={getExerciseVideoWatchUrl(mappedVideo.youtubeVideoId)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '10px 12px', textDecoration: 'none', fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 2, color: 'var(--cyan)', textTransform: 'uppercase' }}
+                              >
+                                Watch on YouTube
+                              </a>
+                            </div>
                           </>
                         ) : (
                           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, padding: '18px', minHeight: 180, textAlign: 'center' }}>
@@ -938,6 +999,65 @@ export default function RoutinePage() {
           </div>
         </div>
       </main>
+      {expandedVideo && (
+        <div
+          onClick={() => setExpandedVideo(null)}
+          className="routine-video-modal"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 20,
+            background: 'rgba(0,0,0,0.88)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '24px',
+          }}
+        >
+          <div
+            onClick={(event) => event.stopPropagation()}
+            className="routine-video-modal-card"
+            style={{
+              width: 'min(1100px, 96vw)',
+              background: 'var(--black2)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              boxShadow: '0 24px 80px rgba(0,0,0,0.45)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, padding: '14px 18px', borderBottom: '1px solid var(--border)' }}>
+              <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 13, letterSpacing: 2, color: 'var(--white)' }}>
+                {expandedVideo.title}
+              </div>
+              <button
+                type="button"
+                onClick={() => setExpandedVideo(null)}
+                style={{
+                  border: '1px solid rgba(255,255,255,0.12)',
+                  background: 'transparent',
+                  color: 'var(--silver2)',
+                  padding: '8px 12px',
+                  fontFamily: "'DM Mono',monospace",
+                  fontSize: 9,
+                  letterSpacing: 2,
+                  textTransform: 'uppercase',
+                  cursor: 'pointer',
+                }}
+              >
+                Close
+              </button>
+            </div>
+            <div style={{ position: 'relative', paddingTop: '56.25%' }}>
+              <iframe
+                src={getExerciseVideoEmbedUrl(expandedVideo.youtubeVideoId)}
+                title={expandedVideo.title}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none', display: 'block' }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
       <PreSessionReadinessModal
         open={showReadinessModal}
         allowClose
@@ -947,6 +1067,54 @@ export default function RoutinePage() {
           setShowReadinessModal(false)
         }}
       />
+      <style jsx global>{`
+        @media (max-width: 1024px) {
+          .routine-page-shell {
+            padding-left: 18px;
+            padding-right: 18px;
+          }
+        }
+
+        @media (max-width: 860px) {
+          .routine-hero-shell {
+            display: grid !important;
+            grid-template-columns: 1fr !important;
+          }
+
+          .routine-sidebar {
+            width: 100% !important;
+          }
+
+          .routine-sidebar-card {
+            position: static !important;
+            top: auto !important;
+          }
+
+          .mg-routine-exercise-row {
+            grid-template-columns: 1fr !important;
+          }
+
+          .routine-media-panel {
+            border-right: none !important;
+            border-bottom: 1px solid var(--border) !important;
+          }
+
+          .routine-video-modal {
+            padding: 12px !important;
+          }
+
+          .routine-video-modal-card {
+            width: 100% !important;
+          }
+        }
+
+        @media (max-width: 640px) {
+          .routine-page-shell {
+            padding-left: 14px;
+            padding-right: 14px;
+          }
+        }
+      `}</style>
     </>
   )
 }
