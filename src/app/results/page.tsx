@@ -17,6 +17,7 @@ import {
   IconSquat,
 } from '@/components/Icons'
 import { createClient } from '@/lib/supabase/client'
+import { MAX_SAVED_WORKOUTS, readSavedWorkoutIds, removeWorkoutFromLibrary } from '@/lib/saved-workouts'
 import { deriveScreeningSnapshot } from '@/lib/screening-cloud-v2'
 import { readStoredScreening } from '@/lib/screening-storage'
 
@@ -162,6 +163,8 @@ export default function ResultsPage() {
   const [screeningHistory, setScreeningHistory] = useState<ScreeningResult[]>([])
   const [batteryHistory, setBatteryHistory] = useState<BatteryResult[]>([])
   const [routineHistory, setRoutineHistory] = useState<RoutineSummary[]>([])
+  const [libraryBusyId, setLibraryBusyId] = useState<number | null>(null)
+  const [libraryError, setLibraryError] = useState('')
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -172,10 +175,13 @@ export default function ResultsPage() {
         return
       }
       const uid = session.user.id
+      const savedWorkoutIds = readSavedWorkoutIds(uid)
 
-      const [{ data: screening }, { data: routines }] = await Promise.all([
+      const [{ data: screening }, routinesResult] = await Promise.all([
         supabase.from('screening_questionnaires').select('*').eq('user_id', uid).order('created_at', { ascending: false }).limit(10),
-        supabase.from('routines').select('id,title,sport,areas,duration_minutes,goal,created_at').eq('user_id', uid).order('created_at', { ascending: false }).limit(8),
+        savedWorkoutIds.length > 0
+          ? supabase.from('routines').select('id,title,sport,areas,duration_minutes,goal,created_at').eq('user_id', uid).in('id', savedWorkoutIds)
+          : Promise.resolve({ data: [] as RoutineSummary[] }),
       ])
 
       const cloudHistory = (screening || [])
@@ -208,12 +214,65 @@ export default function ResultsPage() {
         }
       }
       setBatteryHistory([])
-      setRoutineHistory(routines || [])
+      const routines = (routinesResult?.data || []) as RoutineSummary[]
+      const orderedRoutines = routines.sort((a, b) => savedWorkoutIds.indexOf(a.id) - savedWorkoutIds.indexOf(b.id))
+      setRoutineHistory(orderedRoutines)
       setLoading(false)
     }
 
     void load()
   }, [router, supabase])
+
+  async function repeatSavedWorkout(routineId: number) {
+    setLibraryBusyId(routineId)
+    setLibraryError('')
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const accessToken = session?.access_token
+      if (!accessToken) {
+        throw new Error('Sign in to reopen saved workouts.')
+      }
+
+      const response = await fetch(`/api/routines/${routineId}`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      })
+      const payload = await response.json().catch(() => null)
+
+      if (!response.ok) {
+        throw new Error(payload?.error || 'Could not reopen saved workout.')
+      }
+
+      localStorage.setItem('mg_routine', JSON.stringify(payload))
+      router.push('/routine')
+    } catch (error) {
+      setLibraryError(error instanceof Error ? error.message : 'Could not reopen saved workout.')
+    } finally {
+      setLibraryBusyId(null)
+    }
+  }
+
+  async function deleteSavedWorkout(routineId: number) {
+    setLibraryBusyId(routineId)
+    setLibraryError('')
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const uid = session?.user?.id
+      if (!uid) {
+        throw new Error('Sign in to manage saved workouts.')
+      }
+
+      removeWorkoutFromLibrary(uid, routineId)
+      setRoutineHistory((prev) => prev.filter((routine) => routine.id !== routineId))
+    } catch (error) {
+      setLibraryError(error instanceof Error ? error.message : 'Could not remove saved workout.')
+    } finally {
+      setLibraryBusyId(null)
+    }
+  }
 
   const latestScreening = screeningHistory[0] || null
   const screeningTrend = screeningHistory.slice(0, 3)
@@ -446,6 +505,14 @@ export default function ResultsPage() {
               <div style={{ marginBottom: 48 }}>
                 <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 13, letterSpacing: 4, color: 'var(--cyan)', marginBottom: 24, textTransform: UC }}>Saved Workouts</p>
                 <div style={{ background: 'var(--black2)', border: '1px solid var(--border)', padding: '28px 30px' }}>
+                  <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: 'var(--silver2)', lineHeight: 1.75, marginBottom: routineHistory.length > 0 || libraryError ? 18 : 0 }}>
+                    Star only the workouts you want to keep. You can save up to {MAX_SAVED_WORKOUTS} workouts in your repeat library.
+                  </div>
+                  {libraryError && (
+                    <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 14, color: '#ff8f8f', lineHeight: 1.6, marginBottom: 16 }}>
+                      {libraryError}
+                    </div>
+                  )}
                   {routineHistory.length > 0 ? (
                     <div style={{ display: 'grid', gap: 12 }}>
                       {routineHistory.map((routine, index) => (
@@ -465,13 +532,21 @@ export default function ResultsPage() {
                             <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: 'var(--silver2)', lineHeight: 1.65 }}>
                               {formatRoutineFocus(routine)} · {routine.goal || 'balanced'} · {routine.duration_minutes} min
                             </div>
+                            <div className="mg-mobile-stack" style={{ marginTop: 12 }}>
+                              <button className="btn-outline" onClick={() => void repeatSavedWorkout(routine.id)} disabled={libraryBusyId === routine.id}>
+                                {libraryBusyId === routine.id ? 'OPENING...' : 'REPEAT WORKOUT'}
+                              </button>
+                              <button className="btn-outline" onClick={() => void deleteSavedWorkout(routine.id)} disabled={libraryBusyId === routine.id}>
+                                REMOVE FROM SAVED
+                              </button>
+                            </div>
                           </div>
                         </div>
                       ))}
                     </div>
                   ) : (
                     <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 17, color: 'var(--silver2)', lineHeight: 1.7 }}>
-                      Your saved workouts will appear here once you build and save them.
+                      Your saved workouts will appear here once you finish a workout and star it for later.
                     </div>
                   )}
                 </div>

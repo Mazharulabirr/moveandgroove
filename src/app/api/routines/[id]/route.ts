@@ -1,120 +1,155 @@
 ﻿import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createAccessTokenClient, createAuthClient } from '@/lib/supabase/admin'
 
-type RoutineExercise = {
-  videoId: null
-  name: string
-  targetArea: string
+type RoutineItemRow = {
+  pillar: 'prep' | 'release' | 'activation' | 'range'
+  exercise_name: string
+  target_area: string
   sets: number
   reps: number | null
-  holdSeconds: number | null
-  rationale: string
-  study: string
-  isFoamRoll?: boolean
+  hold_seconds: number | null
+  rationale: string | null
+  study_citation: string | null
+  order_index: number
 }
 
-type RoutinePhase = {
-  pillar: 'prep' | 'release' | 'activation' | 'range'
-  phaseDescription: string
-  exercises: RoutineExercise[]
+const PHASE_DESCRIPTIONS: Record<RoutineItemRow['pillar'], string> = {
+  prep: 'Foam-roll prep to reduce stiffness before the main mobility work starts.',
+  release: 'Release work to reduce stiffness and prepare the area for stronger movement.',
+  activation: 'Activation work to switch on control and support the range you just opened.',
+  range: 'Range work to own the new motion with strength and usable control.',
 }
 
-type Routine = {
-  routineTitle: string
-  summary: string
-  difficultyLevel: string
-  totalExercises: number
-  phases: RoutinePhase[]
-  evidenceSummary: string
+function readAccessToken(req: NextRequest) {
+  const authHeader = req.headers.get('authorization') || ''
+  return authHeader.startsWith('Bearer ')
+    ? authHeader.slice('Bearer '.length).trim()
+    : ''
 }
 
-type SaveRoutineRequest = {
-  userId: string
-  routine: Routine
-  sport?: string | null
-  areas?: string[]
-  duration?: number
-  goal?: string | null
+async function validateUser(req: NextRequest) {
+  const accessToken = readAccessToken(req)
+
+  if (!accessToken) {
+    throw new Error('Missing routine access token.')
+  }
+
+  const authClient = createAuthClient(accessToken)
+  const {
+    data: { user },
+    error,
+  } = await authClient.auth.getUser(accessToken)
+
+  if (error || !user) {
+    throw new Error('Routine request is not authenticated.')
+  }
+
+  return {
+    accessToken,
+    userId: user.id,
+  }
 }
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
-
-export async function POST(req: NextRequest) {
+export async function GET(
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> },
+) {
   try {
-    const { userId, routine, sport, areas, duration, goal } = await req.json() as SaveRoutineRequest
+    const { id } = await context.params
+    const routineId = Number(id)
 
-    if (!userId || !routine) {
-      return NextResponse.json({ error: 'Missing required routine save payload.' }, { status: 400 })
+    if (!Number.isInteger(routineId) || routineId <= 0) {
+      return NextResponse.json({ error: 'Invalid routine id.' }, { status: 400 })
     }
 
-    const targetAreas = areas && areas.length > 0 ? areas : ['hips', 'shoulders', 'spine']
+    const { accessToken, userId } = await validateUser(req)
+    const supabase = createAccessTokenClient(accessToken)
 
-    const { data: savedRoutine, error: routineError } = await supabase
+    const { data: routineRow, error: routineError } = await supabase
       .from('routines')
-      .insert([{
-        user_id: userId,
-        title: routine.routineTitle,
-        sport: sport || null,
-        areas: targetAreas,
-        goal: goal || null,
-        duration_minutes: duration || null,
-        difficulty: routine.difficultyLevel,
-        summary: routine.summary,
-        evidence_summary: routine.evidenceSummary,
-      }])
-      .select()
-      .single()
+      .select('id,title,sport,areas,duration_minutes,goal,difficulty,summary,evidence_summary')
+      .eq('id', routineId)
+      .eq('user_id', userId)
+      .maybeSingle<{
+        id: number
+        title: string
+        sport: string | null
+        areas: string[] | null
+        duration_minutes: number | null
+        goal: string | null
+        difficulty: string | null
+        summary: string | null
+        evidence_summary: string | null
+      }>()
 
     if (routineError) {
       throw routineError
     }
 
-    const items: Array<{
-      routine_id: number
-      video_id: null
-      pillar: string
-      exercise_name: string
-      target_area: string
-      sets: number
-      reps: number | null
-      hold_seconds: number | null
-      rationale: string
-      study_citation: string
-      order_index: number
-    }> = []
-
-    routine.phases.forEach((phase, phaseIndex) => {
-      phase.exercises.forEach((exercise, exerciseIndex) => {
-        items.push({
-          routine_id: savedRoutine.id,
-          video_id: null,
-          pillar: phase.pillar,
-          exercise_name: exercise.name,
-          target_area: exercise.targetArea,
-          sets: exercise.sets,
-          reps: exercise.reps || null,
-          hold_seconds: exercise.holdSeconds || null,
-          rationale: exercise.rationale,
-          study_citation: exercise.study,
-          order_index: phaseIndex * 10 + exerciseIndex,
-        })
-      })
-    })
-
-    if (items.length > 0) {
-      const { error: itemsError } = await supabase.from('routine_items').insert(items)
-      if (itemsError) {
-        throw itemsError
-      }
+    if (!routineRow) {
+      return NextResponse.json({ error: 'Routine not found.' }, { status: 404 })
     }
 
-    return NextResponse.json({ savedId: savedRoutine.id })
-  } catch (err: unknown) {
-    console.error('[routines.save]', err)
-    const message = err instanceof Error ? err.message : 'Unknown error'
+    const { data: itemRows, error: itemsError } = await supabase
+      .from('routine_items')
+      .select('pillar,exercise_name,target_area,sets,reps,hold_seconds,rationale,study_citation,order_index')
+      .eq('routine_id', routineId)
+      .order('order_index', { ascending: true })
+
+    if (itemsError) {
+      throw itemsError
+    }
+
+    const groupedByPhase = (itemRows || []).reduce<Record<RoutineItemRow['pillar'], RoutineItemRow[]>>(
+      (acc, item) => {
+        const pillar = item.pillar as RoutineItemRow['pillar']
+        acc[pillar].push(item as RoutineItemRow)
+        return acc
+      },
+      {
+        prep: [],
+        release: [],
+        activation: [],
+        range: [],
+      },
+    )
+
+    const phases = (['prep', 'release', 'activation', 'range'] as const)
+      .filter((pillar) => groupedByPhase[pillar].length > 0)
+      .map((pillar) => ({
+        pillar,
+        phaseDescription: PHASE_DESCRIPTIONS[pillar],
+        exercises: groupedByPhase[pillar].map((item) => ({
+          videoId: null,
+          name: item.exercise_name,
+          targetArea: item.target_area,
+          sets: item.sets,
+          reps: item.reps,
+          holdSeconds: item.hold_seconds,
+          rationale: item.rationale || '',
+          study: item.study_citation || '',
+          isFoamRoll: pillar === 'prep',
+        })),
+      }))
+
+    return NextResponse.json({
+      routine: {
+        routineTitle: routineRow.title,
+        summary: routineRow.summary || '',
+        difficultyLevel: routineRow.difficulty || 'Guided',
+        totalExercises: phases.reduce((sum, phase) => sum + phase.exercises.length, 0),
+        phases,
+        evidenceSummary: routineRow.evidence_summary || '',
+        savedId: routineRow.id,
+      },
+      sport: routineRow.sport,
+      areas: routineRow.areas || [],
+      duration: routineRow.duration_minutes || 0,
+      goal: routineRow.goal,
+    })
+  } catch (error) {
+    console.error('[routines.read]', error)
+    const message = error instanceof Error ? error.message : 'Could not load routine.'
     return NextResponse.json({ error: message }, { status: 500 })
   }
 }

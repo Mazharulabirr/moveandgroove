@@ -7,6 +7,7 @@ import PreSessionReadinessModal from '@/components/PreSessionReadinessModal'
 import { getExerciseVideo, getExerciseVideoEmbedUrl, getExerciseVideoWatchUrl } from '@/lib/exercise-videos'
 import type { ReadinessAdjustmentSnapshot } from '@/lib/readiness'
 import { pickRoutineBackground } from '@/lib/routine-backgrounds'
+import { MAX_SAVED_WORKOUTS, isWorkoutSaved, saveWorkoutToLibrary } from '@/lib/saved-workouts'
 import { createClient } from '@/lib/supabase/client'
 import { hasPreSessionCheckinToday } from '@/lib/session-flow'
 
@@ -204,9 +205,9 @@ export default function RoutinePage() {
 
   const routine = storedMeta?.routine ?? null
   const [savedId, setSavedId] = useState<number | null>(() => storedMeta?.routine?.savedId ?? null)
+  const [isSavedToLibrary, setIsSavedToLibrary] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
-  const [showSavePrompt, setShowSavePrompt] = useState<boolean>(() => !(storedMeta?.routine?.savedId ?? null))
   const [activePhaseIndex, setActivePhaseIndex] = useState(0)
   const [sessionFinished, setSessionFinished] = useState(false)
   const [showReadinessModal, setShowReadinessModal] = useState(false)
@@ -228,10 +229,6 @@ export default function RoutinePage() {
   }, [routine])
 
   useEffect(() => {
-    setShowSavePrompt(savedId === null)
-  }, [savedId])
-
-  useEffect(() => {
     async function loadReadiness() {
       const { data: { session } } = await supabase.auth.getSession()
       const uid = session?.user?.id
@@ -249,6 +246,22 @@ export default function RoutinePage() {
 
     void loadReadiness()
   }, [supabase])
+
+  useEffect(() => {
+    async function loadLibraryState() {
+      const { data: { session } } = await supabase.auth.getSession()
+      const uid = session?.user?.id || null
+
+      if (!uid || !savedId) {
+        setIsSavedToLibrary(false)
+        return
+      }
+
+      setIsSavedToLibrary(isWorkoutSaved(uid, savedId))
+    }
+
+    void loadLibraryState()
+  }, [savedId, supabase])
 
   useEffect(() => {
     async function loadVideoOverrides() {
@@ -302,7 +315,7 @@ export default function RoutinePage() {
     sport: storedMeta?.sport,
     areas: storedMeta?.areas,
   })
-  const isSaved = savedId !== null
+  const isSaved = isSavedToLibrary
   const totalExerciseCount = routine ? routine.phases.reduce((sum, phase) => sum + phase.exercises.length, 0) : 0
   const totalCompletedSets = routine
     ? routine.phases.reduce((sum, phase, phaseIndex) => {
@@ -373,38 +386,49 @@ export default function RoutinePage() {
         throw new Error('Sign in to save routines to your library.')
       }
 
-      const response = await fetch('/api/routines/save', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId,
-          accessToken,
-          routine: storedMeta.routine,
-          sport: storedMeta.sport || null,
-          areas: storedMeta.areas || [],
-          duration: storedMeta.duration,
-          goal: storedMeta.goal || null,
-        }),
-      })
+      let nextSavedId = savedId
 
-      const payload = await response.json()
+      if (!nextSavedId) {
+        const response = await fetch('/api/routines/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId,
+            accessToken,
+            routine: storedMeta.routine,
+            sport: storedMeta.sport || null,
+            areas: storedMeta.areas || [],
+            duration: storedMeta.duration,
+            goal: storedMeta.goal || null,
+          }),
+        })
 
-      if (!response.ok) {
-        throw new Error(payload.error || `Server error ${response.status}`)
+        const payload = await response.json()
+
+        if (!response.ok) {
+          throw new Error(payload.error || `Server error ${response.status}`)
+        }
+
+        nextSavedId = payload.savedId as number
+        setSavedId(nextSavedId)
+
+        const nextMeta = {
+          ...storedMeta,
+          routine: {
+            ...storedMeta.routine,
+            savedId: nextSavedId,
+          },
+        }
+
+        localStorage.setItem('mg_routine', JSON.stringify(nextMeta))
       }
 
-      setSavedId(payload.savedId)
-      setShowSavePrompt(false)
-
-      const nextMeta = {
-        ...storedMeta,
-        routine: {
-          ...storedMeta.routine,
-          savedId: payload.savedId,
-        },
+      const saveResult = saveWorkoutToLibrary(userId, nextSavedId)
+      if (!saveResult.ok && saveResult.isFull) {
+        throw new Error(`Your saved workout library is full. Delete one of your ${MAX_SAVED_WORKOUTS} saved workouts to add a new one.`)
       }
 
-      localStorage.setItem('mg_routine', JSON.stringify(nextMeta))
+      setIsSavedToLibrary(true)
     } catch (err: unknown) {
       console.error('[routine.save]', err)
       setSaveError(err instanceof Error ? err.message : 'Could not save routine')
@@ -524,45 +548,6 @@ export default function RoutinePage() {
                   {hasTodayReadiness ? 'Today’s readiness check is logged.' : 'Complete this before you start the workout.'}
                 </span>
               </div>
-              {(showSavePrompt || isSaved || saveError) && (
-                <div style={{ marginTop: 22, maxWidth: 620, border: '1px solid rgba(139,231,255,0.18)', background: 'linear-gradient(180deg, rgba(0,180,216,0.08) 0%, rgba(8,10,14,0.96) 100%)', padding: '18px 20px' }}>
-                  <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: 'var(--cyan)', marginBottom: 10, textTransform: 'uppercase' }}>
-                    {'// Routine Library'}
-                  </div>
-                  <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 12, fontWeight: 700, letterSpacing: 3, color: 'var(--white)', marginBottom: 10, textTransform: 'uppercase' }}>
-                    {isSaved ? 'ROUTINE SAVED' : 'DO YOU WANT TO SAVE THIS ROUTINE?'}
-                  </div>
-                  <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: 'var(--silver2)', lineHeight: 1.75, marginBottom: saveError ? 10 : 0 }}>
-                    {isSaved
-                      ? 'This routine is now in your library and can be reopened later from your profile or programs view.'
-                      : 'Save only the routines you want to keep. If not, this stays as a one-time session and you can keep going with the workout right here.'}
-                  </div>
-                  {saveError && (
-                    <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 14, color: '#ff8f8f', lineHeight: 1.6, marginTop: 10 }}>
-                      {saveError}
-                    </div>
-                  )}
-                  <div className="mg-mobile-stack" style={{ marginTop: 14 }}>
-                    {!isSaved && showSavePrompt && (
-                      <button className="btn-primary" onClick={saveRoutine} disabled={saving}>
-                        {saving ? 'SAVING...' : 'SAVE TO LIBRARY'}
-                      </button>
-                    )}
-                    {isSaved ? (
-                      <button className="btn-outline" onClick={() => router.push('/dashboard')}>
-                        BACK TO DASHBOARD
-                      </button>
-                    ) : (
-                      <button className="btn-outline" onClick={() => {
-                        setSaveError('')
-                        setShowSavePrompt(false)
-                      }}>
-                        NOT NOW
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
             </div>
             <div className="routine-sidebar" style={{ flexShrink: 0, width: 'min(100%, 320px)' }}>
               <div className="mg-mobile-stack" style={{ marginBottom: 16 }}>
@@ -832,10 +817,37 @@ export default function RoutinePage() {
               </div>
             )}
             {sessionFinished && (
-              <div style={{ marginTop: 16 }}>
-                <button className="btn-primary" onClick={() => router.push('/session-checkin?type=post&autostart=1')}>
-                  POST SESSION CHECK-IN
-                </button>
+              <div style={{ marginTop: 16, display: 'grid', gap: 14 }}>
+                <div style={{ border: '1px solid rgba(139,231,255,0.18)', background: 'linear-gradient(180deg, rgba(0,180,216,0.08) 0%, rgba(8,10,14,0.96) 100%)', padding: '18px 20px' }}>
+                  <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: 'var(--cyan)', marginBottom: 10, textTransform: 'uppercase' }}>
+                    {'// Saved Workout'}
+                  </div>
+                  <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 12, fontWeight: 700, letterSpacing: 3, color: 'var(--white)', marginBottom: 10, textTransform: 'uppercase' }}>
+                    {isSaved ? 'WORKOUT SAVED TO YOUR LIBRARY' : 'LIKE THIS ONE? SAVE IT'}
+                  </div>
+                  <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: 'var(--silver2)', lineHeight: 1.75 }}>
+                    {isSaved
+                      ? `This workout is in your saved library and can be repeated later. You can keep up to ${MAX_SAVED_WORKOUTS} saved workouts at a time.`
+                      : `Only starred workouts stay in your repeat library. You can keep up to ${MAX_SAVED_WORKOUTS} saved workouts and delete older ones when you want new additions.`}
+                  </div>
+                  {saveError && (
+                    <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 14, color: '#ff8f8f', lineHeight: 1.6, marginTop: 10 }}>
+                      {saveError}
+                    </div>
+                  )}
+                  {!isSaved && (
+                    <div style={{ marginTop: 14 }}>
+                      <button className="btn-outline" onClick={saveRoutine} disabled={saving}>
+                        {saving ? 'SAVING...' : '☆ SAVE WORKOUT'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <button className="btn-primary" onClick={() => router.push('/session-checkin?type=post&autostart=1')}>
+                    POST SESSION CHECK-IN
+                  </button>
+                </div>
               </div>
             )}
           </div>
