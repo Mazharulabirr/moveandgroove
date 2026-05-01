@@ -173,6 +173,9 @@ export default function DashboardPage() {
           throw new Error(payload?.error || 'Could not load progress.')
         }
         return (payload?.progress || []) as ProgressEntry[]
+      }).catch((error) => {
+        console.warn('[dashboard.progress]', error)
+        return [] as ProgressEntry[]
       })
       const [
         progress,
@@ -259,16 +262,9 @@ export default function DashboardPage() {
       href: '/screening',
     },
     {
-      label: 'Choose Your Goal',
-      done: hasScreening,
-      detail: hasScreening ? 'Sport relevant or general mobility focus' : 'Unlocks after your screening',
-      Icon: IconRoutine,
-      href: '/quiz',
-    },
-    {
       label: 'Create the Workout',
       done: stats.totalSessions > 0 || routines.length > 0,
-      detail: stats.totalSessions > 0 || routines.length > 0 ? 'Workout flow completed' : 'Build your first routine',
+      detail: stats.totalSessions > 0 || routines.length > 0 ? 'Workout flow completed' : 'Choose your goal and build your first routine',
       Icon: IconCheckin,
       href: '/quiz',
     },
@@ -510,7 +506,7 @@ export default function DashboardPage() {
               ) : showBasicProcess ? (
                 <div style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(8,10,14,0.98) 100%)', border: '1px solid rgba(255,255,255,0.08)', padding: '24px 26px' }}>
                   <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 26, fontWeight: 700, letterSpacing: 3, color: 'var(--white)', marginBottom: 18 }}>
-                    YOUR PROCESS
+                    TIME TO MOVE
                   </div>
                   <div style={{ display: 'grid', gap: 12 }}>
                     {basicChecklist.map((item, index) => (

@@ -342,16 +342,6 @@ export default function RoutinePage() {
       : []),
     [routine],
   )
-  const sidebarStudies = useMemo(() => studies.slice(0, 4), [studies])
-
-  function scrollToEvidence() {
-    if (typeof window === 'undefined') return
-    const section = document.getElementById('routine-evidence-section')
-    if (section) {
-      section.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    }
-  }
-
   function isPhaseComplete(phaseIndex: number) {
     if (!routine) return false
 
@@ -579,62 +569,6 @@ export default function RoutinePage() {
                 <button className="btn-outline" onClick={() => router.push(builderHref)}>ADJUST</button>
                 <button className="btn-primary" onClick={() => router.push(builderHref)}>REGENERATE</button>
               </div>
-              {sidebarStudies.length > 0 && (
-                <div
-                  className="routine-sidebar-card"
-                  style={{
-                    border: '1px solid rgba(0,180,216,0.16)',
-                    background: 'linear-gradient(180deg, rgba(12,16,22,0.96) 0%, rgba(6,8,12,0.98) 100%)',
-                    padding: '18px 18px 16px',
-                    position: 'sticky',
-                    top: 96,
-                  }}
-                >
-                  <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, letterSpacing: 3, color: 'var(--cyan)', textTransform: 'uppercase', marginBottom: 10 }}>
-                    Papers Involved
-                  </div>
-                  <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 13, color: 'var(--silver2)', lineHeight: 1.7, marginBottom: 14 }}>
-                    Evidence-backed references used in the rationale behind this workout.
-                  </div>
-                  <div style={{ display: 'grid', gap: 10 }}>
-                    {sidebarStudies.map((study, index) => (
-                      <div
-                        key={index}
-                        style={{
-                          fontFamily: "'DM Mono',monospace",
-                          fontSize: 10,
-                          color: 'var(--silver3)',
-                          lineHeight: 1.7,
-                          padding: '10px 10px 10px 12px',
-                          borderLeft: '2px solid rgba(0,180,216,0.35)',
-                          background: 'rgba(255,255,255,0.02)',
-                        }}
-                      >
-                        {study}
-                      </div>
-                    ))}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={scrollToEvidence}
-                    style={{
-                      marginTop: 14,
-                      width: '100%',
-                      background: 'transparent',
-                      border: '1px solid rgba(255,255,255,0.12)',
-                      color: 'var(--silver2)',
-                      padding: '10px 12px',
-                      cursor: 'pointer',
-                      fontFamily: "'DM Mono',monospace",
-                      fontSize: 9,
-                      letterSpacing: 2,
-                      textTransform: 'uppercase',
-                    }}
-                  >
-                    View Full Evidence
-                  </button>
-                </div>
-              )}
             </div>
           </div>
 
