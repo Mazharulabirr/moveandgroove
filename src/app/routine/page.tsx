@@ -541,12 +541,20 @@ export default function RoutinePage() {
                 </div>
               )}
               <div className="mg-mobile-stack" style={{ marginTop: 18, alignItems: 'center' }}>
-                <button className="btn-primary" onClick={() => setShowReadinessModal(true)}>
-                  PRE TRAINING READINESS CHECK
-                </button>
-                <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 14, color: hasTodayReadiness ? 'var(--silver2)' : 'var(--cyan)' }}>
-                  {hasTodayReadiness ? 'Today’s readiness check is logged.' : 'Complete this before you start the workout.'}
-                </span>
+                {!hasTodayReadiness ? (
+                  <>
+                    <button className="btn-primary" onClick={() => setShowReadinessModal(true)}>
+                      PRE TRAINING READINESS CHECK
+                    </button>
+                    <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 14, color: 'var(--cyan)' }}>
+                      Complete this before you start the workout.
+                    </span>
+                  </>
+                ) : (
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '8px 12px', border: '1px solid rgba(67,209,122,0.24)', background: 'rgba(67,209,122,0.08)', fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 3, color: '#43d17a', textTransform: 'uppercase' }}>
+                    Ready for training / pre-session check-in logged
+                  </div>
+                )}
               </div>
             </div>
             <div className="routine-sidebar" style={{ flexShrink: 0, width: 'min(100%, 320px)' }}>
@@ -818,17 +826,17 @@ export default function RoutinePage() {
             )}
             {sessionFinished && (
               <div style={{ marginTop: 16, display: 'grid', gap: 14 }}>
-                <div style={{ border: '1px solid rgba(139,231,255,0.18)', background: 'linear-gradient(180deg, rgba(0,180,216,0.08) 0%, rgba(8,10,14,0.96) 100%)', padding: '18px 20px' }}>
+                <div style={{ border: '1px solid rgba(139,231,255,0.28)', background: 'linear-gradient(180deg, rgba(0,180,216,0.12) 0%, rgba(8,10,14,0.98) 100%)', padding: '20px 22px' }}>
                   <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: 'var(--cyan)', marginBottom: 10, textTransform: 'uppercase' }}>
                     {'// Saved Workout'}
                   </div>
-                  <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 12, fontWeight: 700, letterSpacing: 3, color: 'var(--white)', marginBottom: 10, textTransform: 'uppercase' }}>
-                    {isSaved ? 'WORKOUT SAVED TO YOUR LIBRARY' : 'LIKE THIS ONE? SAVE IT'}
+                  <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 16, fontWeight: 700, letterSpacing: 3, color: 'var(--white)', marginBottom: 10, textTransform: 'uppercase' }}>
+                    {isSaved ? 'WORKOUT SAVED TO YOUR LIBRARY' : 'SAVE THIS WORKOUT FOR LATER'}
                   </div>
                   <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: 'var(--silver2)', lineHeight: 1.75 }}>
                     {isSaved
                       ? `This workout is in your saved library and can be repeated later. You can keep up to ${MAX_SAVED_WORKOUTS} saved workouts at a time.`
-                      : `Only starred workouts stay in your repeat library. You can keep up to ${MAX_SAVED_WORKOUTS} saved workouts and delete older ones when you want new additions.`}
+                      : `Tap the star to keep this workout in your repeat library. Only starred workouts are saved, and you can keep up to ${MAX_SAVED_WORKOUTS} at a time.`}
                   </div>
                   {saveError && (
                     <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 14, color: '#ff8f8f', lineHeight: 1.6, marginTop: 10 }}>
@@ -836,10 +844,13 @@ export default function RoutinePage() {
                     </div>
                   )}
                   {!isSaved && (
-                    <div style={{ marginTop: 14 }}>
-                      <button className="btn-outline" onClick={saveRoutine} disabled={saving}>
-                        {saving ? 'SAVING...' : '☆ SAVE WORKOUT'}
+                    <div style={{ marginTop: 16, display: 'grid', gap: 10 }}>
+                      <button className="btn-primary" onClick={saveRoutine} disabled={saving}>
+                        {saving ? 'SAVING...' : '★ SAVE TO MY WORKOUTS'}
                       </button>
+                      <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 2, color: 'var(--silver3)', textTransform: 'uppercase' }}>
+                        appears in saved workouts for quick repeat access
+                      </div>
                     </div>
                   )}
                 </div>
