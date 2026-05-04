@@ -35,12 +35,19 @@ type SaveRoutineRequest = {
   areas?: string[]
   duration?: number
   goal?: string | null
-  accessToken?: string | null
+}
+
+function readAccessToken(req: NextRequest) {
+  const authHeader = req.headers.get('authorization') || ''
+  return authHeader.startsWith('Bearer ')
+    ? authHeader.slice('Bearer '.length).trim()
+    : ''
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const { userId, routine, sport, areas, duration, goal, accessToken } = await req.json() as SaveRoutineRequest
+    const { userId, routine, sport, areas, duration, goal } = await req.json() as SaveRoutineRequest
+    const accessToken = readAccessToken(req)
 
     if (!userId || !routine || !accessToken) {
       return NextResponse.json({ error: 'Missing required routine save payload.' }, { status: 400 })

@@ -1,5 +1,5 @@
 ﻿import { NextRequest, NextResponse } from 'next/server'
-import { createAuthClient, createServiceRoleClient } from '@/lib/supabase/admin'
+import { createAccessTokenClient, createAuthClient } from '@/lib/supabase/admin'
 
 type ReadinessLogPayload = {
   row?: Record<string, unknown>
@@ -15,6 +15,20 @@ type ExistingReadinessRow = {
   training_context: string | null
   intensity_modifier: string | null
   avoid_passive_holds: boolean | null
+  reduce_region: string | null
+}
+
+type SanitizedReadinessRow = {
+  user_id: string
+  date: string
+  session_type: 'pre' | 'post'
+  sleep_quality: number | null
+  energy_level: number | null
+  soreness_level: number | null
+  niggled_region: string | null
+  training_context: string | null
+  intensity_modifier: string | null
+  avoid_passive_holds: boolean
   reduce_region: string | null
 }
 
@@ -53,6 +67,44 @@ function buildMergedPostRow(row: Record<string, unknown>, existingSameDay: Exist
   }
 }
 
+function toNullableNumber(value: unknown) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null
+}
+
+function toNullableString(value: unknown) {
+  if (typeof value !== 'string') {
+    return null
+  }
+
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : null
+}
+
+function sanitizeReadinessRow(rawRow: Record<string, unknown>, userId: string): SanitizedReadinessRow | null {
+  const date = typeof rawRow.date === 'string' ? rawRow.date.trim() : ''
+  const sessionType = rawRow.session_type === 'pre' || rawRow.session_type === 'post'
+    ? rawRow.session_type
+    : null
+
+  if (!date || !sessionType) {
+    return null
+  }
+
+  return {
+    user_id: userId,
+    date,
+    session_type: sessionType,
+    sleep_quality: toNullableNumber(rawRow.sleep_quality),
+    energy_level: toNullableNumber(rawRow.energy_level),
+    soreness_level: toNullableNumber(rawRow.soreness_level),
+    niggled_region: toNullableString(rawRow.niggled_region),
+    training_context: toNullableString(rawRow.training_context),
+    intensity_modifier: toNullableString(rawRow.intensity_modifier),
+    avoid_passive_holds: rawRow.avoid_passive_holds === true,
+    reduce_region: toNullableString(rawRow.reduce_region),
+  }
+}
+
 export async function POST(req: NextRequest) {
   const authHeader = req.headers.get('authorization') || ''
   const accessToken = authHeader.startsWith('Bearer ')
@@ -76,22 +128,19 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json() as ReadinessLogPayload
-    const row = body.row || {}
-    const rowUserId = typeof row.user_id === 'string' ? row.user_id : ''
-    const rowDate = typeof row.date === 'string' ? row.date : ''
-    const rowSessionType = typeof row.session_type === 'string' ? row.session_type : ''
+    const row = sanitizeReadinessRow(body.row || {}, user.id)
 
-    if (!rowUserId || rowUserId !== user.id || !rowDate || !rowSessionType) {
+    if (!row) {
       return NextResponse.json({ error: 'Readiness payload is incomplete or user-scoped incorrectly.' }, { status: 400 })
     }
 
-    const serviceClient = createServiceRoleClient()
-    const { data: existing, error: existingError } = await serviceClient
+    const readinessClient = createAccessTokenClient(accessToken)
+    const { data: existing, error: existingError } = await readinessClient
       .from('readiness_logs')
       .select('id')
       .eq('user_id', user.id)
-      .eq('date', rowDate)
-      .eq('session_type', rowSessionType)
+      .eq('date', row.date)
+      .eq('session_type', row.session_type)
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle<{ id: string }>()
@@ -100,11 +149,11 @@ export async function POST(req: NextRequest) {
       throw existingError
     }
 
-    const { data: existingSameDay, error: existingSameDayError } = await serviceClient
+    const { data: existingSameDay, error: existingSameDayError } = await readinessClient
       .from('readiness_logs')
       .select('id,session_type,sleep_quality,energy_level,soreness_level,niggled_region,training_context,intensity_modifier,avoid_passive_holds,reduce_region')
       .eq('user_id', user.id)
-      .eq('date', rowDate)
+      .eq('date', row.date)
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle<ExistingReadinessRow>()
@@ -114,7 +163,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (existing?.id) {
-      const { error: updateError } = await serviceClient
+      const { error: updateError } = await readinessClient
         .from('readiness_logs')
         .update(row)
         .eq('id', existing.id)
@@ -126,9 +175,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, mode: 'updated', id: existing.id })
     }
 
-    if (rowSessionType === 'post' && existingSameDay?.id) {
+    if (row.session_type === 'post' && existingSameDay?.id) {
       const mergedRow = buildMergedPostRow(row, existingSameDay)
-      const { error: mergeError } = await serviceClient
+      const { error: mergeError } = await readinessClient
         .from('readiness_logs')
         .update(mergedRow)
         .eq('id', existingSameDay.id)
@@ -140,7 +189,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, mode: 'merged-post', id: existingSameDay.id })
     }
 
-    const { data: inserted, error: insertError } = await serviceClient
+    const { data: inserted, error: insertError } = await readinessClient
       .from('readiness_logs')
       .insert([row])
       .select('id')

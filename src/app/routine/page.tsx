@@ -285,7 +285,18 @@ export default function RoutinePage() {
       try {
         const params = new URLSearchParams()
         exerciseNames.forEach((name) => params.append('name', name))
-        const response = await fetch(`/api/exercise-videos?${params.toString()}`)
+        const { data: { session } } = await supabase.auth.getSession()
+        const accessToken = session?.access_token
+
+        if (!accessToken) {
+          throw new Error('Sign in required to load exercise videos.')
+        }
+
+        const response = await fetch(`/api/exercise-videos?${params.toString()}`, {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        })
         const payload = await response.json()
 
         if (!response.ok) {
@@ -391,10 +402,12 @@ export default function RoutinePage() {
       if (!nextSavedId) {
         const response = await fetch('/api/routines/save', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken}`,
+          },
           body: JSON.stringify({
             userId,
-            accessToken,
             routine: storedMeta.routine,
             sport: storedMeta.sport || null,
             areas: storedMeta.areas || [],
