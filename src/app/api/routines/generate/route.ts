@@ -1006,6 +1006,13 @@ ${readinessModifiers.promptGuidance.map((note) => `  - ${note}`).join('\n')}` : 
 
 SESSION STRUCTURE - THREE PHASES ONLY:
 
+PRESCRIPTION RULES:
+- Isometric and stretch exercises: set holdSeconds to a realistic hold (usually 30-60s) and set reps to null.
+- Movement and rep-based exercises: set reps to a realistic count (usually 6-10) and set holdSeconds to null.
+- Never set holdSeconds to 2 for a rep-based exercise. Controlled tempo belongs in the movement intent, not in holdSeconds.
+- PAILS & RAILS: use holdSeconds (usually 10-20s per contraction) and reps null.
+- CARs: use reps (usually 5-8) and holdSeconds null.
+
 1. RELEASE - Loosen soft tissue surrounding target joints.
    Use: Static stretches, dynamic stretches, PNF, passive holds, joint distractions.
    DO NOT include foam rolling or roller-based exercises.

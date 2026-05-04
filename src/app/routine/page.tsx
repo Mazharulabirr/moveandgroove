@@ -734,11 +734,11 @@ export default function RoutinePage() {
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 12, background: 'var(--black3)', border: '1px solid var(--border)', padding: '10px 20px', borderRadius: 30, fontFamily: "'Syncopate',sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: 2, color: 'var(--white)', alignSelf: 'flex-start', marginTop: 4 }}>
                           {exercise.holdSeconds ? (
                             <>
-                              {exercise.sets} SETS <span style={{ color: 'var(--cyan)', fontSize: 14 }}>×</span> <span style={{ color: 'var(--silver3)', fontSize: 9, letterSpacing: 3 }}>{exercise.holdSeconds}s EACH</span>
+                              {exercise.sets} SETS <span style={{ color: 'var(--cyan)', fontSize: 14 }}>×</span> <span style={{ color: 'var(--silver3)', fontSize: 9, letterSpacing: 3 }}>{exercise.holdSeconds}s HOLD</span>
                             </>
                           ) : (
                             <>
-                              {exercise.sets} SETS <span style={{ color: 'var(--cyan)', fontSize: 14 }}>×</span> <span style={{ color: 'var(--silver3)', fontSize: 9, letterSpacing: 3 }}>{exercise.reps} REPS</span>
+                              {exercise.sets} SETS <span style={{ color: 'var(--cyan)', fontSize: 14 }}>×</span> <span style={{ color: 'var(--silver3)', fontSize: 9, letterSpacing: 3 }}>{exercise.reps} REPS × 2s EACH</span>
                             </>
                           )}
                         </div>

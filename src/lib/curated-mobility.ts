@@ -120,7 +120,7 @@ export const CURATED_ROUTINE_LIBRARY: Record<CuratedArea, Record<CuratedPillar, 
         targetArea: 'hips',
         sets: 2,
         reps: 8,
-        holdSeconds: 2,
+        holdSeconds: null,
         rationale: 'Builds strength and control in hip flexion instead of relying on passive range only. It helps make hip flexion more usable under load.',
         study: 'Oranchuk et al. (2019). Isometric training and its effects on strength and dynamic performance. Sports.',
         aliases: ['Supine in range Hip flex', 'Supine Hip flex', 'Full range hip flex'],
@@ -132,7 +132,7 @@ export const CURATED_ROUTINE_LIBRARY: Record<CuratedArea, Record<CuratedPillar, 
         targetArea: 'hips',
         sets: 2,
         reps: 8,
-        holdSeconds: 2,
+        holdSeconds: null,
         rationale: 'Adds frontal-plane hip stability so the new range holds up under single-leg movement. It helps reduce collapse and improve control in stance.',
         study: 'Distefano et al. (2009). Gluteal muscle activation during common therapeutic exercises. JOSPT.',
         aliases: ['Banded lateral abductions', 'Lateral abduction', 'Lat AB duction'],
@@ -144,7 +144,7 @@ export const CURATED_ROUTINE_LIBRARY: Record<CuratedArea, Record<CuratedPillar, 
         targetArea: 'hips',
         sets: 2,
         reps: 6,
-        holdSeconds: 2,
+        holdSeconds: null,
         rationale: 'Builds active hip rotational control in the same position you mobilize later. It helps connect released range to stronger end-range control.',
         study: 'Frazer et al. (2020). Mobility training and movement control. Sports Medicine.',
         aliases: ['90 90 Shin box', '90 90 isolated'],
@@ -216,7 +216,7 @@ export const CURATED_ROUTINE_LIBRARY: Record<CuratedArea, Record<CuratedPillar, 
         name: 'Wall Hip CARs',
         targetArea: 'hips',
         sets: 2,
-        reps: 5,
+        reps: 6,
         holdSeconds: null,
         rationale: 'Uses support to clean up end-range hip control without losing balance. It helps sharpen hip control once the joint is already open.',
         study: 'Frazer et al. (2020). Mobility training and movement control. Sports Medicine.',
@@ -377,7 +377,7 @@ export const CURATED_ROUTINE_LIBRARY: Record<CuratedArea, Record<CuratedPillar, 
         name: 'Alternate Swimmer',
         targetArea: 'shoulders',
         sets: 2,
-        reps: 5,
+        reps: 6,
         holdSeconds: null,
         rationale: 'Reinforces active overhead control and scapular timing through a longer shoulder pattern. It helps connect shoulder motion to upper-back control before bigger range work.',
         study: 'Manske et al. (2013). Current concepts in shoulder examination and treatment. IJSPT.',
@@ -391,7 +391,7 @@ export const CURATED_ROUTINE_LIBRARY: Record<CuratedArea, Record<CuratedPillar, 
         name: 'Shoulder CARs',
         targetArea: 'shoulders',
         sets: 2,
-        reps: 4,
+        reps: 6,
         holdSeconds: null,
         rationale: 'Builds active shoulder rotation and full-circle control rather than passive flexibility alone. It helps turn shoulder range into usable motion.',
         study: 'Frazer et al. (2020). Mobility training and movement control. Sports Medicine.',
@@ -514,7 +514,7 @@ export const CURATED_ROUTINE_LIBRARY: Record<CuratedArea, Record<CuratedPillar, 
         name: 'In and Outs',
         targetArea: 'spine',
         sets: 2,
-        reps: 5,
+        reps: 6,
         holdSeconds: null,
         rationale: 'Loads spinal and trunk range with more active control than simple mobility drills. It helps make trunk range stronger and more usable.',
         study: 'Cook et al. (2014). Movement: functional movement systems. On Target Publications.',
@@ -525,7 +525,7 @@ export const CURATED_ROUTINE_LIBRARY: Record<CuratedArea, Record<CuratedPillar, 
         name: 'Floor Rainbow',
         targetArea: 'spine',
         sets: 2,
-        reps: 5,
+        reps: 6,
         holdSeconds: null,
         rationale: 'Trains trunk rotation and shoulder-spine linkage through active range. It helps spread motion through the upper body rather than forcing one segment.',
         study: 'Cook et al. (2014). Movement: functional movement systems. On Target Publications.',
@@ -536,7 +536,7 @@ export const CURATED_ROUTINE_LIBRARY: Record<CuratedArea, Record<CuratedPillar, 
         name: 'Side Plank with T Rotation',
         targetArea: 'spine',
         sets: 2,
-        reps: 5,
+        reps: 6,
         holdSeconds: null,
         rationale: 'Adds real strength to spinal rotation and side-body control at end range. It turns mobility into stronger control rather than passive motion.',
         study: 'McGill (2010). Core training: evidence translating to better performance and injury prevention. Strength and Conditioning Journal.',
@@ -548,7 +548,7 @@ export const CURATED_ROUTINE_LIBRARY: Record<CuratedArea, Record<CuratedPillar, 
         name: 'Quadruped T Rotation',
         targetArea: 'spine',
         sets: 2,
-        reps: 5,
+        reps: 6,
         holdSeconds: null,
         rationale: 'Builds thoracic rotation while keeping the hips and lumbar spine controlled. It helps improve rotation without compensating through the lower back.',
         study: 'Cook et al. (2014). Movement: functional movement systems. On Target Publications.',
@@ -578,3 +578,28 @@ export function buildApprovedExercisePoolText(targetAreas: string[]) {
     })
     .join('\n\n')
 }
+
+function validateCuratedRoutineLibrary() {
+  for (const [area, pillars] of Object.entries(CURATED_ROUTINE_LIBRARY) as Array<[CuratedArea, Record<CuratedPillar, CuratedRoutineExerciseTemplate[]>]>) {
+    for (const [pillar, exercises] of Object.entries(pillars) as Array<[CuratedPillar, CuratedRoutineExerciseTemplate[]]>) {
+      for (const exercise of exercises) {
+        const hasReps = typeof exercise.reps === 'number'
+        const hasHold = typeof exercise.holdSeconds === 'number'
+
+        if (hasReps === hasHold) {
+          throw new Error(`[curated-mobility] ${area}/${pillar}/${exercise.name} must define exactly one of reps or holdSeconds.`)
+        }
+
+        if (hasReps && exercise.reps! < 6) {
+          throw new Error(`[curated-mobility] ${area}/${pillar}/${exercise.name} has reps below the clinical minimum of 6.`)
+        }
+
+        if (hasHold && exercise.holdSeconds! < 20) {
+          throw new Error(`[curated-mobility] ${area}/${pillar}/${exercise.name} has holdSeconds below the clinical minimum of 20.`)
+        }
+      }
+    }
+  }
+}
+
+validateCuratedRoutineLibrary()
