@@ -141,8 +141,7 @@ export default function HomePage() {
             display: 'flex', gap: 16, flexWrap: 'wrap', justifyContent: 'center',
             animation: 'fadeUp 0.8s 0.8s both',
           }}>
-            <Link href="/auth" className="btn-primary">GET STARTED</Link>
-            <Link href="/quiz" className="btn-outline">TRY DEMO</Link>
+            <Link href="/auth" className="btn-primary">SIGN IN / SIGN UP</Link>
           </div>
 
           <div style={{
