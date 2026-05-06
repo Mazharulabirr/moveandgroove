@@ -142,7 +142,7 @@ const FOAM_ROLL_LIBRARY: Record<string, FoamRollExercise[]> = {
 const FALLBACK_LIBRARY: Record<string, Record<'release' | 'activation' | 'range', RoutineExercise[]>> = {
   hips: {
     release: [
-      { videoId: null, name: '90/90 Hip Stretch', targetArea: 'hips', sets: 2, reps: null, holdSeconds: 40, rationale: 'Opens internal and external hip rotation to reduce stiffness before loading.', study: 'Behm et al. (2016). Acute effects of muscle stretching on physical performance. Applied Physiology, Nutrition, and Metabolism.' },
+      { videoId: null, name: '90/90 Hip Stretch', targetArea: 'hips', sets: 2, reps: 6, holdSeconds: null, rationale: 'Opens internal and external hip rotation through controlled movement to reduce stiffness before loading.', study: 'Behm et al. (2016). Acute effects of muscle stretching on physical performance. Applied Physiology, Nutrition, and Metabolism.' },
       { videoId: null, name: 'Half-Kneeling Hip Flexor Stretch', targetArea: 'hips', sets: 2, reps: null, holdSeconds: 40, rationale: 'Targets anterior hip tightness that commonly limits extension and stride mechanics.', study: 'Konrad et al. (2021). Effects of stretching training on range of motion. Sports Medicine.' },
     ],
     activation: [
@@ -164,13 +164,13 @@ const FALLBACK_LIBRARY: Record<string, Record<'release' | 'activation' | 'range'
       { videoId: null, name: 'Band External Rotation Iso', targetArea: 'shoulders', sets: 3, reps: null, holdSeconds: 20, rationale: 'Builds rotator cuff control in a stable shoulder position.', study: 'Reinold et al. (2004). Electromyographic analysis of rotator cuff and deltoid musculature during common shoulder exercises. JOSPT.' },
     ],
     range: [
-      { videoId: null, name: 'Tall-Kneeling Overhead Reach', targetArea: 'shoulders', sets: 3, reps: 6, holdSeconds: 5, rationale: 'Integrates thoracic extension with loaded overhead positioning.', study: 'Manske et al. (2013). Current concepts in shoulder examination and treatment. IJSPT.' },
+      { videoId: null, name: 'Tall-Kneeling Overhead Reach', targetArea: 'shoulders', sets: 3, reps: 6, holdSeconds: null, rationale: 'Integrates thoracic extension with loaded overhead positioning.', study: 'Manske et al. (2013). Current concepts in shoulder examination and treatment. IJSPT.' },
       { videoId: null, name: 'Push-Up Plus', targetArea: 'shoulders', sets: 3, reps: 8, holdSeconds: null, rationale: 'Strengthens serratus-driven control at end range.', study: 'Ludewig et al. (2004). Relative balance of serratus anterior and upper trapezius muscle activity during push-up exercises. AJSM.' },
     ],
   },
   spine: {
     release: [
-      { videoId: null, name: 'Open Book Rotation', targetArea: 'spine', sets: 2, reps: 6, holdSeconds: 5, rationale: 'Restores thoracic rotation and ribcage motion for cleaner trunk mechanics.', study: 'Page (2012). Current concepts in muscle stretching for exercise and rehabilitation. IJSPT.' },
+      { videoId: null, name: 'Open Book Rotation', targetArea: 'spine', sets: 2, reps: 6, holdSeconds: null, rationale: 'Restores thoracic rotation and ribcage motion for cleaner trunk mechanics.', study: 'Page (2012). Current concepts in muscle stretching for exercise and rehabilitation. IJSPT.' },
       { videoId: null, name: 'Childs Pose Reach', targetArea: 'spine', sets: 2, reps: null, holdSeconds: 40, rationale: 'Reduces global trunk stiffness while opening lats and thoracic segments.', study: 'Behm et al. (2016). Acute effects of muscle stretching on physical performance. Applied Physiology, Nutrition, and Metabolism.' },
       { videoId: null, name: 'Segmental Cat-Camel', targetArea: 'spine', sets: 1, reps: 6, holdSeconds: null, rationale: 'Improves spinal segmentation and reduces stiffness before stronger loading or active control work.', study: 'McGill (2010). Core training: evidence translating to better performance and injury prevention. Strength and Conditioning Journal.' },
     ],
@@ -179,7 +179,7 @@ const FALLBACK_LIBRARY: Record<string, Record<'release' | 'activation' | 'range'
       { videoId: null, name: 'Dead Bug Iso Press', targetArea: 'spine', sets: 3, reps: null, holdSeconds: 20, rationale: 'Builds trunk stability so mobility gains do not leak through the lower back.', study: 'McGill (2010). Core training: evidence translating to better performance and injury prevention. Strength and Conditioning Journal.' },
     ],
     range: [
-      { videoId: null, name: 'Half-Kneeling Windmill', targetArea: 'spine', sets: 2, reps: 5, holdSeconds: 5, rationale: 'Integrates thoracic rotation and hip control under light load.', study: 'Cook et al. (2014). Movement: functional movement systems. On Target Publications.' },
+      { videoId: null, name: 'Half-Kneeling Windmill', targetArea: 'spine', sets: 2, reps: 6, holdSeconds: null, rationale: 'Integrates thoracic rotation and hip control under light load.', study: 'Cook et al. (2014). Movement: functional movement systems. On Target Publications.' },
       { videoId: null, name: 'Side Plank Reach-Through', targetArea: 'spine', sets: 2, reps: 6, holdSeconds: null, rationale: 'Builds trunk strength and rotation control while loading the new spinal range under tension.', study: 'McGill (2010). Core training: evidence translating to better performance and injury prevention. Strength and Conditioning Journal.' },
     ],
   },
@@ -230,10 +230,6 @@ function buildPhaseSlots(goal: string, exerciseTarget: number, areaCount: number
   ]
 
   return slots
-}
-
-function releaseSetCount(goal: string) {
-  return goal === 'flexibility' ? 2 : 1
 }
 
 const RELEASE_REP_SECONDS = 4
@@ -298,17 +294,10 @@ function isRoutineDurationOutsideWindow(routine: GeneratedRoutine, requestedDura
   return estimatedDuration < lowerBound || estimatedDuration > upperBound
 }
 
-function normalizeRoutineForGoal(routine: GeneratedRoutine, goal: string): GeneratedRoutine {
+function normalizeRoutineForGoal(routine: GeneratedRoutine): GeneratedRoutine {
   return {
     ...routine,
-    phases: routine.phases.map((phase) => ({
-      ...phase,
-      exercises: phase.exercises.map((exercise) => (
-        phase.pillar === 'release'
-          ? { ...exercise, sets: releaseSetCount(goal) }
-          : exercise
-      )),
-    })),
+    phases: routine.phases.map((phase) => applyFallbackPhaseSetRules(phase)),
   }
 }
 
@@ -326,6 +315,27 @@ function routineTargetsArea(routine: GeneratedRoutine, area: string) {
   return routine.phases.some((phase) =>
     phase.exercises.some((exercise) => exercise.targetArea === area),
   )
+}
+
+function applyFallbackPhaseSetRules(phase: RoutinePhase): RoutinePhase {
+  return {
+    ...phase,
+    exercises: phase.exercises.map((exercise, index) => {
+      if (phase.pillar === 'release') {
+        return { ...exercise, sets: 1 }
+      }
+
+      if (phase.pillar === 'activation') {
+        return { ...exercise, sets: index < 2 ? 2 : 1 }
+      }
+
+      if (phase.pillar === 'range') {
+        return { ...exercise, sets: index === 0 ? 2 : 1 }
+      }
+
+      return exercise
+    }),
+  }
 }
 
 function phaseTargetsArea(
@@ -843,14 +853,7 @@ function buildFallbackRoutine({
     summary: buildRoutineSummary(goal, chosenAreas, sport, mode),
     difficultyLevel: readiness?.modificationMode === 'recovery' ? 'Beginner' : goal === 'performance' ? 'Intermediate' : 'Beginner',
     totalExercises,
-    phases: filteredPhases.map((phase) => ({
-      ...phase,
-      exercises: phase.exercises.map((exercise) => (
-        phase.pillar === 'release'
-          ? { ...exercise, sets: releaseSetCount(goal) }
-          : exercise
-      )),
-    })),
+    phases: filteredPhases.map((phase) => applyFallbackPhaseSetRules(phase)),
     evidenceSummary: buildRoutineEvidenceSummary(goal, chosenAreas, readiness),
   }
 }
@@ -1013,6 +1016,14 @@ PRESCRIPTION RULES:
 - PAILS & RAILS: use holdSeconds (usually 10-20s per contraction) and reps null.
 - CARs: use reps (usually 5-8) and holdSeconds null.
 
+SET ASSIGNMENT RULES:
+- Do not assign sets uniformly across a whole phase.
+- RELEASE: every exercise must be exactly 1 set. Release is for tissue priming, not volume.
+- ACTIVATION: assign 2 sets to the 2 most important activation exercises for the sport or area. Assign 1 set to all remaining activation exercises.
+- RANGE: assign 2 sets to the 1 primary end-range loading exercise. Assign 1 set to all remaining range exercises.
+- The doubled activation exercises should be the ones most directly preparing the dominant movement pattern.
+- The doubled range exercise should be the one requiring the most sport-relevant or end-range neuromuscular adaptation.
+
 1. RELEASE - Loosen soft tissue surrounding target joints.
    Use: Static stretches, dynamic stretches, PNF, passive holds, joint distractions.
    DO NOT include foam rolling or roller-based exercises.
@@ -1128,7 +1139,7 @@ Respond ONLY in valid JSON (no markdown):
         throw new Error(`AI returned non-JSON response: ${cleaned.slice(0, 200)}`)
       }
       const routine = normalizeRoutineExerciseNames(
-        normalizeRoutineForGoal(JSON.parse(cleaned.slice(jsonStart, jsonEnd + 1)) as GeneratedRoutine, effectiveGoal),
+        normalizeRoutineForGoal(JSON.parse(cleaned.slice(jsonStart, jsonEnd + 1)) as GeneratedRoutine),
         targetAreas,
       )
 

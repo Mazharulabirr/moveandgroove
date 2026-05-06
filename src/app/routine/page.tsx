@@ -50,6 +50,66 @@ type RoutineMeta = {
   readiness?: ReadinessAdjustmentSnapshot | null
 }
 
+function normalizeExerciseForDisplay(exercise: Exercise, pillar: Phase['pillar'], index: number): Exercise {
+  const shouldTreatTinyHoldAsTempo =
+    typeof exercise.reps === 'number'
+    && typeof exercise.holdSeconds === 'number'
+    && exercise.holdSeconds <= 5
+
+  const nextHoldSeconds = shouldTreatTinyHoldAsTempo ? null : exercise.holdSeconds
+
+  if (pillar === 'prep') {
+    return {
+      ...exercise,
+      holdSeconds: nextHoldSeconds,
+    }
+  }
+
+  if (pillar === 'release') {
+    return {
+      ...exercise,
+      sets: 1,
+      holdSeconds: nextHoldSeconds,
+    }
+  }
+
+  if (pillar === 'activation') {
+    return {
+      ...exercise,
+      sets: index < 2 ? 2 : 1,
+      holdSeconds: nextHoldSeconds,
+    }
+  }
+
+  if (pillar === 'range') {
+    return {
+      ...exercise,
+      sets: index === 0 ? 2 : 1,
+      holdSeconds: nextHoldSeconds,
+    }
+  }
+
+  return {
+    ...exercise,
+    holdSeconds: nextHoldSeconds,
+  }
+}
+
+function normalizeRoutineForDisplay(routine: Routine): Routine {
+  const phases = routine.phases.map((phase) => ({
+    ...phase,
+    exercises: phase.exercises.map((exercise, index) =>
+      normalizeExerciseForDisplay(exercise, phase.pillar, index),
+    ),
+  }))
+
+  return {
+    ...routine,
+    phases,
+    totalExercises: phases.reduce((sum, phase) => sum + phase.exercises.length, 0),
+  }
+}
+
 type ExerciseVideoOverride = {
   exercise_name: string
   youtube_id: string | null
@@ -203,7 +263,10 @@ export default function RoutinePage() {
     }
   })
 
-  const routine = storedMeta?.routine ?? null
+  const routine = useMemo(
+    () => (storedMeta?.routine ? normalizeRoutineForDisplay(storedMeta.routine) : null),
+    [storedMeta],
+  )
   const [savedId, setSavedId] = useState<number | null>(() => storedMeta?.routine?.savedId ?? null)
   const [isSavedToLibrary, setIsSavedToLibrary] = useState(false)
   const [saving, setSaving] = useState(false)
