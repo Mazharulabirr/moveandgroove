@@ -5,19 +5,6 @@ type ReadinessLogPayload = {
   row?: Record<string, unknown>
 }
 
-type ExistingReadinessRow = {
-  id: string
-  session_type: string | null
-  sleep_quality: number | null
-  energy_level: number | null
-  soreness_level: number | null
-  niggled_region: string | null
-  training_context: string | null
-  intensity_modifier: string | null
-  avoid_passive_holds: boolean | null
-  reduce_region: string | null
-}
-
 type SanitizedReadinessRow = {
   user_id: string
   date: string
@@ -42,29 +29,6 @@ function getErrorMessage(error: unknown) {
   }
 
   return 'Unknown error'
-}
-
-function appendTrainingContext(existing: string | null, incoming: string | null) {
-  if (existing && incoming) {
-    return `${existing} | ${incoming}`
-  }
-
-  return incoming || existing || null
-}
-
-function buildMergedPostRow(row: Record<string, unknown>, existingSameDay: ExistingReadinessRow) {
-  return {
-    ...row,
-    session_type: existingSameDay.session_type || 'pre',
-    sleep_quality: row.sleep_quality ?? existingSameDay.sleep_quality ?? null,
-    energy_level: row.energy_level ?? existingSameDay.energy_level ?? null,
-    soreness_level: row.soreness_level ?? existingSameDay.soreness_level ?? null,
-    niggled_region: row.niggled_region || existingSameDay.niggled_region || null,
-    training_context: appendTrainingContext(existingSameDay.training_context, typeof row.training_context === 'string' ? row.training_context : null),
-    intensity_modifier: row.intensity_modifier || existingSameDay.intensity_modifier || null,
-    avoid_passive_holds: row.avoid_passive_holds ?? existingSameDay.avoid_passive_holds ?? false,
-    reduce_region: row.reduce_region || existingSameDay.reduce_region || null,
-  }
 }
 
 function toNullableNumber(value: unknown) {
@@ -149,19 +113,6 @@ export async function POST(req: NextRequest) {
       throw existingError
     }
 
-    const { data: existingSameDay, error: existingSameDayError } = await readinessClient
-      .from('readiness_logs')
-      .select('id,session_type,sleep_quality,energy_level,soreness_level,niggled_region,training_context,intensity_modifier,avoid_passive_holds,reduce_region')
-      .eq('user_id', user.id)
-      .eq('date', row.date)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle<ExistingReadinessRow>()
-
-    if (existingSameDayError) {
-      throw existingSameDayError
-    }
-
     if (existing?.id) {
       const { error: updateError } = await readinessClient
         .from('readiness_logs')
@@ -173,20 +124,6 @@ export async function POST(req: NextRequest) {
       }
 
       return NextResponse.json({ ok: true, mode: 'updated', id: existing.id })
-    }
-
-    if (row.session_type === 'post' && existingSameDay?.id) {
-      const mergedRow = buildMergedPostRow(row, existingSameDay)
-      const { error: mergeError } = await readinessClient
-        .from('readiness_logs')
-        .update(mergedRow)
-        .eq('id', existingSameDay.id)
-
-      if (mergeError) {
-        throw mergeError
-      }
-
-      return NextResponse.json({ ok: true, mode: 'merged-post', id: existingSameDay.id })
     }
 
     const { data: inserted, error: insertError } = await readinessClient
