@@ -294,10 +294,19 @@ function isRoutineDurationOutsideWindow(routine: GeneratedRoutine, requestedDura
   return estimatedDuration < lowerBound || estimatedDuration > upperBound
 }
 
-function normalizeRoutineForGoal(routine: GeneratedRoutine): GeneratedRoutine {
+function shouldUseLighterRangeSetScheme(goal: string, readiness: ReadinessAdjustmentSnapshot | null | undefined) {
+  return goal === 'performance'
+    || goal === 'flexibility'
+    || readiness?.modificationMode === 'recovery'
+}
+
+function normalizeRoutineForGoal(
+  routine: GeneratedRoutine,
+  options?: { goal?: string; readiness?: ReadinessAdjustmentSnapshot | null },
+): GeneratedRoutine {
   return {
     ...routine,
-    phases: routine.phases.map((phase) => applyFallbackPhaseSetRules(phase)),
+    phases: routine.phases.map((phase) => applyFallbackPhaseSetRules(phase, options)),
   }
 }
 
@@ -317,7 +326,12 @@ function routineTargetsArea(routine: GeneratedRoutine, area: string) {
   )
 }
 
-function applyFallbackPhaseSetRules(phase: RoutinePhase): RoutinePhase {
+function applyFallbackPhaseSetRules(
+  phase: RoutinePhase,
+  options?: { goal?: string; readiness?: ReadinessAdjustmentSnapshot | null },
+): RoutinePhase {
+  const lighterRangeScheme = shouldUseLighterRangeSetScheme(options?.goal || 'balanced', options?.readiness)
+
   return {
     ...phase,
     exercises: phase.exercises.map((exercise, index) => {
@@ -330,7 +344,12 @@ function applyFallbackPhaseSetRules(phase: RoutinePhase): RoutinePhase {
       }
 
       if (phase.pillar === 'range') {
-        return { ...exercise, sets: index === 0 ? 2 : 1 }
+        if (lighterRangeScheme) {
+          const prioritizeTwoRangeDrills = phase.exercises.length >= 4 ? index < 2 : index === 0
+          return { ...exercise, sets: prioritizeTwoRangeDrills ? 2 : 1 }
+        }
+
+        return { ...exercise, sets: 2 }
       }
 
       return exercise
@@ -853,7 +872,7 @@ function buildFallbackRoutine({
     summary: buildRoutineSummary(goal, chosenAreas, sport, mode),
     difficultyLevel: readiness?.modificationMode === 'recovery' ? 'Beginner' : goal === 'performance' ? 'Intermediate' : 'Beginner',
     totalExercises,
-    phases: filteredPhases.map((phase) => applyFallbackPhaseSetRules(phase)),
+      phases: filteredPhases.map((phase) => applyFallbackPhaseSetRules(phase, { goal, readiness })),
     evidenceSummary: buildRoutineEvidenceSummary(goal, chosenAreas, readiness),
   }
 }
@@ -1020,9 +1039,10 @@ SET ASSIGNMENT RULES:
 - Do not assign sets uniformly across a whole phase.
 - RELEASE: every exercise must be exactly 1 set. Release is for tissue priming, not volume.
 - ACTIVATION: assign 2 sets to the 2 most important activation exercises for the sport or area. Assign 1 set to all remaining activation exercises.
-- RANGE: assign 2 sets to the 1 primary end-range loading exercise. Assign 1 set to all remaining range exercises.
+- RANGE: for normal training sessions, assign 2 sets to every range exercise. Range is the main loading block and should not feel like a long list of one-off drills.
+- RANGE EXCEPTION: for recovery sessions, flexibility/recovery-biased sessions, and pre-game or pre-training prep sessions, you may use more range drills with lighter volume. In those lighter contexts, assign 2 sets to the top 1-2 most important range drills and 1 set to the remaining range drills.
 - The doubled activation exercises should be the ones most directly preparing the dominant movement pattern.
-- The doubled range exercise should be the one requiring the most sport-relevant or end-range neuromuscular adaptation.
+- In lighter range blocks, the doubled range drill(s) should be the drill(s) requiring the most sport-relevant or end-range neuromuscular adaptation.
 
 1. RELEASE - Loosen soft tissue surrounding target joints.
    Use: Static stretches, dynamic stretches, PNF, passive holds, joint distractions.
@@ -1139,7 +1159,10 @@ Respond ONLY in valid JSON (no markdown):
         throw new Error(`AI returned non-JSON response: ${cleaned.slice(0, 200)}`)
       }
       const routine = normalizeRoutineExerciseNames(
-        normalizeRoutineForGoal(JSON.parse(cleaned.slice(jsonStart, jsonEnd + 1)) as GeneratedRoutine),
+        normalizeRoutineForGoal(
+          JSON.parse(cleaned.slice(jsonStart, jsonEnd + 1)) as GeneratedRoutine,
+          { goal: effectiveGoal, readiness: effectiveReadiness },
+        ),
         targetAreas,
       )
 

@@ -48,9 +48,24 @@ type RoutineMeta = {
   goal?: string | null
   source?: 'recovery' | string
   readiness?: ReadinessAdjustmentSnapshot | null
+  completedAt?: string | null
+  progressLoggedAt?: string | null
 }
 
-function normalizeExerciseForDisplay(exercise: Exercise, pillar: Phase['pillar'], index: number): Exercise {
+function shouldUseLighterRangeSetScheme(meta: RoutineMeta | null) {
+  return meta?.source === 'recovery'
+    || meta?.goal === 'flexibility'
+    || meta?.goal === 'performance'
+    || meta?.readiness?.modificationMode === 'recovery'
+}
+
+function normalizeExerciseForDisplay(
+  exercise: Exercise,
+  pillar: Phase['pillar'],
+  index: number,
+  phaseLength: number,
+  meta: RoutineMeta | null,
+): Exercise {
   const shouldTreatTinyHoldAsTempo =
     typeof exercise.reps === 'number'
     && typeof exercise.holdSeconds === 'number'
@@ -82,9 +97,18 @@ function normalizeExerciseForDisplay(exercise: Exercise, pillar: Phase['pillar']
   }
 
   if (pillar === 'range') {
+    if (!shouldUseLighterRangeSetScheme(meta)) {
+      return {
+        ...exercise,
+        sets: 2,
+        holdSeconds: nextHoldSeconds,
+      }
+    }
+
+    const prioritizeTwoRangeDrills = phaseLength >= 4 ? index < 2 : index === 0
     return {
       ...exercise,
-      sets: index === 0 ? 2 : 1,
+      sets: prioritizeTwoRangeDrills ? 2 : 1,
       holdSeconds: nextHoldSeconds,
     }
   }
@@ -95,11 +119,36 @@ function normalizeExerciseForDisplay(exercise: Exercise, pillar: Phase['pillar']
   }
 }
 
-function normalizeRoutineForDisplay(routine: Routine): Routine {
+function readStoredRoutineMeta() {
+  if (typeof window === 'undefined') {
+    return null
+  }
+
+  const stored = window.localStorage.getItem('mg_routine')
+  if (!stored) {
+    return null
+  }
+
+  try {
+    return JSON.parse(stored) as RoutineMeta
+  } catch {
+    return null
+  }
+}
+
+function writeStoredRoutineMeta(nextMeta: RoutineMeta) {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  window.localStorage.setItem('mg_routine', JSON.stringify(nextMeta))
+}
+
+function normalizeRoutineForDisplay(routine: Routine, meta: RoutineMeta | null): Routine {
   const phases = routine.phases.map((phase) => ({
     ...phase,
     exercises: phase.exercises.map((exercise, index) =>
-      normalizeExerciseForDisplay(exercise, phase.pillar, index),
+      normalizeExerciseForDisplay(exercise, phase.pillar, index, phase.exercises.length, meta),
     ),
   }))
 
@@ -251,20 +300,10 @@ function getYoutubeThumbnailUrl(youtubeVideoId: string) {
 export default function RoutinePage() {
   const router = useRouter()
   const supabase = createClient()
-  const [storedMeta] = useState<RoutineMeta | null>(() => {
-    if (typeof window === 'undefined') return null
-    const stored = localStorage.getItem('mg_routine')
-    if (!stored) return null
-
-    try {
-      return JSON.parse(stored) as RoutineMeta
-    } catch {
-      return null
-    }
-  })
+  const [storedMeta] = useState<RoutineMeta | null>(() => readStoredRoutineMeta())
 
   const routine = useMemo(
-    () => (storedMeta?.routine ? normalizeRoutineForDisplay(storedMeta.routine) : null),
+    () => (storedMeta?.routine ? normalizeRoutineForDisplay(storedMeta.routine, storedMeta) : null),
     [storedMeta],
   )
   const [savedId, setSavedId] = useState<number | null>(() => storedMeta?.routine?.savedId ?? null)
@@ -290,6 +329,66 @@ export default function RoutinePage() {
     setSessionFinished(false)
     setCompletedSets({})
   }, [routine])
+
+  useEffect(() => {
+    async function logCompletedSessionProgress() {
+      if (!sessionFinished || !routine) {
+        return
+      }
+
+      const currentMeta = readStoredRoutineMeta()
+      if (!currentMeta) {
+        return
+      }
+
+      if (currentMeta.progressLoggedAt) {
+        return
+      }
+
+      const { data: { session } } = await supabase.auth.getSession()
+      const uid = session?.user?.id
+      const accessToken = session?.access_token
+
+      if (!uid || !accessToken) {
+        return
+      }
+
+      const completedAt = currentMeta.completedAt || new Date().toISOString()
+      const response = await fetch('/api/progress', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          row: {
+            user_id: uid,
+            routine_id: currentMeta.routine?.savedId ?? null,
+            duration_minutes: currentMeta.duration ?? null,
+            completed_at: completedAt,
+            sport: currentMeta.sport ?? null,
+            areas: currentMeta.areas ?? null,
+            goal: currentMeta.goal ?? null,
+          },
+        }),
+      })
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null)
+        throw new Error(payload?.error || 'Could not log completed session progress.')
+      }
+
+      writeStoredRoutineMeta({
+        ...currentMeta,
+        completedAt,
+        progressLoggedAt: completedAt,
+      })
+    }
+
+    void logCompletedSessionProgress().catch((error) => {
+      console.warn('[routine.progress]', error)
+    })
+  }, [routine, sessionFinished, supabase])
 
   useEffect(() => {
     async function loadReadiness() {
@@ -496,7 +595,7 @@ export default function RoutinePage() {
           },
         }
 
-        localStorage.setItem('mg_routine', JSON.stringify(nextMeta))
+        writeStoredRoutineMeta(nextMeta)
       }
 
       const saveResult = saveWorkoutToLibrary(userId, nextSavedId)
