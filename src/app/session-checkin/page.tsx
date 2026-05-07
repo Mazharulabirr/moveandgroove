@@ -134,6 +134,8 @@ type StoredRoutineMeta = {
   areas?: string[] | null
   duration?: number
   goal?: string | null
+  completedAt?: string | null
+  progressLoggedAt?: string | null
 }
 
 function readStoredRoutineMeta(): StoredRoutineMeta | null {
@@ -151,6 +153,14 @@ function readStoredRoutineMeta(): StoredRoutineMeta | null {
   } catch {
     return null
   }
+}
+
+function writeStoredRoutineMeta(nextMeta: StoredRoutineMeta) {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  window.localStorage.setItem('mg_routine', JSON.stringify(nextMeta))
 }
 
 export default function SessionCheckinPage() {
@@ -213,23 +223,26 @@ export default function SessionCheckinPage() {
     setSaving(true)
     setSaveError('')
     let failed = false
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      const uid = session?.user?.id
-      const accessToken = session?.access_token
-      if (type === 'pre') {
-        const snapshot = buildReadinessAdjustmentSnapshot({
-          answers,
-          sorenessAreas,
-          sorenessSeverity,
-          sorenessNotes,
+    const warnings: string[] = []
+
+    const { data: { session } } = await supabase.auth.getSession()
+    const uid = session?.user?.id
+    const accessToken = session?.access_token
+
+    if (type === 'pre') {
+      const snapshot = buildReadinessAdjustmentSnapshot({
+        answers,
+        sorenessAreas,
+        sorenessSeverity,
+        sorenessNotes,
+      })
+      writeStoredPreSessionReadiness(snapshot)
+      if (uid && accessToken) {
+        const row = buildPreSessionReadinessInsert({
+          userId: uid,
+          snapshot,
         })
-        writeStoredPreSessionReadiness(snapshot)
-        if (uid && accessToken) {
-          const row = buildPreSessionReadinessInsert({
-            userId: uid,
-            snapshot,
-          })
+        try {
           try {
             const response = await fetch('/api/readiness-logs', {
               method: 'POST',
@@ -247,9 +260,14 @@ export default function SessionCheckinPage() {
           } catch {
             await upsertReadinessLog(supabase as never, row)
           }
+        } catch (error) {
+          warnings.push(error instanceof Error ? error.message : 'Could not sync pre-session check-in.')
         }
       }
-      if (uid && accessToken && type === 'post') {
+    }
+
+    if (uid && accessToken && type === 'post') {
+      try {
         const row = buildPostSessionCheckinInsert({
           userId: uid,
           answers,
@@ -271,8 +289,13 @@ export default function SessionCheckinPage() {
         } catch {
           await upsertReadinessLog(supabase as never, row)
         }
+      } catch (error) {
+        warnings.push(error instanceof Error ? error.message : 'Could not sync post-session check-in.')
+      }
 
+      try {
         const routineMeta = readStoredRoutineMeta()
+        const completedAt = routineMeta?.completedAt || routineMeta?.progressLoggedAt || new Date().toISOString()
         const progressResponse = await fetch('/api/progress', {
           method: 'POST',
           headers: {
@@ -284,7 +307,7 @@ export default function SessionCheckinPage() {
               user_id: uid,
               routine_id: routineMeta?.routine?.savedId ?? null,
               duration_minutes: routineMeta?.duration ?? null,
-              completed_at: new Date().toISOString(),
+              completed_at: completedAt,
               sport: routineMeta?.sport ?? null,
               areas: routineMeta?.areas ?? null,
               goal: routineMeta?.goal ?? null,
@@ -296,16 +319,27 @@ export default function SessionCheckinPage() {
           const payload = await progressResponse.json().catch(() => null)
           throw new Error(payload?.error || 'Could not log session progress.')
         }
+
+        if (routineMeta) {
+          writeStoredRoutineMeta({
+            ...routineMeta,
+            completedAt,
+            progressLoggedAt: completedAt,
+          })
+        }
+      } catch (error) {
+        warnings.push(error instanceof Error ? error.message : 'Could not log session progress.')
       }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error'
+    }
+
+    if (warnings.length > 0) {
+      const message = warnings.join(' | ')
       console.warn('[session-checkin]', {
         type,
         answers,
         sorenessAreas,
         sorenessSeverity,
         message,
-        error,
       })
       failed = true
       setSaveError(
@@ -314,6 +348,7 @@ export default function SessionCheckinPage() {
           : 'We could not sync this check-in right now. Please try again.'
       )
     }
+
     setSaving(false)
     if (!failed || type === 'post') {
       setDone(true)

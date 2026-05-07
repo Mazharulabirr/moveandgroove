@@ -15,6 +15,56 @@ type ProgressPayload = {
   row?: ProgressRow
 }
 
+type ProgressReadRow = {
+  id?: string | number
+  user_id: string
+  routine_id?: number | null
+  duration_minutes?: number | null
+  completed_at?: string | null
+  created_at?: string | null
+  sport?: string | null
+  areas?: string[] | null
+  goal?: string | null
+}
+
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error) {
+    return error.message
+  }
+
+  if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string') {
+    return error.message
+  }
+
+  return null
+}
+
+function looksLikeSchemaMismatch(error: unknown) {
+  const message = getErrorMessage(error)?.toLowerCase() || ''
+
+  return (
+    message.includes('column') ||
+    message.includes('schema cache') ||
+    message.includes('could not find') ||
+    message.includes('does not exist') ||
+    message.includes('pgrst')
+  )
+}
+
+function mapProgressRows(rows: ProgressReadRow[]) {
+  return rows.map((row) => ({
+    id: row.id ?? null,
+    user_id: row.user_id,
+    routine_id: row.routine_id ?? null,
+    duration_minutes: row.duration_minutes ?? null,
+    completed_at: row.completed_at ?? null,
+    created_at: row.created_at ?? null,
+    sport: row.sport ?? null,
+    areas: Array.isArray(row.areas) ? row.areas : null,
+    goal: row.goal ?? null,
+  }))
+}
+
 function readAccessToken(req: NextRequest) {
   const authHeader = req.headers.get('authorization') || ''
   return authHeader.startsWith('Bearer ')
@@ -56,15 +106,29 @@ export async function GET(req: NextRequest) {
       .order('completed_at', { ascending: false, nullsFirst: false })
       .order('created_at', { ascending: false })
 
-    if (error) {
+    if (!error) {
+      return NextResponse.json({ progress: mapProgressRows((data || []) as ProgressReadRow[]) })
+    }
+
+    if (!looksLikeSchemaMismatch(error)) {
       throw error
     }
 
-    return NextResponse.json({ progress: data || [] })
+    const { data: fallbackData, error: fallbackError } = await progressClient
+      .from('progress')
+      .select('id,user_id,duration_minutes,created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+
+    if (fallbackError) {
+      throw fallbackError
+    }
+
+    return NextResponse.json({ progress: mapProgressRows((fallbackData || []) as ProgressReadRow[]) })
   } catch (error) {
     console.error('[progress.read]', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Could not read progress.' },
+      { error: getErrorMessage(error) || 'Could not read progress.' },
       { status: 500 },
     )
   }
@@ -82,17 +146,23 @@ export async function POST(req: NextRequest) {
 
     const progressClient = createAccessTokenClient(accessToken)
     const completedAt = row.completed_at || new Date().toISOString()
-    const { data: existing, error: existingError } = await progressClient
+    let existingQuery = progressClient
       .from('progress')
       .select('id')
       .eq('user_id', userId)
-      .eq('routine_id', row.routine_id ?? -1)
       .eq('completed_at', completedAt)
       .limit(1)
-      .maybeSingle<{ id: string }>()
+
+    existingQuery = row.routine_id == null
+      ? existingQuery.is('routine_id', null)
+      : existingQuery.eq('routine_id', row.routine_id)
+
+    const { data: existing, error: existingError } = await existingQuery.maybeSingle<{ id: string }>()
 
     if (existingError) {
-      throw existingError
+      if (!looksLikeSchemaMismatch(existingError)) {
+        throw existingError
+      }
     }
 
     if (existing?.id) {
@@ -115,15 +185,34 @@ export async function POST(req: NextRequest) {
       .select('id')
       .single<{ id: string }>()
 
-    if (insertError) {
+    if (!insertError) {
+      return NextResponse.json({ ok: true, mode: 'inserted', id: inserted.id })
+    }
+
+    if (!looksLikeSchemaMismatch(insertError)) {
       throw insertError
     }
 
-    return NextResponse.json({ ok: true, mode: 'inserted', id: inserted.id })
+    const fallbackRow = {
+      user_id: userId,
+      duration_minutes: row.duration_minutes ?? null,
+    }
+
+    const { data: fallbackInserted, error: fallbackInsertError } = await progressClient
+      .from('progress')
+      .insert([fallbackRow])
+      .select('id')
+      .single<{ id: string }>()
+
+    if (fallbackInsertError) {
+      throw fallbackInsertError
+    }
+
+    return NextResponse.json({ ok: true, mode: 'inserted-fallback', id: fallbackInserted.id })
   } catch (error) {
     console.error('[progress.write]', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Could not write progress.' },
+      { error: getErrorMessage(error) || 'Could not write progress.' },
       { status: 500 },
     )
   }
