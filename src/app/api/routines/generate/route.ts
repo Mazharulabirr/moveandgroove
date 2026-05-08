@@ -35,7 +35,7 @@ type AiRoutineModelConfig = {
   timeoutMs: number
 }
 
-const DEFAULT_OPENAI_PRIMARY_ROUTINE_MODEL = 'gpt-5.4-mini'
+const DEFAULT_OPENAI_PRIMARY_ROUTINE_MODEL = 'gpt-4o-mini'
 const DEFAULT_ANTHROPIC_PRIMARY_ROUTINE_MODEL = 'claude-3-5-haiku-20241022'
 const DEFAULT_ANTHROPIC_FALLBACK_ROUTINE_MODEL = 'claude-sonnet-4-20250514'
 
