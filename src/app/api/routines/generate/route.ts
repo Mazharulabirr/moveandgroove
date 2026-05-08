@@ -11,11 +11,11 @@ import {
 import { SPORT_PROFILE_MAP } from '@/lib/sports'
 import { createAccessTokenClient, createAuthClient } from '@/lib/supabase/admin'
 
-function readRequiredEnv(name: string) {
+function readOptionalEnv(name: string) {
   const raw = process.env[name]
 
   if (!raw) {
-    throw new Error(`Missing required environment variable: ${name}`)
+    return null
   }
 
   return raw
@@ -24,8 +24,61 @@ function readRequiredEnv(name: string) {
     .replace(/[\r\n]+/g, '')
 }
 
-function createAnthropicClient() {
-  return new Anthropic({ apiKey: readRequiredEnv('ANTHROPIC_API_KEY') })
+type AiRoutineTier = 'primary' | 'fallback'
+
+type AiRoutineProvider = 'openai' | 'anthropic'
+
+type AiRoutineModelConfig = {
+  provider: AiRoutineProvider
+  model: string
+  tier: AiRoutineTier
+  timeoutMs: number
+}
+
+const DEFAULT_OPENAI_PRIMARY_ROUTINE_MODEL = 'gpt-5.4-mini'
+const DEFAULT_ANTHROPIC_PRIMARY_ROUTINE_MODEL = 'claude-3-5-haiku-20241022'
+const DEFAULT_ANTHROPIC_FALLBACK_ROUTINE_MODEL = 'claude-sonnet-4-20250514'
+
+function buildAiRoutineModelSequence({
+  hasOpenAiKey,
+  hasAnthropicKey,
+}: {
+  hasOpenAiKey: boolean
+  hasAnthropicKey: boolean
+}) {
+  const sequence: AiRoutineModelConfig[] = []
+
+  if (hasOpenAiKey) {
+    sequence.push({
+      provider: 'openai',
+      model: readOptionalEnv('OPENAI_ROUTINE_PRIMARY_MODEL') || DEFAULT_OPENAI_PRIMARY_ROUTINE_MODEL,
+      tier: 'primary',
+      timeoutMs: 12000,
+    })
+  } else if (hasAnthropicKey) {
+    sequence.push({
+      provider: 'anthropic',
+      model: readOptionalEnv('ANTHROPIC_ROUTINE_PRIMARY_MODEL') || DEFAULT_ANTHROPIC_PRIMARY_ROUTINE_MODEL,
+      tier: 'primary',
+      timeoutMs: 12000,
+    })
+  }
+
+  if (hasAnthropicKey) {
+    const fallbackModel = readOptionalEnv('ANTHROPIC_ROUTINE_FALLBACK_MODEL') || DEFAULT_ANTHROPIC_FALLBACK_ROUTINE_MODEL
+    const alreadyIncluded = sequence.some((config) => config.provider === 'anthropic' && config.model === fallbackModel)
+
+    if (!alreadyIncluded) {
+      sequence.push({
+        provider: 'anthropic',
+        model: fallbackModel,
+        tier: 'fallback',
+        timeoutMs: 20000,
+      })
+    }
+  }
+
+  return sequence
 }
 
 const supabase = createClient(
@@ -117,6 +170,13 @@ type MessageBlock = {
   text?: string
 }
 
+type GeneratedRoutineSuccess = {
+  routine: GeneratedRoutine
+  provider: AiRoutineProvider
+  model: string
+  tier: AiRoutineTier
+}
+
 const FOAM_ROLL_LIBRARY: Record<string, FoamRollExercise[]> = {
   hips: [
     { name: 'IT Band Roll',            area: 'hips',      notes: 'Side lying, roll hip to knee - pause on tender spots 5-10s.' },
@@ -137,52 +197,6 @@ const FOAM_ROLL_LIBRARY: Record<string, FoamRollExercise[]> = {
     { name: 'Lumbar Paraspinal Roll', area: 'spine', notes: 'Feet flat, hips up - roll slowly along paraspinals.' },
     { name: 'QL / Hip Roll',          area: 'spine', notes: 'Side lying at 45 degrees - quadratus lumborum and iliolumbar fascia.' },
   ],
-}
-
-const FALLBACK_LIBRARY: Record<string, Record<'release' | 'activation' | 'range', RoutineExercise[]>> = {
-  hips: {
-    release: [
-      { videoId: null, name: '90/90 Hip Stretch', targetArea: 'hips', sets: 2, reps: 6, holdSeconds: null, rationale: 'Opens internal and external hip rotation through controlled movement to reduce stiffness before loading.', study: 'Behm et al. (2016). Acute effects of muscle stretching on physical performance. Applied Physiology, Nutrition, and Metabolism.' },
-      { videoId: null, name: 'Half-Kneeling Hip Flexor Stretch', targetArea: 'hips', sets: 2, reps: null, holdSeconds: 40, rationale: 'Targets anterior hip tightness that commonly limits extension and stride mechanics.', study: 'Konrad et al. (2021). Effects of stretching training on range of motion. Sports Medicine.' },
-    ],
-    activation: [
-      { videoId: null, name: 'Glute Bridge Iso Hold', targetArea: 'hips', sets: 3, reps: null, holdSeconds: 25, rationale: 'Builds glute engagement so the new hip range is supported with control.', study: 'Distefano et al. (2009). Gluteal muscle activation during common therapeutic exercises. JOSPT.' },
-      { videoId: null, name: 'Standing Hip CARs', targetArea: 'hips', sets: 2, reps: 4, holdSeconds: null, rationale: 'Improves active hip control through the usable range rather than passive flexibility alone.', study: 'Frazer et al. (2020). Mobility training and movement control. Sports Medicine.' },
-    ],
-    range: [
-      { videoId: null, name: 'Cossack Squat', targetArea: 'hips', sets: 3, reps: 6, holdSeconds: null, rationale: 'Strengthens lateral hip range and adductor length under load.', study: 'McCurdy et al. (2010). The effect of unilateral and bilateral lower-body resistance exercises on measures of strength and power. JSCR.' },
-      { videoId: null, name: 'End-Range Split Squat Hold', targetArea: 'hips', sets: 2, reps: null, holdSeconds: 20, rationale: 'Builds strength and tolerance at hip extension end range.', study: 'Oranchuk et al. (2019). Isometric training and its effects on strength and dynamic performance. Sports.' },
-    ],
-  },
-  shoulders: {
-    release: [
-      { videoId: null, name: 'Wall Lat Stretch', targetArea: 'shoulders', sets: 2, reps: null, holdSeconds: 40, rationale: 'Reduces lat and shoulder stiffness that can limit overhead range.', study: 'Konrad et al. (2021). Effects of stretching training on range of motion. Sports Medicine.' },
-      { videoId: null, name: 'Doorway Pec Stretch', targetArea: 'shoulders', sets: 2, reps: null, holdSeconds: 35, rationale: 'Opens the anterior shoulder to improve posture and overhead mechanics.', study: 'Page (2012). Current concepts in muscle stretching for exercise and rehabilitation. IJSPT.' },
-    ],
-    activation: [
-      { videoId: null, name: 'Wall Slide Lift-Off', targetArea: 'shoulders', sets: 3, reps: 8, holdSeconds: null, rationale: 'Improves upward rotation and cuff-supported overhead control.', study: 'Cools et al. (2007). Rehabilitation of scapular muscle balance. BJSM.' },
-      { videoId: null, name: 'Band External Rotation Iso', targetArea: 'shoulders', sets: 3, reps: null, holdSeconds: 20, rationale: 'Builds rotator cuff control in a stable shoulder position.', study: 'Reinold et al. (2004). Electromyographic analysis of rotator cuff and deltoid musculature during common shoulder exercises. JOSPT.' },
-    ],
-    range: [
-      { videoId: null, name: 'Tall-Kneeling Overhead Reach', targetArea: 'shoulders', sets: 3, reps: 6, holdSeconds: null, rationale: 'Integrates thoracic extension with loaded overhead positioning.', study: 'Manske et al. (2013). Current concepts in shoulder examination and treatment. IJSPT.' },
-      { videoId: null, name: 'Push-Up Plus', targetArea: 'shoulders', sets: 3, reps: 8, holdSeconds: null, rationale: 'Strengthens serratus-driven control at end range.', study: 'Ludewig et al. (2004). Relative balance of serratus anterior and upper trapezius muscle activity during push-up exercises. AJSM.' },
-    ],
-  },
-  spine: {
-    release: [
-      { videoId: null, name: 'Open Book Rotation', targetArea: 'spine', sets: 2, reps: 6, holdSeconds: null, rationale: 'Restores thoracic rotation and ribcage motion for cleaner trunk mechanics.', study: 'Page (2012). Current concepts in muscle stretching for exercise and rehabilitation. IJSPT.' },
-      { videoId: null, name: 'Childs Pose Reach', targetArea: 'spine', sets: 2, reps: null, holdSeconds: 40, rationale: 'Reduces global trunk stiffness while opening lats and thoracic segments.', study: 'Behm et al. (2016). Acute effects of muscle stretching on physical performance. Applied Physiology, Nutrition, and Metabolism.' },
-      { videoId: null, name: 'Segmental Cat-Camel', targetArea: 'spine', sets: 1, reps: 6, holdSeconds: null, rationale: 'Improves spinal segmentation and reduces stiffness before stronger loading or active control work.', study: 'McGill (2010). Core training: evidence translating to better performance and injury prevention. Strength and Conditioning Journal.' },
-    ],
-    activation: [
-      { videoId: null, name: 'Quadruped T-Spine Rotation', targetArea: 'spine', sets: 2, reps: 6, holdSeconds: null, rationale: 'Trains thoracic rotation while keeping the lumbar spine controlled.', study: 'Cook et al. (2014). Movement: functional movement systems. On Target Publications.' },
-      { videoId: null, name: 'Dead Bug Iso Press', targetArea: 'spine', sets: 3, reps: null, holdSeconds: 20, rationale: 'Builds trunk stability so mobility gains do not leak through the lower back.', study: 'McGill (2010). Core training: evidence translating to better performance and injury prevention. Strength and Conditioning Journal.' },
-    ],
-    range: [
-      { videoId: null, name: 'Half-Kneeling Windmill', targetArea: 'spine', sets: 2, reps: 6, holdSeconds: null, rationale: 'Integrates thoracic rotation and hip control under light load.', study: 'Cook et al. (2014). Movement: functional movement systems. On Target Publications.' },
-      { videoId: null, name: 'Side Plank Reach-Through', targetArea: 'spine', sets: 2, reps: 6, holdSeconds: null, rationale: 'Builds trunk strength and rotation control while loading the new spinal range under tension.', study: 'McGill (2010). Core training: evidence translating to better performance and injury prevention. Strength and Conditioning Journal.' },
-    ],
-  },
 }
 
 function selectFoamRollExercises(areas: string[], duration: number) {
@@ -251,6 +265,178 @@ function estimateExerciseDurationSeconds(
   const repCount = Math.max(exercise.reps || 0, 1)
   const repSeconds = pillar === 'release' ? RELEASE_REP_SECONDS : ACTIVE_REP_SECONDS
   return EXERCISE_SETUP_SECONDS + (setCount * repCount * repSeconds) + (Math.max(setCount - 1, 0) * REP_REST_SECONDS)
+}
+
+function finalizeGeneratedRoutine({
+  rawJson,
+  prepPhase,
+  targetAreas,
+  effectiveGoal,
+  effectiveReadiness,
+  sessionDuration,
+}: {
+  rawJson: string
+  prepPhase: RoutinePhase | null
+  targetAreas: string[]
+  effectiveGoal: string
+  effectiveReadiness: ReadinessAdjustmentSnapshot | null
+  sessionDuration: number
+}) {
+  const routine = normalizeRoutineExerciseNames(
+    normalizeRoutineForGoal(
+      JSON.parse(rawJson) as GeneratedRoutine,
+      { goal: effectiveGoal, readiness: effectiveReadiness },
+    ),
+    targetAreas,
+  )
+
+  if (prepPhase) {
+    routine.phases.unshift(prepPhase)
+    routine.totalExercises += prepPhase.exercises.length
+  }
+
+  if (needsCuratedFallback(routine, effectiveGoal, targetAreas)) {
+    throw new Error('AI routine failed guardrails')
+  }
+
+  if (isRoutineDurationOutsideWindow(routine, sessionDuration)) {
+    throw new Error('AI routine failed duration window')
+  }
+
+  return routine
+}
+
+async function requestAnthropicRoutineGeneration({
+  anthropic,
+  modelConfig,
+  prompt,
+  prepPhase,
+  targetAreas,
+  effectiveGoal,
+  effectiveReadiness,
+  sessionDuration,
+}: {
+  anthropic: Anthropic
+  modelConfig: AiRoutineModelConfig
+  prompt: string
+  prepPhase: RoutinePhase | null
+  targetAreas: string[]
+  effectiveGoal: string
+  effectiveReadiness: ReadinessAdjustmentSnapshot | null
+  sessionDuration: number
+}): Promise<GeneratedRoutineSuccess> {
+  const message = await Promise.race([
+    anthropic.messages.create({
+      model: modelConfig.model,
+      max_tokens: 4000,
+      messages: [{ role: 'user', content: prompt }],
+    }),
+    new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error(`Anthropic request timed out (${modelConfig.model})`)), modelConfig.timeoutMs)
+    }),
+  ])
+
+  const raw = (message.content as MessageBlock[]).map((block) => block.text || '').join('')
+  const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+  const jsonStart = cleaned.indexOf('{')
+  const jsonEnd = cleaned.lastIndexOf('}')
+
+  if (jsonStart === -1 || jsonEnd === -1) {
+    throw new Error(`AI returned non-JSON response (${modelConfig.model}): ${cleaned.slice(0, 200)}`)
+  }
+
+  const routine = finalizeGeneratedRoutine({
+    rawJson: cleaned.slice(jsonStart, jsonEnd + 1),
+    prepPhase,
+    targetAreas,
+    effectiveGoal,
+    effectiveReadiness,
+    sessionDuration,
+  })
+
+  return {
+    routine,
+    provider: 'anthropic',
+    model: modelConfig.model,
+    tier: modelConfig.tier,
+  }
+}
+
+async function requestOpenAiRoutineGeneration({
+  apiKey,
+  modelConfig,
+  prompt,
+  prepPhase,
+  targetAreas,
+  effectiveGoal,
+  effectiveReadiness,
+  sessionDuration,
+}: {
+  apiKey: string
+  modelConfig: AiRoutineModelConfig
+  prompt: string
+  prepPhase: RoutinePhase | null
+  targetAreas: string[]
+  effectiveGoal: string
+  effectiveReadiness: ReadinessAdjustmentSnapshot | null
+  sessionDuration: number
+}): Promise<GeneratedRoutineSuccess> {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), modelConfig.timeoutMs)
+
+  try {
+    const response = await fetch('https://api.openai.com/v1/responses', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: modelConfig.model,
+        reasoning: { effort: 'minimal' },
+        input: prompt,
+      }),
+      signal: controller.signal,
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`OpenAI request failed (${modelConfig.model}): ${response.status} ${errorText.slice(0, 300)}`)
+    }
+
+    const payload = await response.json() as { output_text?: string }
+    const cleaned = (payload.output_text || '').replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+    const jsonStart = cleaned.indexOf('{')
+    const jsonEnd = cleaned.lastIndexOf('}')
+
+    if (jsonStart === -1 || jsonEnd === -1) {
+      throw new Error(`OpenAI returned non-JSON response (${modelConfig.model}): ${cleaned.slice(0, 200)}`)
+    }
+
+    const routine = finalizeGeneratedRoutine({
+      rawJson: cleaned.slice(jsonStart, jsonEnd + 1),
+      prepPhase,
+      targetAreas,
+      effectiveGoal,
+      effectiveReadiness,
+      sessionDuration,
+    })
+
+    return {
+      routine,
+      provider: 'openai',
+      model: modelConfig.model,
+      tier: modelConfig.tier,
+    }
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error(`OpenAI request timed out (${modelConfig.model})`)
+    }
+
+    throw error
+  } finally {
+    clearTimeout(timeout)
+  }
 }
 
 function estimatePhaseDurationMinutes(phase: RoutinePhase | null) {
@@ -979,11 +1165,20 @@ export async function POST(req: NextRequest) {
       releaseBiasAreas: readinessModifiers.releaseBiasAreas,
     })
 
-    let anthropic: Anthropic
-    try {
-      anthropic = createAnthropicClient()
-    } catch (error) {
-      console.error('[generate.env]', error)
+    const openAiApiKey = readOptionalEnv('OPENAI_API_KEY')
+    const anthropicApiKey = readOptionalEnv('ANTHROPIC_API_KEY')
+    const modelSequence = buildAiRoutineModelSequence({
+      hasOpenAiKey: Boolean(openAiApiKey),
+      hasAnthropicKey: Boolean(anthropicApiKey),
+    })
+
+    let anthropic: Anthropic | null = null
+    if (anthropicApiKey) {
+      anthropic = new Anthropic({ apiKey: anthropicApiKey })
+    }
+
+    if (modelSequence.length === 0) {
+      console.error('[generate.env] Missing OPENAI_API_KEY and ANTHROPIC_API_KEY. Returning curated fallback routine.')
       return NextResponse.json(await maybePersistRoutineForAuthenticatedUser({
         authenticatedUserId,
         authenticatedSupabase,
@@ -1139,76 +1334,68 @@ Respond ONLY in valid JSON (no markdown):
   "evidenceSummary": "2-3 sentences"
 }`
 
-    try {
-      const message = await Promise.race([
-        anthropic.messages.create({
-          model:      'claude-sonnet-4-20250514',
-          max_tokens: 4000,
-          messages:   [{ role: 'user', content: prompt }],
-        }),
-        new Promise<never>((_, reject) => {
-          setTimeout(() => reject(new Error('Anthropic request timed out')), 20000)
-        }),
-      ])
+    let lastAiError: unknown = null
 
-      const raw = (message.content as MessageBlock[]).map((block) => block.text || '').join('')
-      const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
-      const jsonStart = cleaned.indexOf('{')
-      const jsonEnd   = cleaned.lastIndexOf('}')
-      if (jsonStart === -1 || jsonEnd === -1) {
-        throw new Error(`AI returned non-JSON response: ${cleaned.slice(0, 200)}`)
-      }
-      const routine = normalizeRoutineExerciseNames(
-        normalizeRoutineForGoal(
-          JSON.parse(cleaned.slice(jsonStart, jsonEnd + 1)) as GeneratedRoutine,
-          { goal: effectiveGoal, readiness: effectiveReadiness },
-        ),
-        targetAreas,
-      )
+    for (const modelConfig of modelSequence) {
+      try {
+        const generated = modelConfig.provider === 'openai'
+          ? await requestOpenAiRoutineGeneration({
+              apiKey: openAiApiKey!,
+              modelConfig,
+              prompt,
+              prepPhase,
+              targetAreas,
+              effectiveGoal,
+              effectiveReadiness,
+              sessionDuration,
+            })
+          : await requestAnthropicRoutineGeneration({
+              anthropic: anthropic!,
+              modelConfig,
+              prompt,
+              prepPhase,
+              targetAreas,
+              effectiveGoal,
+              effectiveReadiness,
+              sessionDuration,
+            })
 
-      if (prepPhase) {
-        routine.phases.unshift(prepPhase)
-        routine.totalExercises += prepPhase.exercises.length
-      }
+        if (generated.tier === 'fallback') {
+          console.warn(`[generate.ai] primary model escalated to premium fallback model: ${generated.provider}:${generated.model}`)
+        }
 
-      if (needsCuratedFallback(routine, effectiveGoal, targetAreas) || isRoutineDurationOutsideWindow(routine, sessionDuration)) {
-        console.warn('[generate.ai] AI routine failed guardrails, returning curated fallback routine')
         return NextResponse.json(await maybePersistRoutineForAuthenticatedUser({
           authenticatedUserId,
           authenticatedSupabase,
-          routine: fallbackRoutine,
+          routine: generated.routine,
           sport,
           targetAreas,
           sessionDuration,
           effectiveGoal,
         }))
+      } catch (error) {
+        lastAiError = error
+        if (modelConfig.tier === 'primary') {
+          console.warn(`[generate.ai] primary model failed (${modelConfig.provider}:${modelConfig.model}), escalating to fallback`, error)
+        } else {
+          console.error(`[generate.ai] fallback model failed (${modelConfig.provider}:${modelConfig.model})`, error)
+        }
       }
-
-      return NextResponse.json(await maybePersistRoutineForAuthenticatedUser({
-        authenticatedUserId,
-        authenticatedSupabase,
-        routine,
-        sport,
-        targetAreas,
-        sessionDuration,
-        effectiveGoal,
-      }))
-    } catch (error) {
-      if (error instanceof Error && error.message === 'Anthropic request timed out') {
-        console.warn('[generate.ai] Anthropic timed out, returning fallback routine')
-      } else {
-        console.error('[generate.ai]', error)
-      }
-      return NextResponse.json(await maybePersistRoutineForAuthenticatedUser({
-        authenticatedUserId,
-        authenticatedSupabase,
-        routine: fallbackRoutine,
-        sport,
-        targetAreas,
-        sessionDuration,
-        effectiveGoal,
-      }))
     }
+
+    if (lastAiError) {
+      console.warn('[generate.ai] all AI models failed, returning curated fallback routine')
+    }
+
+    return NextResponse.json(await maybePersistRoutineForAuthenticatedUser({
+      authenticatedUserId,
+      authenticatedSupabase,
+      routine: fallbackRoutine,
+      sport,
+      targetAreas,
+      sessionDuration,
+      effectiveGoal,
+    }))
 
   } catch (err: unknown) {
     console.error('[generate]', err)
