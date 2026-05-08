@@ -293,42 +293,13 @@ export default function SessionCheckinPage() {
         warnings.push(error instanceof Error ? error.message : 'Could not sync post-session check-in.')
       }
 
-      try {
-        const routineMeta = readStoredRoutineMeta()
-        const completedAt = routineMeta?.completedAt || routineMeta?.progressLoggedAt || new Date().toISOString()
-        const progressResponse = await fetch('/api/progress', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${accessToken}`,
-          },
-          body: JSON.stringify({
-            row: {
-              user_id: uid,
-              routine_id: routineMeta?.routine?.savedId ?? null,
-              duration_minutes: routineMeta?.duration ?? null,
-              completed_at: completedAt,
-              sport: routineMeta?.sport ?? null,
-              areas: routineMeta?.areas ?? null,
-              goal: routineMeta?.goal ?? null,
-            },
-          }),
+      const routineMeta = readStoredRoutineMeta()
+      if (routineMeta?.completedAt || routineMeta?.progressLoggedAt) {
+        writeStoredRoutineMeta({
+          ...routineMeta,
+          completedAt: routineMeta.completedAt || routineMeta.progressLoggedAt || new Date().toISOString(),
+          progressLoggedAt: routineMeta.progressLoggedAt || routineMeta.completedAt || new Date().toISOString(),
         })
-
-        if (!progressResponse.ok) {
-          const payload = await progressResponse.json().catch(() => null)
-          throw new Error(payload?.error || 'Could not log session progress.')
-        }
-
-        if (routineMeta) {
-          writeStoredRoutineMeta({
-            ...routineMeta,
-            completedAt,
-            progressLoggedAt: completedAt,
-          })
-        }
-      } catch (error) {
-        warnings.push(error instanceof Error ? error.message : 'Could not log session progress.')
       }
     }
 

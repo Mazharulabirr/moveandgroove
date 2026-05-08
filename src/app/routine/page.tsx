@@ -1,8 +1,9 @@
 ﻿'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Header from '@/components/Header'
+import PostSessionCheckinModal from '@/components/PostSessionCheckinModal'
 import PreSessionReadinessModal from '@/components/PreSessionReadinessModal'
 import { getExerciseVideo, getExerciseVideoEmbedUrl, getExerciseVideoWatchUrl } from '@/lib/exercise-videos'
 import type { ReadinessAdjustmentSnapshot } from '@/lib/readiness'
@@ -313,10 +314,15 @@ export default function RoutinePage() {
   const [activePhaseIndex, setActivePhaseIndex] = useState(0)
   const [sessionFinished, setSessionFinished] = useState(false)
   const [showReadinessModal, setShowReadinessModal] = useState(false)
+  const [showPostSessionModal, setShowPostSessionModal] = useState(false)
   const [hasTodayReadiness, setHasTodayReadiness] = useState(false)
   const [completedSets, setCompletedSets] = useState<Record<number, number>>({})
   const [videoOverrides, setVideoOverrides] = useState<Record<string, string>>({})
   const [expandedVideo, setExpandedVideo] = useState<{ title: string; youtubeVideoId: string } | null>(null)
+  const [progressSaved, setProgressSaved] = useState(false)
+  const [progressSaveError, setProgressSaveError] = useState('')
+  const [loggingProgress, setLoggingProgress] = useState(false)
+  const [postSessionCompleted, setPostSessionCompleted] = useState(false)
 
   useEffect(() => {
     if (!routine) {
@@ -328,29 +334,39 @@ export default function RoutinePage() {
     setActivePhaseIndex(0)
     setSessionFinished(false)
     setCompletedSets({})
+    setShowPostSessionModal(false)
+    setProgressSaved(false)
+    setProgressSaveError('')
+    setLoggingProgress(false)
+    setPostSessionCompleted(false)
   }, [routine])
 
-  useEffect(() => {
-    async function logCompletedSessionProgress() {
-      if (!sessionFinished || !routine) {
-        return
-      }
+  const logCompletedSessionProgress = useCallback(async () => {
+    if (!routine) {
+      return false
+    }
 
-      const currentMeta = readStoredRoutineMeta()
-      if (!currentMeta) {
-        return
-      }
+    const currentMeta = readStoredRoutineMeta()
+    if (!currentMeta) {
+      throw new Error('Could not find the stored workout details.')
+    }
 
-      if (currentMeta.progressLoggedAt) {
-        return
-      }
+    if (currentMeta.progressLoggedAt) {
+      setProgressSaved(true)
+      setProgressSaveError('')
+      return true
+    }
 
+    setLoggingProgress(true)
+    setProgressSaveError('')
+
+    try {
       const { data: { session } } = await supabase.auth.getSession()
       const uid = session?.user?.id
       const accessToken = session?.access_token
 
       if (!uid || !accessToken) {
-        return
+        throw new Error('Sign in required to save workout progress.')
       }
 
       const completedAt = currentMeta.completedAt || new Date().toISOString()
@@ -383,12 +399,33 @@ export default function RoutinePage() {
         completedAt,
         progressLoggedAt: completedAt,
       })
+      setProgressSaved(true)
+      setProgressSaveError('')
+      return true
+    } catch (error) {
+      console.warn('[routine.progress]', error)
+      setProgressSaved(false)
+      setProgressSaveError(error instanceof Error ? error.message : 'Could not save workout progress.')
+      return false
+    } finally {
+      setLoggingProgress(false)
+    }
+  }, [routine, supabase])
+
+  useEffect(() => {
+    async function saveThenOpenPostCheckin() {
+      if (!sessionFinished || !routine || showPostSessionModal || postSessionCompleted) {
+        return
+      }
+
+      const ok = await logCompletedSessionProgress()
+      if (ok) {
+        setShowPostSessionModal(true)
+      }
     }
 
-    void logCompletedSessionProgress().catch((error) => {
-      console.warn('[routine.progress]', error)
-    })
-  }, [routine, sessionFinished, supabase])
+    void saveThenOpenPostCheckin()
+  }, [logCompletedSessionProgress, postSessionCompleted, routine, sessionFinished, showPostSessionModal])
 
   useEffect(() => {
     async function loadReadiness() {
@@ -991,7 +1028,7 @@ export default function RoutinePage() {
             </div>
             <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 16, color: 'var(--silver2)', lineHeight: 1.7 }}>
               {sessionFinished
-                ? 'All exercises confirmed. Finish with your post-session check-in.'
+                ? 'All exercises confirmed. Your workout is being saved first, then the post-session check-in opens separately.'
                 : `${PHASE_STYLES[routine.phases[activePhaseIndex]?.pillar || 'release'].label} block is live. Tick sets across the exercises in any order, then the next block unlocks.`}
             </div>
             {!sessionFinished && (
@@ -1001,6 +1038,32 @@ export default function RoutinePage() {
             )}
             {sessionFinished && (
               <div style={{ marginTop: 16, display: 'grid', gap: 14 }}>
+                <div style={{ border: '1px solid rgba(139,231,255,0.28)', background: 'linear-gradient(180deg, rgba(0,180,216,0.12) 0%, rgba(8,10,14,0.98) 100%)', padding: '20px 22px' }}>
+                  <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: 'var(--cyan)', marginBottom: 10, textTransform: 'uppercase' }}>
+                    {'// Session Saved'}
+                  </div>
+                  <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 16, fontWeight: 700, letterSpacing: 3, color: 'var(--white)', marginBottom: 10, textTransform: 'uppercase' }}>
+                    {progressSaved ? 'WORKOUT COUNTED IN YOUR STATS' : loggingProgress ? 'SAVING WORKOUT PROGRESS...' : 'WORKOUT PROGRESS NEEDS RETRY'}
+                  </div>
+                  <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: 'var(--silver2)', lineHeight: 1.75, marginBottom: 14 }}>
+                    {progressSaved
+                      ? 'Your workout duration has already been fed into your dashboard stats and weekly summary. The questionnaire is a separate feedback step.'
+                      : loggingProgress
+                        ? 'We are saving this workout into your progress history now before opening the questionnaire.'
+                        : 'The workout itself needs to save successfully before the questionnaire step. Retry this save first so the dashboard and weekly stats update correctly.'}
+                  </div>
+                  {progressSaveError && (
+                    <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 14, color: '#ffb7b7', lineHeight: 1.6, marginBottom: 12 }}>
+                      {progressSaveError}
+                    </div>
+                  )}
+                  {!progressSaved && (
+                    <button className="btn-primary" onClick={() => { void logCompletedSessionProgress().then((ok) => { if (ok) setShowPostSessionModal(true) }) }} disabled={loggingProgress}>
+                      {loggingProgress ? 'SAVING WORKOUT...' : 'SAVE WORKOUT TO STATS'}
+                    </button>
+                  )}
+                </div>
+
                 <div style={{ border: '1px solid rgba(139,231,255,0.28)', background: 'linear-gradient(180deg, rgba(0,180,216,0.12) 0%, rgba(8,10,14,0.98) 100%)', padding: '20px 22px' }}>
                   <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: 'var(--cyan)', marginBottom: 10, textTransform: 'uppercase' }}>
                     {'// Saved Workout'}
@@ -1030,8 +1093,8 @@ export default function RoutinePage() {
                   )}
                 </div>
                 <div>
-                  <button className="btn-primary" onClick={() => router.push('/session-checkin?type=post&autostart=1')}>
-                    POST SESSION CHECK-IN
+                  <button className="btn-primary" onClick={() => setShowPostSessionModal(true)} disabled={!progressSaved}>
+                    {postSessionCompleted ? 'POST SESSION CHECK-IN SAVED' : 'OPEN POST SESSION CHECK-IN'}
                   </button>
                 </div>
               </div>
@@ -1197,6 +1260,14 @@ export default function RoutinePage() {
         onComplete={() => {
           setHasTodayReadiness(true)
           setShowReadinessModal(false)
+        }}
+      />
+      <PostSessionCheckinModal
+        open={showPostSessionModal}
+        onClose={() => setShowPostSessionModal(false)}
+        onComplete={() => {
+          setPostSessionCompleted(true)
+          setShowPostSessionModal(false)
         }}
       />
       <style jsx global>{`
