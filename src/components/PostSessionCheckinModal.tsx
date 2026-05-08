@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { IconBattery, IconCheckin, IconCheckbox, IconFocus, IconPain, IconReadiness } from '@/components/Icons'
-import { buildPostSessionCheckinInsert, upsertReadinessLog } from '@/lib/readiness-log'
+import { buildPostSessionCheckinInsert } from '@/lib/readiness-log'
 import { createClient } from '@/lib/supabase/client'
 
 const UC = 'uppercase' as const
@@ -140,28 +140,32 @@ export default function PostSessionCheckinModal({ open, onClose, onComplete }: P
         answers,
       })
 
-      if (accessToken) {
-        const response = await fetch('/api/readiness-logs', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${accessToken}`,
-          },
-          body: JSON.stringify({ row }),
-        })
+      if (!accessToken) {
+        throw new Error('Missing access token for post-session check-in.')
+      }
 
-        if (!response.ok) {
-          const payload = await response.json().catch(() => null)
-          throw new Error(payload?.error || 'Could not save post-session check-in.')
-        }
-      } else {
-        await upsertReadinessLog(supabase as never, row)
+      const response = await fetch('/api/readiness-logs', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ row }),
+      })
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null)
+        throw new Error(payload?.error || 'Could not save post-session check-in.')
       }
 
       setDone(true)
       onComplete()
     } catch (error) {
-      console.warn('[post-session-checkin]', error)
+      console.warn('[post-session-checkin]', {
+        message: error instanceof Error ? error.message : 'Could not save post-session check-in.',
+        error,
+        answers,
+      })
       setSaveError(error instanceof Error ? error.message : 'Could not save post-session check-in.')
     } finally {
       setSaving(false)

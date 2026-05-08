@@ -123,6 +123,14 @@ export async function POST(req: NextRequest) {
         throw updateError
       }
 
+      console.info('[readiness-logs.write]', {
+        mode: 'updated',
+        userId: user.id,
+        sessionType: row.session_type,
+        date: row.date,
+        id: existing.id,
+      })
+
       return NextResponse.json({ ok: true, mode: 'updated', id: existing.id })
     }
 
@@ -135,6 +143,14 @@ export async function POST(req: NextRequest) {
     if (insertError) {
       throw insertError
     }
+
+    console.info('[readiness-logs.write]', {
+      mode: 'inserted',
+      userId: user.id,
+      sessionType: row.session_type,
+      date: row.date,
+      id: inserted.id,
+    })
 
     return NextResponse.json({ ok: true, mode: 'inserted', id: inserted.id })
   } catch (error) {

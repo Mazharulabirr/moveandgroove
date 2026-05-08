@@ -11,7 +11,7 @@ import {
   IconRoutine,
 } from '@/components/Icons'
 import { DEFAULT_BASIC_DAILY_ROUTINE_LIMIT, readBasicDailyRoutineLimit } from '@/lib/app-config'
-import { readSavedWorkoutIds } from '@/lib/saved-workouts'
+import { readSavedWorkouts } from '@/lib/saved-workouts'
 import { createClient } from '@/lib/supabase/client'
 import { deriveScreeningSnapshot } from '@/lib/screening-cloud-v2'
 import { readStoredScreening } from '@/lib/screening-storage'
@@ -164,7 +164,6 @@ export default function DashboardPage() {
         const now = new Date()
         return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0)).toISOString()
       })()
-      const savedWorkoutIds = readSavedWorkoutIds(userId)
       const progressPromise = fetch('/api/progress', {
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -181,15 +180,16 @@ export default function DashboardPage() {
       })
       const [
         progress,
-        { data: savedRoutines },
+        savedRoutines,
         { data: screening },
         { count: routinesToday },
         basicDailyRoutineLimit,
       ] = await Promise.all([
         progressPromise,
-        savedWorkoutIds.length > 0
-          ? supabase.from('routines').select('*').eq('user_id', userId).in('id', savedWorkoutIds)
-          : Promise.resolve({ data: [] as Routine[] }),
+        readSavedWorkouts(accessToken).catch((error) => {
+          console.warn('[dashboard.saved-workouts]', error)
+          return [] as Routine[]
+        }),
         supabase.from('screening_questionnaires').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
         supabase.from('routines').select('*', { count: 'exact', head: true }).eq('user_id', userId).gte('created_at', startOfTodayUtc),
         readBasicDailyRoutineLimit(supabase as never),
@@ -208,8 +208,7 @@ export default function DashboardPage() {
       }
 
       if (savedRoutines) {
-        const orderedRoutines = [...savedRoutines].sort((a, b) => savedWorkoutIds.indexOf(a.id) - savedWorkoutIds.indexOf(b.id))
-        setRoutines(orderedRoutines)
+        setRoutines(savedRoutines)
       }
 
       const cloudScreening = deriveScreeningSnapshot(screening)

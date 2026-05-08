@@ -166,6 +166,13 @@ export async function POST(req: NextRequest) {
     }
 
     if (existing?.id) {
+      console.info('[progress.write]', {
+        mode: 'existing',
+        userId,
+        routineId: row.routine_id ?? null,
+        completedAt,
+        id: existing.id,
+      })
       return NextResponse.json({ ok: true, mode: 'existing', id: existing.id })
     }
 
@@ -186,6 +193,13 @@ export async function POST(req: NextRequest) {
       .single<{ id: string }>()
 
     if (!insertError) {
+      console.info('[progress.write]', {
+        mode: 'inserted',
+        userId,
+        routineId: row.routine_id ?? null,
+        completedAt,
+        id: inserted.id,
+      })
       return NextResponse.json({ ok: true, mode: 'inserted', id: inserted.id })
     }
 
@@ -208,9 +222,20 @@ export async function POST(req: NextRequest) {
       throw fallbackInsertError
     }
 
+    console.info('[progress.write]', {
+      mode: 'inserted-fallback',
+      userId,
+      routineId: null,
+      completedAt,
+      id: fallbackInserted.id,
+    })
+
     return NextResponse.json({ ok: true, mode: 'inserted-fallback', id: fallbackInserted.id })
   } catch (error) {
-    console.error('[progress.write]', error)
+    console.error('[progress.write]', {
+      message: getErrorMessage(error),
+      error,
+    })
     return NextResponse.json(
       { error: getErrorMessage(error) || 'Could not write progress.' },
       { status: 500 },

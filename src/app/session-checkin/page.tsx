@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Header from '@/components/Header'
 import { IconBattery, IconCheckin, IconCheckbox, IconFocus, IconMotivation, IconPain, IconReadiness, IconSleep, IconSoreness } from '@/components/Icons'
-import { buildPostSessionCheckinInsert, buildPreSessionReadinessInsert, upsertReadinessLog } from '@/lib/readiness-log'
+import { buildPostSessionCheckinInsert, buildPreSessionReadinessInsert } from '@/lib/readiness-log'
 import { buildReadinessAdjustmentSnapshot } from '@/lib/readiness'
 import { writeStoredPreSessionReadiness } from '@/lib/readiness-storage'
 import { createClient } from '@/lib/supabase/client'
@@ -243,22 +243,18 @@ export default function SessionCheckinPage() {
           snapshot,
         })
         try {
-          try {
-            const response = await fetch('/api/readiness-logs', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${accessToken}`,
-              },
-              body: JSON.stringify({ row }),
-            })
+          const response = await fetch('/api/readiness-logs', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${accessToken}`,
+            },
+            body: JSON.stringify({ row }),
+          })
 
-            if (!response.ok) {
-              const payload = await response.json().catch(() => null)
-              throw new Error(payload?.error || 'Could not save pre-session check-in.')
-            }
-          } catch {
-            await upsertReadinessLog(supabase as never, row)
+          if (!response.ok) {
+            const payload = await response.json().catch(() => null)
+            throw new Error(payload?.error || 'Could not save pre-session check-in.')
           }
         } catch (error) {
           warnings.push(error instanceof Error ? error.message : 'Could not sync pre-session check-in.')
@@ -272,22 +268,18 @@ export default function SessionCheckinPage() {
           userId: uid,
           answers,
         })
-        try {
-          const response = await fetch('/api/readiness-logs', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${accessToken}`,
-            },
-            body: JSON.stringify({ row }),
-          })
+        const response = await fetch('/api/readiness-logs', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({ row }),
+        })
 
-          if (!response.ok) {
-            const payload = await response.json().catch(() => null)
-            throw new Error(payload?.error || 'Could not save post-session check-in.')
-          }
-        } catch {
-          await upsertReadinessLog(supabase as never, row)
+        if (!response.ok) {
+          const payload = await response.json().catch(() => null)
+          throw new Error(payload?.error || 'Could not save post-session check-in.')
         }
       } catch (error) {
         warnings.push(error instanceof Error ? error.message : 'Could not sync post-session check-in.')

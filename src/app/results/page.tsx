@@ -17,7 +17,7 @@ import {
   IconSquat,
 } from '@/components/Icons'
 import { createClient } from '@/lib/supabase/client'
-import { MAX_SAVED_WORKOUTS, readSavedWorkoutIds, removeWorkoutFromLibrary } from '@/lib/saved-workouts'
+import { MAX_SAVED_WORKOUTS, readSavedWorkouts, removeWorkoutFromLibrary } from '@/lib/saved-workouts'
 import { deriveScreeningSnapshot } from '@/lib/screening-cloud-v2'
 import { readStoredScreening } from '@/lib/screening-storage'
 
@@ -175,13 +175,11 @@ export default function ResultsPage() {
         return
       }
       const uid = session.user.id
-      const savedWorkoutIds = readSavedWorkoutIds(uid)
+      const accessToken = session.access_token
 
       const [{ data: screening }, routinesResult] = await Promise.all([
         supabase.from('screening_questionnaires').select('*').eq('user_id', uid).order('created_at', { ascending: false }).limit(10),
-        savedWorkoutIds.length > 0
-          ? supabase.from('routines').select('id,title,sport,areas,duration_minutes,goal,created_at').eq('user_id', uid).in('id', savedWorkoutIds)
-          : Promise.resolve({ data: [] as RoutineSummary[] }),
+        readSavedWorkouts(accessToken).then((data) => ({ data })).catch(() => ({ data: [] as RoutineSummary[] })),
       ])
 
       const cloudHistory = (screening || [])
@@ -215,8 +213,7 @@ export default function ResultsPage() {
       }
       setBatteryHistory([])
       const routines = (routinesResult?.data || []) as RoutineSummary[]
-      const orderedRoutines = routines.sort((a, b) => savedWorkoutIds.indexOf(a.id) - savedWorkoutIds.indexOf(b.id))
-      setRoutineHistory(orderedRoutines)
+      setRoutineHistory(routines)
       setLoading(false)
     }
 
@@ -260,12 +257,12 @@ export default function ResultsPage() {
 
     try {
       const { data: { session } } = await supabase.auth.getSession()
-      const uid = session?.user?.id
-      if (!uid) {
+      const accessToken = session?.access_token
+      if (!accessToken) {
         throw new Error('Sign in to manage saved workouts.')
       }
 
-      removeWorkoutFromLibrary(uid, routineId)
+      await removeWorkoutFromLibrary(accessToken, routineId)
       setRoutineHistory((prev) => prev.filter((routine) => routine.id !== routineId))
     } catch (error) {
       setLibraryError(error instanceof Error ? error.message : 'Could not remove saved workout.')

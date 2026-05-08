@@ -1,79 +1,84 @@
 ﻿export const MAX_SAVED_WORKOUTS = 10
 
-function getSavedWorkoutStorageKey(userId: string) {
-  return `mg_saved_workouts:${userId}`
+export type SavedWorkoutSummary = {
+  id: number
+  title: string
+  sport: string | null
+  areas: string[]
+  duration_minutes: number
+  goal: string | null
+  difficulty: string | null
+  created_at: string
+  saved_at: string | null
 }
 
-export function readSavedWorkoutIds(userId: string) {
-  if (typeof window === 'undefined') {
-    return [] as number[]
-  }
-
-  const raw = window.localStorage.getItem(getSavedWorkoutStorageKey(userId))
-  if (!raw) {
-    return [] as number[]
-  }
-
-  try {
-    const parsed = JSON.parse(raw)
-    if (!Array.isArray(parsed)) {
-      return [] as number[]
-    }
-
-    return parsed
-      .map((value) => Number(value))
-      .filter((value) => Number.isInteger(value) && value > 0)
-  } catch {
-    return [] as number[]
-  }
+type SavedWorkoutsResponse = {
+  routines?: SavedWorkoutSummary[]
+  error?: string
 }
 
-function writeSavedWorkoutIds(userId: string, ids: number[]) {
-  if (typeof window === 'undefined') {
-    return
-  }
-
-  window.localStorage.setItem(getSavedWorkoutStorageKey(userId), JSON.stringify(ids))
+type SaveWorkoutResponse = {
+  ok?: boolean
+  alreadySaved?: boolean
+  routine?: SavedWorkoutSummary | null
+  error?: string
 }
 
-export function isWorkoutSaved(userId: string, routineId: number) {
-  return readSavedWorkoutIds(userId).includes(routineId)
+function buildAuthHeaders(accessToken: string, method: 'GET' | 'POST' | 'DELETE') {
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${accessToken}`,
+  }
+
+  if (method !== 'GET') {
+    headers['Content-Type'] = 'application/json'
+  }
+
+  return headers
 }
 
-export function saveWorkoutToLibrary(userId: string, routineId: number) {
-  const ids = readSavedWorkoutIds(userId)
+async function requestSavedWorkouts<T>(method: 'GET' | 'POST' | 'DELETE', accessToken: string, body?: Record<string, unknown>) {
+  const response = await fetch('/api/saved-workouts', {
+    method,
+    headers: buildAuthHeaders(accessToken, method),
+    body: body ? JSON.stringify(body) : undefined,
+  })
 
-  if (ids.includes(routineId)) {
-    return {
-      ok: true,
-      ids,
-      alreadySaved: true,
-      isFull: false,
-    }
+  const payload = await response.json().catch(() => null) as T | null
+
+  if (!response.ok) {
+    const message = (payload as { error?: string } | null)?.error || `Saved workouts request failed with status ${response.status}.`
+    throw new Error(message)
   }
 
-  if (ids.length >= MAX_SAVED_WORKOUTS) {
-    return {
-      ok: false,
-      ids,
-      alreadySaved: false,
-      isFull: true,
-    }
-  }
+  return payload
+}
 
-  const nextIds = [routineId, ...ids]
-  writeSavedWorkoutIds(userId, nextIds)
+export async function readSavedWorkouts(accessToken: string) {
+  const payload = await requestSavedWorkouts<SavedWorkoutsResponse>('GET', accessToken)
+  return payload?.routines || []
+}
+
+export async function readSavedWorkoutIds(accessToken: string) {
+  const routines = await readSavedWorkouts(accessToken)
+  return routines.map((routine) => routine.id)
+}
+
+export async function isWorkoutSaved(accessToken: string, routineId: number) {
+  const ids = await readSavedWorkoutIds(accessToken)
+  return ids.includes(routineId)
+}
+
+export async function saveWorkoutToLibrary(accessToken: string, routineId: number) {
+  const payload = await requestSavedWorkouts<SaveWorkoutResponse>('POST', accessToken, { routineId })
 
   return {
-    ok: true,
-    ids: nextIds,
-    alreadySaved: false,
+    ok: payload?.ok === true,
+    alreadySaved: payload?.alreadySaved === true,
+    routine: payload?.routine || null,
     isFull: false,
   }
 }
 
-export function removeWorkoutFromLibrary(userId: string, routineId: number) {
-  const nextIds = readSavedWorkoutIds(userId).filter((id) => id !== routineId)
-  writeSavedWorkoutIds(userId, nextIds)
-  return nextIds
+export async function removeWorkoutFromLibrary(accessToken: string, routineId: number) {
+  await requestSavedWorkouts<{ ok?: boolean }>('DELETE', accessToken, { routineId })
 }

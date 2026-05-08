@@ -160,6 +160,37 @@ function normalizeRoutineForDisplay(routine: Routine, meta: RoutineMeta | null):
   }
 }
 
+const RELEASE_REP_SECONDS = 4
+const ACTIVE_REP_SECONDS = 3.5
+const HOLD_REST_SECONDS = 15
+const REP_REST_SECONDS = 12
+const EXERCISE_SETUP_SECONDS = 15
+
+function estimateExerciseDurationSeconds(exercise: Exercise, pillar: Phase['pillar']) {
+  const setCount = Math.max(exercise.sets, 1)
+
+  if (exercise.holdSeconds) {
+    return EXERCISE_SETUP_SECONDS + (setCount * exercise.holdSeconds) + (Math.max(setCount - 1, 0) * HOLD_REST_SECONDS)
+  }
+
+  const repCount = Math.max(exercise.reps || 0, 1)
+  const repSeconds = pillar === 'release' ? RELEASE_REP_SECONDS : ACTIVE_REP_SECONDS
+  return EXERCISE_SETUP_SECONDS + (setCount * repCount * repSeconds) + (Math.max(setCount - 1, 0) * REP_REST_SECONDS)
+}
+
+function estimateRoutineDurationMinutes(routine: Routine | null) {
+  if (!routine) {
+    return 0
+  }
+
+  const totalSeconds = routine.phases.reduce(
+    (sum, phase) => sum + phase.exercises.reduce((phaseSum, exercise) => phaseSum + estimateExerciseDurationSeconds(exercise, phase.pillar), 0),
+    0,
+  )
+
+  return Math.round((totalSeconds / 60) * 10) / 10
+}
+
 type ExerciseVideoOverride = {
   exercise_name: string
   youtube_id: string | null
@@ -449,14 +480,19 @@ export default function RoutinePage() {
   useEffect(() => {
     async function loadLibraryState() {
       const { data: { session } } = await supabase.auth.getSession()
-      const uid = session?.user?.id || null
+      const accessToken = session?.access_token || null
 
-      if (!uid || !savedId) {
+      if (!accessToken || !savedId) {
         setIsSavedToLibrary(false)
         return
       }
 
-      setIsSavedToLibrary(isWorkoutSaved(uid, savedId))
+      try {
+        setIsSavedToLibrary(await isWorkoutSaved(accessToken, savedId))
+      } catch (error) {
+        console.warn('[routine.saved-workouts]', error)
+        setIsSavedToLibrary(false)
+      }
     }
 
     void loadLibraryState()
@@ -543,6 +579,12 @@ export default function RoutinePage() {
   const totalSetCount = routine
     ? routine.phases.reduce((sum, phase) => sum + phase.exercises.reduce((phaseSum, exercise) => phaseSum + exercise.sets, 0), 0)
     : 0
+  const requestedDuration = storedMeta?.duration ?? 0
+  const estimatedDuration = estimateRoutineDurationMinutes(routine)
+  const phaseExerciseCounts = routine
+    ? routine.phases.map((phase) => `${phase.pillar}:${phase.exercises.length}`).join(' / ')
+    : ''
+  const showDurationDebug = process.env.NODE_ENV !== 'production'
 
   const studies = useMemo(
     () => (routine ? [...new Set(routine.phases.flatMap((phase) => phase.exercises).map((exercise) => exercise.study).filter(Boolean))] : []),
@@ -589,10 +631,9 @@ export default function RoutinePage() {
 
     try {
       const { data: { session } } = await supabase.auth.getSession()
-      const userId = session?.user?.id
       const accessToken = session?.access_token
 
-      if (!userId || !accessToken) {
+      if (!session?.user?.id || !accessToken) {
         throw new Error('Sign in to save routines to your library.')
       }
 
@@ -606,7 +647,7 @@ export default function RoutinePage() {
             Authorization: `Bearer ${accessToken}`,
           },
           body: JSON.stringify({
-            userId,
+            userId: session.user.id,
             routine: storedMeta.routine,
             sport: storedMeta.sport || null,
             areas: storedMeta.areas || [],
@@ -635,10 +676,7 @@ export default function RoutinePage() {
         writeStoredRoutineMeta(nextMeta)
       }
 
-      const saveResult = saveWorkoutToLibrary(userId, nextSavedId)
-      if (!saveResult.ok && saveResult.isFull) {
-        throw new Error(`Your saved workout library is full. Delete one of your ${MAX_SAVED_WORKOUTS} saved workouts to add a new one.`)
-      }
+      await saveWorkoutToLibrary(accessToken, nextSavedId)
 
       setIsSavedToLibrary(true)
     } catch (err: unknown) {
@@ -749,6 +787,20 @@ export default function RoutinePage() {
                   </div>
                   <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 14, color: 'var(--silver2)', lineHeight: 1.7 }}>
                     {storedMeta.readiness.userMessage}
+                  </div>
+                </div>
+              )}
+              {showDurationDebug && (
+                <div style={{ marginTop: 16, maxWidth: 620, border: '1px dashed rgba(139,231,255,0.22)', background: 'rgba(139,231,255,0.05)', padding: '14px 16px' }}>
+                  <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 3, color: 'var(--cyan)', marginBottom: 8, textTransform: 'uppercase' }}>
+                    {'// Dev Duration QA'}
+                  </div>
+                  <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 14, color: 'var(--silver2)', lineHeight: 1.7 }}>
+                    Requested: <span style={{ color: 'var(--white)' }}>{requestedDuration} min</span>
+                    {' / '}Estimated: <span style={{ color: 'var(--white)' }}>{estimatedDuration} min</span>
+                    {' / '}Exercises: <span style={{ color: 'var(--white)' }}>{totalExerciseCount}</span>
+                    <br />
+                    Phase counts: <span style={{ color: 'var(--white)' }}>{phaseExerciseCounts || 'n/a'}</span>
                   </div>
                 </div>
               )}
