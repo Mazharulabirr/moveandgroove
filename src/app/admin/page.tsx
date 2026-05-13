@@ -32,6 +32,12 @@ type ExerciseVideoOverride = {
   updated_at?: string | null
 }
 
+type BulkImportSummary = {
+  added: number
+  skipped: number
+  errors: string[]
+}
+
 type ExerciseAdminRow = {
   name: string
   area: CuratedArea
@@ -138,7 +144,85 @@ function flattenCuratedExercises(): ExerciseAdminRow[] {
   return rows
 }
 
+function normalizeYoutubeId(value: string) {
+  const trimmed = value.trim()
+  if (!trimmed) {
+    return ''
+  }
+
+  const watchMatch = trimmed.match(/[?&]v=([A-Za-z0-9_-]{11})/)
+  if (watchMatch) {
+    return watchMatch[1]
+  }
+
+  const shortMatch = trimmed.match(/youtu\.be\/([A-Za-z0-9_-]{11})/)
+  if (shortMatch) {
+    return shortMatch[1]
+  }
+
+  const embedMatch = trimmed.match(/embed\/([A-Za-z0-9_-]{11})/)
+  if (embedMatch) {
+    return embedMatch[1]
+  }
+
+  const directMatch = trimmed.match(/^[A-Za-z0-9_-]{11}$/)
+  if (directMatch) {
+    return trimmed
+  }
+
+  return trimmed
+}
+
+function parseBulkMappings(text: string) {
+  const errors: string[] = []
+  const mappings: Array<{ exerciseName: string; youtubeId: string }> = []
+
+  text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .forEach((line, index) => {
+      if (!line) {
+        return
+      }
+
+      const parts = line.includes('\t')
+        ? line.split('\t')
+        : line.includes('|')
+          ? line.split('|')
+          : line.split(',')
+
+      if (parts.length < 2) {
+        errors.push(`Line ${index + 1}: use "exercise name, youtube id" format.`)
+        return
+      }
+
+      const rawExerciseName = parts[0].trim()
+      const normalizedName = EXERCISE_NAME_LOOKUP.get(rawExerciseName.toLowerCase())
+      const youtubeId = normalizeYoutubeId(parts.slice(1).join(',').trim())
+
+      if (!normalizedName) {
+        errors.push(`Line ${index + 1}: "${rawExerciseName}" is not in the current exercise library.`)
+        return
+      }
+
+      if (!youtubeId || youtubeId.length !== 11) {
+        errors.push(`Line ${index + 1}: invalid YouTube ID or URL for "${normalizedName}".`)
+        return
+      }
+
+      mappings.push({
+        exerciseName: normalizedName,
+        youtubeId,
+      })
+    })
+
+  return { mappings, errors }
+}
+
 const ALL_EXERCISES = flattenCuratedExercises()
+const EXERCISE_NAME_LOOKUP = new Map(
+  ALL_EXERCISES.map((exercise) => [exercise.name.trim().toLowerCase(), exercise.name] as const),
+)
 
 export default function AdminPage() {
   const router = useRouter()
@@ -151,6 +235,9 @@ export default function AdminPage() {
   const [error, setError] = useState('')
   const [saveStatus, setSaveStatus] = useState<Record<string, 'idle' | 'saving' | 'saved' | 'error'>>({})
   const [draftYoutubeIds, setDraftYoutubeIds] = useState<Record<string, string>>({})
+  const [bulkDraft, setBulkDraft] = useState('')
+  const [bulkSaving, setBulkSaving] = useState(false)
+  const [bulkSummary, setBulkSummary] = useState<BulkImportSummary | null>(null)
   const [config, setConfig] = useState<AdminConfig | null>(null)
   const [configDraft, setConfigDraft] = useState('')
   const [configStatus, setConfigStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
@@ -305,6 +392,70 @@ export default function AdminPage() {
     } catch (saveError) {
       setSaveStatus((current) => ({ ...current, [exerciseName]: 'error' }))
       setError(saveError instanceof Error ? saveError.message : 'Could not save exercise video mapping.')
+    }
+  }
+
+  async function importBulkMappings() {
+    if (!accessToken || bulkSaving) return
+
+    setBulkSaving(true)
+    setBulkSummary(null)
+    setError('')
+
+    try {
+      const parsed = parseBulkMappings(bulkDraft)
+
+      if (parsed.mappings.length === 0) {
+        setBulkSummary({
+          added: 0,
+          skipped: parsed.errors.length,
+          errors: parsed.errors.length > 0 ? parsed.errors : ['No valid mappings found.'],
+        })
+        return
+      }
+
+      const response = await fetch('/api/admin/exercise-videos', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          mappings: parsed.mappings,
+        }),
+      })
+
+      const payload = await response.json()
+      if (!response.ok) {
+        throw new Error(payload.error || 'Could not import exercise video mappings.')
+      }
+
+      const returnedMappings = (payload.mappings as ExerciseVideoOverride[]) || []
+      const nextOverrides = Object.fromEntries(returnedMappings.map((mapping) => [mapping.exercise_name, mapping]))
+
+      setOverrides((current) => ({
+        ...current,
+        ...nextOverrides,
+      }))
+      setDraftYoutubeIds((current) => ({
+        ...current,
+        ...Object.fromEntries(returnedMappings.map((mapping) => [mapping.exercise_name, mapping.youtube_id || ''])),
+      }))
+      setBulkSummary({
+        added: returnedMappings.length,
+        skipped: parsed.errors.length,
+        errors: parsed.errors,
+      })
+      setBulkDraft('')
+    } catch (bulkError) {
+      setBulkSummary({
+        added: 0,
+        skipped: 0,
+        errors: [bulkError instanceof Error ? bulkError.message : 'Could not import video mappings.'],
+      })
+      setError(bulkError instanceof Error ? bulkError.message : 'Could not import video mappings.')
+    } finally {
+      setBulkSaving(false)
     }
   }
 
@@ -477,6 +628,70 @@ export default function AdminPage() {
                   fontSize: 14,
                 }}
               />
+            </div>
+            <div style={{ marginBottom: 18, border: '1px solid rgba(139,231,255,0.14)', background: 'rgba(8,10,14,0.98)', padding: '18px 18px 16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 18, flexWrap: 'wrap', marginBottom: 10 }}>
+                <div>
+                  <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 3, color: 'var(--cyan)', textTransform: UC, marginBottom: 8 }}>
+                    Bulk Import
+                  </div>
+                  <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 14, color: 'var(--silver2)', lineHeight: 1.7, maxWidth: 700 }}>
+                    Paste one mapping per line using <span style={{ color: 'var(--white)' }}>exercise name, youtube id</span>. You can also paste full YouTube URLs. Unknown exercise names and invalid IDs will be reported without blocking the valid rows.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { void importBulkMappings() }}
+                  disabled={bulkSaving}
+                  style={{
+                    minWidth: 140,
+                    background: bulkSaving ? 'rgba(0,180,216,0.18)' : 'transparent',
+                    border: '1px solid rgba(0,180,216,0.28)',
+                    color: 'var(--cyan)',
+                    padding: '10px 12px',
+                    cursor: bulkSaving ? 'default' : 'pointer',
+                    fontFamily: "'DM Mono',monospace",
+                    fontSize: 9,
+                    letterSpacing: 2,
+                    textTransform: UC,
+                  }}
+                >
+                  {bulkSaving ? 'Importing' : 'Import Bulk'}
+                </button>
+              </div>
+              <textarea
+                value={bulkDraft}
+                onChange={(event) => setBulkDraft(event.target.value)}
+                placeholder={'90/90 Hip Stretch, abc123xyz89\nOpen Book Rotation, https://www.youtube.com/watch?v=abc123xyz89'}
+                style={{
+                  width: '100%',
+                  minHeight: 132,
+                  resize: 'vertical',
+                  background: 'rgba(255,255,255,0.02)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  color: 'var(--white)',
+                  padding: '12px 14px',
+                  fontFamily: "'DM Mono',monospace",
+                  fontSize: 12,
+                  lineHeight: 1.6,
+                }}
+              />
+              {bulkSummary && (
+                <div style={{ marginTop: 12, border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: '12px 14px' }}>
+                  <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 2, color: 'var(--white)', textTransform: UC, marginBottom: bulkSummary.errors.length > 0 ? 10 : 0 }}>
+                    {bulkSummary.added} saved / {bulkSummary.skipped} skipped
+                  </div>
+                  {bulkSummary.errors.length > 0 && (
+                    <div style={{ display: 'grid', gap: 6 }}>
+                      {bulkSummary.errors.map((item) => (
+                        <div key={item} style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 13, color: '#ffb6b6', lineHeight: 1.6 }}>
+                          {item}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
             <div style={{ border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(8,10,14,0.98)' }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 1.4fr) 110px 110px 140px minmax(220px, 1fr) 92px', gap: 12, padding: '14px 18px', borderBottom: '1px solid rgba(255,255,255,0.08)', fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 3, color: 'var(--silver3)', textTransform: UC }}>
