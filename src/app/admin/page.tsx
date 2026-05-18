@@ -38,6 +38,17 @@ type BulkImportSummary = {
   errors: string[]
 }
 
+type YoutubeSyncResult = {
+  matched: Array<{
+    videoTitle: string
+    exerciseName: string
+    youtubeId: string
+  }>
+  skipped: string[]
+  errors: string[]
+  channelIdMasked?: string
+}
+
 type ExerciseAdminRow = {
   name: string
   area: CuratedArea
@@ -238,6 +249,10 @@ export default function AdminPage() {
   const [bulkDraft, setBulkDraft] = useState('')
   const [bulkSaving, setBulkSaving] = useState(false)
   const [bulkSummary, setBulkSummary] = useState<BulkImportSummary | null>(null)
+  const [youtubeSyncLoading, setYoutubeSyncLoading] = useState(false)
+  const [youtubeSyncResult, setYoutubeSyncResult] = useState<YoutubeSyncResult | null>(null)
+  const [youtubeChannelMasked, setYoutubeChannelMasked] = useState('not configured')
+  const [youtubeConfigured, setYoutubeConfigured] = useState(false)
   const [config, setConfig] = useState<AdminConfig | null>(null)
   const [configDraft, setConfigDraft] = useState('')
   const [configStatus, setConfigStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
@@ -271,11 +286,14 @@ export default function AdminPage() {
       setAccessToken(session.access_token)
 
       try {
-        const [overviewResponse, mappingsResponse, configResponse] = await Promise.all([
+        const [overviewResponse, mappingsResponse, youtubeSyncResponse, configResponse] = await Promise.all([
           fetch('/api/admin/overview', {
             headers: { Authorization: `Bearer ${session.access_token}` },
           }),
           fetch('/api/admin/exercise-videos', {
+            headers: { Authorization: `Bearer ${session.access_token}` },
+          }),
+          fetch('/api/admin/youtube-sync', {
             headers: { Authorization: `Bearer ${session.access_token}` },
           }),
           fetch('/api/admin/config', {
@@ -285,6 +303,7 @@ export default function AdminPage() {
 
         const overviewPayload = await overviewResponse.json()
         const mappingsPayload = await mappingsResponse.json()
+        const youtubeSyncPayload = await youtubeSyncResponse.json()
         const configPayload = await configResponse.json()
 
         if (!overviewResponse.ok) {
@@ -294,6 +313,9 @@ export default function AdminPage() {
         if (!mappingsResponse.ok) {
           throw new Error(mappingsPayload.error || 'Could not load exercise video mappings.')
         }
+        if (!youtubeSyncResponse.ok) {
+          throw new Error(youtubeSyncPayload.error || 'Could not load YouTube sync settings.')
+        }
         if (!configResponse.ok) {
           throw new Error(configPayload.error || 'Could not load app config.')
         }
@@ -301,6 +323,8 @@ export default function AdminPage() {
         if (!mounted) return
 
         setOverview(overviewPayload)
+        setYoutubeConfigured(Boolean(youtubeSyncPayload.configured))
+        setYoutubeChannelMasked(youtubeSyncPayload.channelIdMasked || 'not configured')
         const nextOverrides = Object.fromEntries(
           (mappingsPayload.mappings as ExerciseVideoOverride[]).map((mapping) => [mapping.exercise_name, mapping]),
         )
@@ -456,6 +480,65 @@ export default function AdminPage() {
       setError(bulkError instanceof Error ? bulkError.message : 'Could not import video mappings.')
     } finally {
       setBulkSaving(false)
+    }
+  }
+
+  async function syncFromYoutube() {
+    if (!accessToken || youtubeSyncLoading) return
+
+    setYoutubeSyncLoading(true)
+    setYoutubeSyncResult(null)
+    setError('')
+
+    try {
+      const response = await fetch('/api/admin/youtube-sync', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      })
+
+      const payload = await response.json()
+      if (!response.ok) {
+        throw new Error(payload.error || 'Could not sync videos from YouTube.')
+      }
+
+      const matched = (payload.matched as YoutubeSyncResult['matched']) || []
+      const nextOverrides = Object.fromEntries(
+        matched.map((item) => [
+          item.exerciseName,
+          {
+            exercise_name: item.exerciseName,
+            youtube_id: item.youtubeId,
+            updated_at: new Date().toISOString(),
+          } as ExerciseVideoOverride,
+        ]),
+      )
+
+      setYoutubeChannelMasked(payload.channelIdMasked || youtubeChannelMasked)
+      setOverrides((current) => ({
+        ...current,
+        ...nextOverrides,
+      }))
+      setDraftYoutubeIds((current) => ({
+        ...current,
+        ...Object.fromEntries(matched.map((item) => [item.exerciseName, item.youtubeId])),
+      }))
+      setYoutubeSyncResult({
+        matched,
+        skipped: Array.isArray(payload.skipped) ? payload.skipped : [],
+        errors: Array.isArray(payload.errors) ? payload.errors : [],
+        channelIdMasked: payload.channelIdMasked,
+      })
+    } catch (syncError) {
+      setYoutubeSyncResult({
+        matched: [],
+        skipped: [],
+        errors: [syncError instanceof Error ? syncError.message : 'Could not sync videos from YouTube.'],
+      })
+      setError(syncError instanceof Error ? syncError.message : 'Could not sync videos from YouTube.')
+    } finally {
+      setYoutubeSyncLoading(false)
     }
   }
 
@@ -630,6 +713,77 @@ export default function AdminPage() {
               />
             </div>
             <div style={{ marginBottom: 18, border: '1px solid rgba(139,231,255,0.14)', background: 'rgba(8,10,14,0.98)', padding: '18px 18px 16px' }}>
+              <div style={{ border: '1px solid rgba(0,180,216,0.16)', background: 'rgba(0,180,216,0.04)', padding: '16px 16px 14px', marginBottom: 16 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 18, flexWrap: 'wrap', marginBottom: 10 }}>
+                  <div>
+                    <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 3, color: 'var(--cyan)', textTransform: UC, marginBottom: 8 }}>
+                      YouTube Sync
+                    </div>
+                    <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 14, color: 'var(--silver2)', lineHeight: 1.7, maxWidth: 720 }}>
+                      Pull videos directly from the configured YouTube channel, auto-match titles to curated exercise names, and save matches into the live override table. Best results come when video titles exactly match the exercise names in the library.
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => { void syncFromYoutube() }}
+                    disabled={!youtubeConfigured || youtubeSyncLoading}
+                    style={{
+                      minWidth: 180,
+                      background: youtubeSyncLoading ? 'rgba(0,180,216,0.18)' : 'transparent',
+                      border: '1px solid rgba(0,180,216,0.28)',
+                      color: youtubeConfigured ? 'var(--cyan)' : 'var(--silver4)',
+                      padding: '10px 12px',
+                      cursor: !youtubeConfigured || youtubeSyncLoading ? 'default' : 'pointer',
+                      fontFamily: "'DM Mono',monospace",
+                      fontSize: 9,
+                      letterSpacing: 2,
+                      textTransform: UC,
+                    }}
+                  >
+                    {youtubeSyncLoading ? 'Syncing' : 'Sync From YouTube'}
+                  </button>
+                </div>
+                <div style={{ display: 'grid', gap: 6 }}>
+                  <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 2, color: youtubeConfigured ? 'var(--white)' : '#ffb6b6', textTransform: UC }}>
+                    Channel: {youtubeChannelMasked}
+                  </div>
+                  <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 13, color: 'var(--silver3)', lineHeight: 1.6 }}>
+                    {youtubeConfigured
+                      ? 'Configured. The sync will fetch every video on the channel and save the matched exercise videos automatically.'
+                      : 'Missing YOUTUBE_API_KEY or YOUTUBE_CHANNEL_ID. Add both in Vercel and .env.local before using sync.'}
+                  </div>
+                </div>
+                {youtubeSyncResult && (
+                  <div style={{ marginTop: 12, border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: '12px 14px' }}>
+                    <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 2, color: 'var(--white)', textTransform: UC, marginBottom: 10 }}>
+                      {youtubeSyncResult.matched.length} matched and saved / {youtubeSyncResult.skipped.length} skipped
+                    </div>
+                    {youtubeSyncResult.errors.length > 0 && (
+                      <div style={{ display: 'grid', gap: 6, marginBottom: youtubeSyncResult.skipped.length > 0 ? 10 : 0 }}>
+                        {youtubeSyncResult.errors.map((item) => (
+                          <div key={item} style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 13, color: '#ffb6b6', lineHeight: 1.6 }}>
+                            {item}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {youtubeSyncResult.skipped.length > 0 && (
+                      <div>
+                        <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 2, color: 'var(--silver3)', textTransform: UC, marginBottom: 8 }}>
+                          Needs Manual Review
+                        </div>
+                        <div style={{ display: 'grid', gap: 6 }}>
+                          {youtubeSyncResult.skipped.map((title) => (
+                            <div key={title} style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 13, color: 'var(--silver2)', lineHeight: 1.6 }}>
+                              {title}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 18, flexWrap: 'wrap', marginBottom: 10 }}>
                 <div>
                   <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 3, color: 'var(--cyan)', textTransform: UC, marginBottom: 8 }}>
