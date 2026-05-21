@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "archcheck": "node scripts/architecture-check.mjs",
+    "healthcheck": "npm run lint && npm run typecheck && npm run archcheck && npm run build"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.80.0",

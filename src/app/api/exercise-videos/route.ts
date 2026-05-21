@@ -1,5 +1,5 @@
 ﻿import { NextRequest, NextResponse } from 'next/server'
-import { createAuthClient, createServiceRoleClient } from '@/lib/supabase/admin'
+import { createAccessTokenClient, createAuthClient } from '@/lib/supabase/admin'
 
 export async function GET(req: NextRequest) {
   try {
@@ -34,8 +34,8 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ mappings: [] })
     }
 
-    const serviceClient = createServiceRoleClient()
-    const { data, error } = await serviceClient
+    const supabase = createAccessTokenClient(accessToken)
+    const { data, error } = await supabase
       .from('exercise_videos')
       .select('exercise_name, youtube_id, updated_at')
       .in('exercise_name', [...new Set(names)])

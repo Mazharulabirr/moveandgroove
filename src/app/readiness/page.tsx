@@ -54,16 +54,45 @@ export default function ReadinessPage() {
     setSaving(true)
     try {
       const { data: { session } } = await supabase.auth.getSession()
-      const uid = session?.user?.id
-      if (uid) {
-        await supabase.from('readiness_logs').insert([
-          {
-            user_id: uid,
-            responses: answers,
-            readiness_score: score,
-            checked_at: new Date().toISOString(),
+      const accessToken = session?.access_token
+
+      if (accessToken) {
+        const checkedAt = new Date().toISOString()
+        const date = checkedAt.slice(0, 10)
+        const sorenessLevel = answers.soreness ? Math.max(1, 5 - answers.soreness) : null
+        const intensityModifier =
+          score < 40
+            ? 'recovery'
+            : score < 60
+              ? 'modified'
+              : 'normal'
+
+        const response = await fetch('/api/readiness-logs', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken}`,
           },
-        ])
+          body: JSON.stringify({
+            row: {
+              date,
+              session_type: 'pre',
+              sleep_quality: answers.sleep ?? null,
+              energy_level: answers.energy ?? null,
+              soreness_level: sorenessLevel,
+              niggled_region: null,
+              training_context: `daily readiness check-in: stress=${answers.stress ?? 'na'}, motivation=${answers.motivation ?? 'na'}`,
+              intensity_modifier: intensityModifier,
+              avoid_passive_holds: score < 40,
+              reduce_region: null,
+            },
+          }),
+        })
+
+        if (!response.ok) {
+          const payload = await response.json().catch(() => null) as { error?: string } | null
+          throw new Error(payload?.error || 'Could not save readiness check-in.')
+        }
       }
     } catch (error) {
       console.error('[readiness]', error)
