@@ -8,6 +8,26 @@ import { createClient } from '@/lib/supabase/client'
 export default function HomePage() {
   const router = useRouter()
   const supabase = createClient()
+  const trustedByLogos = [
+    {
+      src: 'https://i.logos-download.com/6681/1492-s1280-103d896656e86b8e16ba2769b8b47945.png/Brisbane_Lions_Logo_2010-s1280.png',
+      alt: 'Brisbane Lions',
+      maxHeight: 88,
+    },
+    {
+      src: 'https://wp.logos-download.com/wp-content/uploads/2024/04/Cricket_Australia_Logo-1958x3000.png',
+      alt: 'Cricket Australia',
+      maxHeight: 104,
+    },
+    {
+      src: 'https://images.seeklogo.com/logo-png/52/1/queensland-bulls-logo-png_seeklogo-522388.png',
+      alt: 'Queensland Bulls',
+      maxHeight: 92,
+    },
+    { src: '/trusted-by-bullets.avif', alt: 'Brisbane Bullets', maxHeight: 88 },
+    { src: '/trusted-by-logo.jpg', alt: 'Partner logo', maxHeight: 88 },
+    { src: '/trusted-by-heat.png', alt: 'Brisbane Heat', maxHeight: 88 },
+  ]
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -188,11 +208,7 @@ export default function HomePage() {
               gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))',
               gap: 16,
             }}>
-              {[
-                { src: '/trusted-by-bullets.avif', alt: 'Brisbane Bullets' },
-                { src: '/trusted-by-heat.png', alt: 'Brisbane Heat' },
-                { src: '/trusted-by-logo.jpg', alt: 'Partner logo' },
-              ].map((logo) => (
+              {trustedByLogos.map((logo) => (
                 <div
                   key={logo.src}
                   style={{
@@ -211,7 +227,7 @@ export default function HomePage() {
                     alt={logo.alt}
                     style={{
                       maxWidth: '100%',
-                      maxHeight: 88,
+                      maxHeight: logo.maxHeight,
                       objectFit: 'contain',
                       filter: 'drop-shadow(0 10px 26px rgba(0,0,0,0.25))',
                     }}
