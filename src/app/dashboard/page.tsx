@@ -164,7 +164,8 @@ export default function DashboardPage() {
         const now = new Date()
         return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0)).toISOString()
       })()
-      const progressPromise = fetch('/api/progress', {
+      const progressPromise = fetch(`/api/progress?ts=${Date.now()}`, {
+        cache: 'no-store',
         headers: {
           Authorization: `Bearer ${accessToken}`,
         },

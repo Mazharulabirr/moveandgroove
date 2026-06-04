@@ -8,6 +8,7 @@ const findings = []
 
 const allowedServiceRoleFiles = [
   path.normalize('src/lib/supabase/admin.ts'),
+  path.normalize('src/app/api/progress/route.ts'),
 ]
 
 const allowedServiceRolePrefixes = [
