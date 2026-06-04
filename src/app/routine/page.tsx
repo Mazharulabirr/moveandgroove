@@ -354,6 +354,7 @@ export default function RoutinePage() {
   const [progressSaveError, setProgressSaveError] = useState('')
   const [loggingProgress, setLoggingProgress] = useState(false)
   const [postSessionCompleted, setPostSessionCompleted] = useState(false)
+  const [postSessionDismissed, setPostSessionDismissed] = useState(false)
 
   useEffect(() => {
     if (!routine) {
@@ -370,6 +371,7 @@ export default function RoutinePage() {
     setProgressSaveError('')
     setLoggingProgress(false)
     setPostSessionCompleted(false)
+    setPostSessionDismissed(false)
   }, [routine])
 
   const logCompletedSessionProgress = useCallback(async () => {
@@ -444,19 +446,16 @@ export default function RoutinePage() {
   }, [routine, supabase])
 
   useEffect(() => {
-    async function saveThenOpenPostCheckin() {
-      if (!sessionFinished || !routine || showPostSessionModal || postSessionCompleted) {
+    async function saveWorkoutProgressOnly() {
+      if (!sessionFinished || !routine || progressSaved || loggingProgress) {
         return
       }
 
-      const ok = await logCompletedSessionProgress()
-      if (ok) {
-        setShowPostSessionModal(true)
-      }
+      await logCompletedSessionProgress()
     }
 
-    void saveThenOpenPostCheckin()
-  }, [logCompletedSessionProgress, postSessionCompleted, routine, sessionFinished, showPostSessionModal])
+    void saveWorkoutProgressOnly()
+  }, [logCompletedSessionProgress, loggingProgress, progressSaved, routine, sessionFinished])
 
   useEffect(() => {
     async function loadReadiness() {
@@ -1110,10 +1109,10 @@ export default function RoutinePage() {
                     </div>
                   )}
                   {!progressSaved && (
-                    <button className="btn-primary" onClick={() => { void logCompletedSessionProgress().then((ok) => { if (ok) setShowPostSessionModal(true) }) }} disabled={loggingProgress}>
-                      {loggingProgress ? 'SAVING WORKOUT...' : 'SAVE WORKOUT TO STATS'}
-                    </button>
-                  )}
+                  <button className="btn-primary" onClick={() => { void logCompletedSessionProgress().then((ok) => { if (ok) { setPostSessionDismissed(false); setShowPostSessionModal(true) } }) }} disabled={loggingProgress}>
+                    {loggingProgress ? 'SAVING WORKOUT...' : 'SAVE WORKOUT TO STATS'}
+                  </button>
+                )}
                 </div>
 
                 <div style={{ border: '1px solid rgba(139,231,255,0.28)', background: 'linear-gradient(180deg, rgba(0,180,216,0.12) 0%, rgba(8,10,14,0.98) 100%)', padding: '20px 22px' }}>
@@ -1145,8 +1144,8 @@ export default function RoutinePage() {
                   )}
                 </div>
                 <div>
-                  <button className="btn-primary" onClick={() => setShowPostSessionModal(true)} disabled={!progressSaved}>
-                    {postSessionCompleted ? 'POST SESSION CHECK-IN SAVED' : 'OPEN POST SESSION CHECK-IN'}
+                  <button className="btn-primary" onClick={() => { setPostSessionDismissed(false); setShowPostSessionModal(true) }} disabled={!progressSaved}>
+                    {postSessionCompleted ? 'POST SESSION CHECK-IN SAVED' : postSessionDismissed ? 'REOPEN OPTIONAL POST SESSION CHECK-IN' : 'OPEN OPTIONAL POST SESSION CHECK-IN'}
                   </button>
                 </div>
               </div>
@@ -1316,9 +1315,13 @@ export default function RoutinePage() {
       />
       <PostSessionCheckinModal
         open={showPostSessionModal}
-        onClose={() => setShowPostSessionModal(false)}
+        onClose={() => {
+          setShowPostSessionModal(false)
+          setPostSessionDismissed(true)
+        }}
         onComplete={() => {
           setPostSessionCompleted(true)
+          setPostSessionDismissed(false)
           setShowPostSessionModal(false)
         }}
       />

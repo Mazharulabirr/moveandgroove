@@ -176,6 +176,7 @@ export default function SessionCheckinPage() {
   const [saving, setSaving] = useState(false)
   const [done, setDone] = useState(false)
   const [saveError, setSaveError] = useState('')
+  const [postFeedbackSynced, setPostFeedbackSynced] = useState(false)
 
   const questions = type === 'pre' ? PRE_QUESTIONS : POST_QUESTIONS
   const question = questions[step - 1]
@@ -224,6 +225,7 @@ export default function SessionCheckinPage() {
     setSaveError('')
     let failed = false
     const warnings: string[] = []
+    let postWriteFailed = false
 
     const { data: { session } } = await supabase.auth.getSession()
     const uid = session?.user?.id
@@ -283,6 +285,7 @@ export default function SessionCheckinPage() {
         }
       } catch (error) {
         warnings.push(error instanceof Error ? error.message : 'Could not sync post-session check-in.')
+        postWriteFailed = true
       }
 
       const routineMeta = readStoredRoutineMeta()
@@ -304,12 +307,16 @@ export default function SessionCheckinPage() {
         sorenessSeverity,
         message,
       })
-      failed = true
-      setSaveError(
-        type === 'post'
-          ? 'We could not sync this post-session check-in right now, but your workout is complete.'
-          : 'We could not sync this check-in right now. Please try again.'
-      )
+      if (type === 'post') {
+        setSaveError('')
+      } else {
+        failed = true
+        setSaveError('We could not sync this check-in right now. Please try again.')
+      }
+    }
+
+    if (type === 'post') {
+      setPostFeedbackSynced(!postWriteFailed)
     }
 
     setSaving(false)
@@ -327,6 +334,7 @@ export default function SessionCheckinPage() {
     setSorenessNotes('')
     setDone(false)
     setSaveError('')
+    setPostFeedbackSynced(false)
   }
 
   return (
@@ -507,7 +515,9 @@ export default function SessionCheckinPage() {
                 <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 22, color: 'var(--silver2)', lineHeight: 1.7 }}>
                   {type === 'pre'
                     ? 'Your pre-session check-in is logged. Use that sleep, soreness, and mood snapshot to keep today honest.'
-                    : 'Great work today. Your post-session feedback is saved and your dashboard is ready for the next step.'}
+                    : postFeedbackSynced
+                      ? 'Great work today. Your post-session feedback is saved and your dashboard is ready for the next step.'
+                      : 'Great work today. Your workout is complete and your dashboard is ready for the next step. The optional post-session feedback did not sync this time, but your stats are unaffected.'}
                 </p>
               </div>
 

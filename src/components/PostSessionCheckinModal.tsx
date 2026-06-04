@@ -79,6 +79,7 @@ export default function PostSessionCheckinModal({ open, onClose, onComplete }: P
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
   const [done, setDone] = useState(false)
+  const [feedbackSynced, setFeedbackSynced] = useState(false)
 
   if (!open) {
     return null
@@ -93,6 +94,7 @@ export default function PostSessionCheckinModal({ open, onClose, onComplete }: P
     setSaving(false)
     setSaveError('')
     setDone(false)
+    setFeedbackSynced(false)
   }
 
   function closeModal() {
@@ -158,6 +160,7 @@ export default function PostSessionCheckinModal({ open, onClose, onComplete }: P
         throw new Error(payload?.error || 'Could not save post-session check-in.')
       }
 
+      setFeedbackSynced(true)
       setDone(true)
       onComplete()
     } catch (error) {
@@ -166,7 +169,9 @@ export default function PostSessionCheckinModal({ open, onClose, onComplete }: P
         error,
         answers,
       })
-      setSaveError(error instanceof Error ? error.message : 'Could not save post-session check-in.')
+      setFeedbackSynced(false)
+      setSaveError('')
+      setDone(true)
     } finally {
       setSaving(false)
     }
@@ -188,11 +193,11 @@ export default function PostSessionCheckinModal({ open, onClose, onComplete }: P
                   THE SESSION LANDED
                 </div>
                 <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 16, color: 'var(--silver2)', lineHeight: 1.75, maxWidth: 620 }}>
-                  Your workout has already been saved to progress and fed into the dashboard. This check-in is just for feedback.
+                  Your workout has already been saved to progress and fed into the dashboard. This check-in is optional feedback and should never block the end of your session.
                 </div>
               </div>
               <button className="btn-outline" onClick={closeModal}>
-                CLOSE
+                SKIP FOR NOW
               </button>
             </div>
 
@@ -223,14 +228,17 @@ export default function PostSessionCheckinModal({ open, onClose, onComplete }: P
 
             {saveError && (
               <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 14, color: '#ff9f9f', marginBottom: 18, padding: '12px 14px', border: '1px solid rgba(255,143,143,0.18)', background: 'rgba(255,143,143,0.06)' }}>
-                {saveError}
+                {saveError} Your workout stats are already saved, so you can skip this feedback and keep moving.
               </div>
             )}
 
             <div className="mg-mobile-stack">
               <button className="btn-outline" onClick={back}>BACK</button>
+              <button className="btn-outline" onClick={closeModal} disabled={saving}>
+                SKIP FOR NOW
+              </button>
               <button className="btn-primary" disabled={answers[question.id] === undefined || saving} onClick={next}>
-                {step === POST_QUESTIONS.length - 1 ? (saving ? 'SAVING...' : 'FINISH') : 'CONTINUE'}
+                {step === POST_QUESTIONS.length - 1 ? (saving ? 'SAVING...' : 'SAVE FEEDBACK') : 'CONTINUE'}
               </button>
             </div>
           </>
@@ -247,10 +255,12 @@ export default function PostSessionCheckinModal({ open, onClose, onComplete }: P
 
             <div style={{ background: 'var(--black2)', border: '1px solid var(--border)', padding: '48px', marginBottom: 32 }}>
               <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 13, letterSpacing: 3, color: 'var(--cyan)', marginBottom: 16, textTransform: UC }}>
-                Session Feedback Saved
+                {feedbackSynced ? 'Session Feedback Saved' : 'Workout Already Counted'}
               </p>
               <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 22, color: 'var(--silver2)', lineHeight: 1.7 }}>
-                Your workout was already counted in progress. This post-session feedback is now saved separately for future tuning.
+                {feedbackSynced
+                  ? 'Your workout was already counted in progress. This post-session feedback is now saved separately for future tuning.'
+                  : 'Your workout was already counted in progress. The optional post-session feedback could not sync this time, but nothing is lost from your stats.'}
               </p>
             </div>
 
