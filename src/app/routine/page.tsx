@@ -403,6 +403,8 @@ export default function RoutinePage() {
       }
 
       const completedAt = currentMeta.completedAt || new Date().toISOString()
+      const durationMinutes = currentMeta.duration
+        ?? Math.max(1, Math.round(estimateRoutineDurationMinutes(currentMeta.routine || routine)))
       const response = await fetch('/api/progress', {
         method: 'POST',
         headers: {
@@ -413,7 +415,7 @@ export default function RoutinePage() {
           row: {
             user_id: uid,
             routine_id: currentMeta.routine?.savedId ?? null,
-            duration_minutes: currentMeta.duration ?? null,
+            duration_minutes: durationMinutes,
             completed_at: completedAt,
             sport: currentMeta.sport ?? null,
             areas: currentMeta.areas ?? null,

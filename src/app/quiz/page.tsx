@@ -63,6 +63,7 @@ export default function QuizPage() {
   const [error, setError] = useState('')
   const [dailyLimitReached, setDailyLimitReached] = useState(false)
   const [showReadinessGate, setShowReadinessGate] = useState(false)
+  const [readinessConfirmedForCurrentBuild, setReadinessConfirmedForCurrentBuild] = useState(false)
   const readinessSnapshot = readTodayPreSessionReadiness()
 
   const progress = { 1: 20, '2a': 40, '2b': 40, 3: 60, 4: 80, 5: 95 }[step] || 20
@@ -87,7 +88,7 @@ export default function QuizPage() {
       duration,
       goal,
       includeFoamRoll: includeFoamRoll === true,
-      readiness: readinessSnapshot,
+      readiness: readTodayPreSessionReadiness(),
     }
 
     try {
@@ -132,7 +133,7 @@ export default function QuizPage() {
           areas,
           duration,
           goal,
-          readiness: readinessSnapshot,
+          readiness: readTodayPreSessionReadiness(),
         }),
       )
 
@@ -155,8 +156,14 @@ export default function QuizPage() {
     }
 
     try {
+      if (!readinessConfirmedForCurrentBuild) {
+        setShowReadinessGate(true)
+        return
+      }
+
       const ready = await hasPreSessionCheckinToday(supabase as never, uid)
-      if (!ready) {
+      if (!ready && !readTodayPreSessionReadiness()) {
+        setReadinessConfirmedForCurrentBuild(false)
         setShowReadinessGate(true)
         return
       }
@@ -490,6 +497,7 @@ export default function QuizPage() {
         open={showReadinessGate}
         onComplete={() => {
           setShowReadinessGate(false)
+          setReadinessConfirmedForCurrentBuild(true)
           void generateRoutine()
         }}
       />
