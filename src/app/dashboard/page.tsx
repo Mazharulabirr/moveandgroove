@@ -28,6 +28,18 @@ interface ProgressEntry {
   duration_minutes?: number | null
 }
 
+interface WorkoutPlan {
+  id: string
+  sport: string | null
+  areas: string[]
+  goal: string | null
+  duration_weeks: number
+  sessions_per_week: number
+  starts_at: string | null
+  created_at: string
+  is_active: boolean
+}
+
 interface Routine {
   id: number
   title: string
@@ -157,6 +169,8 @@ export default function DashboardPage() {
   const [dailyRoutineLimit, setDailyRoutineLimit] = useState(DEFAULT_BASIC_DAILY_ROUTINE_LIMIT)
   const [showWhyFirst, setShowWhyFirst] = useState(false)
   const [weeklyMinutes, setWeeklyMinutes] = useState<number[]>(() => Array.from({ length: 7 }, () => 0))
+  const [progressEntries, setProgressEntries] = useState<ProgressEntry[]>([])
+  const [activePlan, setActivePlan] = useState<WorkoutPlan | null>(null)
 
   const loadData = useCallback(async (userId: string, accessToken: string) => {
     try {
@@ -181,12 +195,28 @@ export default function DashboardPage() {
       })
       const [
         progress,
+        activePlanPayload,
         savedRoutines,
         { data: screening },
         { count: routinesToday },
         basicDailyRoutineLimit,
       ] = await Promise.all([
         progressPromise,
+        fetch('/api/workout-plans', {
+          cache: 'no-store',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }).then(async (response) => {
+          const payload = await response.json().catch(() => null)
+          if (!response.ok) {
+            throw new Error(payload?.error || 'Could not load workout plan.')
+          }
+          return payload
+        }).catch((error) => {
+          console.warn('[dashboard.workout-plan]', error)
+          return { plan: null }
+        }),
         readSavedWorkouts(accessToken).catch((error) => {
           console.warn('[dashboard.saved-workouts]', error)
           return [] as Routine[]
@@ -207,6 +237,8 @@ export default function DashboardPage() {
         setStats({ totalSessions: 0, totalMinutes: 0, thisWeek: 0 })
         setWeeklyMinutes(Array.from({ length: 7 }, () => 0))
       }
+      setProgressEntries(progress)
+      setActivePlan((activePlanPayload?.plan || null) as WorkoutPlan | null)
 
       if (savedRoutines) {
         setRoutines(savedRoutines)
@@ -308,6 +340,44 @@ export default function DashboardPage() {
   const weeklyAverage = weeklyActiveDays > 0 ? Math.round(weeklyMinutesTotal / weeklyActiveDays) : 0
   const consistencyPct = Math.round((weeklyActiveDays / 7) * 100)
   const latestRoutineFocus = latestRoutine ? formatRoutineFocus(latestRoutine).toUpperCase() : 'NO SAVED ROUTINE'
+  const planFocusLabel = activePlan
+    ? activePlan.sport
+      ? activePlan.sport.toUpperCase()
+      : activePlan.areas.length === 1
+        ? `${activePlan.areas[0].toUpperCase()} MOBILITY`
+        : `${activePlan.areas.map((area) => area.toUpperCase()).join(' + ')}`
+    : ''
+  const activePlanName = activePlan
+    ? `${activePlan.duration_weeks}-WEEK ${planFocusLabel || 'MOBILITY'}`
+    : ''
+  const activePlanWeek = activePlan
+    ? (() => {
+        const startsAt = activePlan.starts_at ? new Date(activePlan.starts_at) : new Date(activePlan.created_at)
+        const now = new Date()
+        const daysSinceStart = Math.max(0, Math.floor((now.getTime() - startsAt.getTime()) / (1000 * 60 * 60 * 24)))
+        return Math.min(activePlan.duration_weeks, Math.max(1, Math.floor(daysSinceStart / 7) + 1))
+      })()
+    : 0
+  const activePlanSessionsThisWeek = activePlan
+    ? (() => {
+        const now = new Date()
+        const weekStart = new Date(now)
+        weekStart.setHours(0, 0, 0, 0)
+        weekStart.setDate(weekStart.getDate() - 6)
+        const planStart = activePlan.starts_at ? new Date(activePlan.starts_at) : new Date(activePlan.created_at)
+        const effectiveStart = planStart > weekStart ? planStart : weekStart
+
+        return progressEntries.filter((entry) => {
+          const timestamp = entry.completed_at || entry.created_at
+          if (!timestamp) {
+            return false
+          }
+
+          const completed = new Date(timestamp)
+          return !Number.isNaN(completed.getTime()) && completed >= effectiveStart
+        }).length
+      })()
+    : 0
 
   let stageLabel = 'Start with your mobility baseline'
   let stageTitle = 'MOBILITY SCREENING'
@@ -891,6 +961,26 @@ export default function DashboardPage() {
                   </div>
                 ))}
               </div>
+
+              {activePlan && (
+                <div style={{ background: 'rgba(8,10,14,0.95)', border: '1px solid rgba(0,180,216,0.22)', padding: '20px' }}>
+                  <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: 'var(--cyan)', marginBottom: 10, textTransform: UC }}>
+                    {'// Active Programme'}
+                  </div>
+                  <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 14, fontWeight: 700, letterSpacing: 2, color: 'var(--white)', marginBottom: 10 }}>
+                    {activePlanName}
+                  </div>
+                  <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 13, color: 'var(--silver2)', lineHeight: 1.65, marginBottom: 8 }}>
+                    Week {activePlanWeek} of {activePlan.duration_weeks}
+                  </div>
+                  <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 13, color: 'var(--silver2)', lineHeight: 1.65, marginBottom: 12 }}>
+                    {activePlanSessionsThisWeek} sessions completed this week / target {activePlan.sessions_per_week}
+                  </div>
+                  <button className="btn-outline" onClick={() => router.push('/programs')}>
+                    CONTINUE PROGRAMME
+                  </button>
+                </div>
+              )}
 
               {!effectiveIsPro && (
                 <div style={{ background: 'rgba(8,10,14,0.95)', border: '1px solid var(--border)', padding: '20px' }}>
