@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { buildPreSessionReadinessInsert, upsertReadinessLog } from '@/lib/readiness-log'
+import { buildPreSessionReadinessInsert } from '@/lib/readiness-log'
 import { buildReadinessAdjustmentSnapshot } from '@/lib/readiness'
 import { writeStoredPreSessionReadiness } from '@/lib/readiness-storage'
 
@@ -95,7 +95,11 @@ export default function PreSessionReadinessModal({ open, allowClose = false, onC
       const accessToken = session?.access_token
 
       if (!uid) {
-        throw new Error('Sign in required')
+        throw new Error('Sign in required to save your readiness check.')
+      }
+
+      if (!accessToken) {
+        throw new Error("We couldn't save your readiness check. Please try again.")
       }
 
       const checkedAt = new Date().toISOString()
@@ -107,34 +111,26 @@ export default function PreSessionReadinessModal({ open, allowClose = false, onC
         checkedAt,
       })
 
-      writeStoredPreSessionReadiness(snapshot)
+      const row = buildPreSessionReadinessInsert({
+        userId: uid,
+        snapshot,
+      })
 
-      try {
-        const row = buildPreSessionReadinessInsert({
-          userId: uid,
-          snapshot,
-        })
+      const response = await fetch('/api/readiness-logs', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ row }),
+      })
 
-        if (accessToken) {
-          const response = await fetch('/api/readiness-logs', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${accessToken}`,
-            },
-            body: JSON.stringify({ row }),
-          })
-
-          if (!response.ok) {
-            const payload = await response.json().catch(() => null)
-            throw new Error(payload?.error || 'Could not save pre-session readiness.')
-          }
-        } else {
-          await upsertReadinessLog(supabase as never, row)
-        }
-      } catch (insertError) {
-        console.warn('[pre-session-readiness.insert]', insertError)
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null)
+        throw new Error(payload?.error || "We couldn't save your readiness check. Please try again.")
       }
+
+      writeStoredPreSessionReadiness(snapshot)
 
       window.localStorage.setItem('mg_pre_session_ready_at', checkedAt)
       setStep(0)
@@ -145,26 +141,7 @@ export default function PreSessionReadinessModal({ open, allowClose = false, onC
       onComplete?.()
     } catch (err: unknown) {
       console.error('[pre-session-readiness]', err)
-      try {
-        const checkedAt = new Date().toISOString()
-        const snapshot = buildReadinessAdjustmentSnapshot({
-          answers,
-          sorenessAreas,
-          sorenessSeverity,
-          sorenessNotes,
-          checkedAt,
-        })
-        writeStoredPreSessionReadiness(snapshot)
-        window.localStorage.setItem('mg_pre_session_ready_at', checkedAt)
-        setStep(0)
-        setAnswers({})
-        setSorenessAreas([])
-        setSorenessSeverity(0)
-        setSorenessNotes('')
-        onComplete?.()
-      } catch {
-        setError(err instanceof Error ? err.message : 'Could not save readiness check')
-      }
+      setError(err instanceof Error ? err.message : "We couldn't save your readiness check. Please try again.")
     } finally {
       setSaving(false)
     }
