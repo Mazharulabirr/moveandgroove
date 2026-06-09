@@ -145,6 +145,21 @@ function writeStoredRoutineMeta(nextMeta: RoutineMeta) {
   window.localStorage.setItem('mg_routine', JSON.stringify(nextMeta))
 }
 
+function markRoutineCompleted() {
+  const currentMeta = readStoredRoutineMeta()
+  if (!currentMeta) {
+    return null
+  }
+
+  const completedAt = currentMeta.completedAt || new Date().toISOString()
+  writeStoredRoutineMeta({
+    ...currentMeta,
+    completedAt,
+    progressLoggedAt: currentMeta.progressLoggedAt || null,
+  })
+  return completedAt
+}
+
 function normalizeRoutineForDisplay(routine: Routine, meta: RoutineMeta | null): Routine {
   const phases = routine.phases.map((phase) => ({
     ...phase,
@@ -407,6 +422,7 @@ export default function RoutinePage() {
         ?? Math.max(1, Math.round(estimateRoutineDurationMinutes(currentMeta.routine || routine)))
       const response = await fetch('/api/progress', {
         method: 'POST',
+        keepalive: true,
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${accessToken}`,
@@ -716,6 +732,7 @@ export default function RoutinePage() {
       if (phaseDone) {
         const nextPhaseIndex = phaseIndex + 1
         if (!routine || nextPhaseIndex >= routine.phases.length) {
+          markRoutineCompleted()
           setSessionFinished(true)
         } else {
           setActivePhaseIndex(nextPhaseIndex)

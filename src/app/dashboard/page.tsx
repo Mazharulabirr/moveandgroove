@@ -40,6 +40,18 @@ interface WorkoutPlan {
   is_active: boolean
 }
 
+interface PendingRoutineMeta {
+  sport?: string | null
+  areas?: string[]
+  goal?: string | null
+  duration?: number
+  completedAt?: string | null
+  progressLoggedAt?: string | null
+  routine?: {
+    savedId?: number
+  } | null
+}
+
 interface Routine {
   id: number
   title: string
@@ -157,6 +169,31 @@ function applyHoverState(element: HTMLDivElement, hovered: boolean) {
   element.style.boxShadow = hovered ? '0 20px 40px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.08)' : 'inset 0 1px 0 rgba(255,255,255,0.04)'
 }
 
+function readStoredRoutineMeta() {
+  if (typeof window === 'undefined') {
+    return null
+  }
+
+  const stored = window.localStorage.getItem('mg_routine')
+  if (!stored) {
+    return null
+  }
+
+  try {
+    return JSON.parse(stored) as PendingRoutineMeta
+  } catch {
+    return null
+  }
+}
+
+function writeStoredRoutineMeta(nextMeta: PendingRoutineMeta) {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  window.localStorage.setItem('mg_routine', JSON.stringify(nextMeta))
+}
+
 export default function DashboardPage() {
   const router = useRouter()
   const supabase = createClient()
@@ -172,8 +209,49 @@ export default function DashboardPage() {
   const [progressEntries, setProgressEntries] = useState<ProgressEntry[]>([])
   const [activePlan, setActivePlan] = useState<WorkoutPlan | null>(null)
 
+  const syncPendingRoutineProgress = useCallback(async (accessToken: string, userId: string) => {
+    const routineMeta = readStoredRoutineMeta()
+    if (!routineMeta?.completedAt || routineMeta.progressLoggedAt) {
+      return
+    }
+
+    const response = await fetch('/api/progress', {
+      method: 'POST',
+      keepalive: true,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
+        row: {
+          user_id: userId,
+          routine_id: routineMeta.routine?.savedId ?? null,
+          duration_minutes: routineMeta.duration ?? null,
+          completed_at: routineMeta.completedAt,
+          sport: routineMeta.sport ?? null,
+          areas: routineMeta.areas ?? null,
+          goal: routineMeta.goal ?? null,
+        },
+      }),
+    })
+
+    if (!response.ok) {
+      const payload = await response.json().catch(() => null)
+      throw new Error(payload?.error || 'Could not sync pending workout progress.')
+    }
+
+    writeStoredRoutineMeta({
+      ...routineMeta,
+      progressLoggedAt: routineMeta.completedAt,
+    })
+  }, [])
+
   const loadData = useCallback(async (userId: string, accessToken: string) => {
     try {
+      await syncPendingRoutineProgress(accessToken, userId).catch((error) => {
+        console.warn('[dashboard.progress.recover]', error)
+      })
+
       const startOfTodayUtc = (() => {
         const now = new Date()
         return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0)).toISOString()
@@ -267,7 +345,7 @@ export default function DashboardPage() {
     }
 
     setLoading(false)
-  }, [supabase])
+  }, [supabase, syncPendingRoutineProgress])
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
