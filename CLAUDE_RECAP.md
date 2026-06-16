@@ -1,178 +1,235 @@
 # Claude Recap
 
-Move & Groove v2 on `main` is now a usable Basic-first beta mobility app. The product works end to end, and the priority is still to make the Basic tier feel complete, clinically trustworthy, and polished before spending more attention on Premium complexity.
+Move & Groove v2 is a Basic-first athlete mobility app running on Next.js + Supabase, with AI-assisted routine generation and a growing admin system for exercises and videos. The core product works end to end, but the codebase is still in an active hardening phase around analytics reliability, schema cleanup, and live QA.
 
-## Core Product Truth
+## Current Product Truth
 
-The main product rule right now is:
+- Basic is the product right now.
+- The core loop is live:
+  - auth
+  - dashboard
+  - screening
+  - quiz
+  - pre-session readiness
+  - routine
+  - optional post-session check-in
+  - results / dashboard
+- `/programs` is now live.
+- `/battery` and `/upgrade` are still placeholder / coming-soon surfaces.
 
-- nail the Basic tier first
+## Most Important Current Architecture
 
-That means:
+### 1. Routine generation
 
-- Basic must feel complete on its own
-- Basic should not feel like a broken Premium preview
-- screening should happen once, then the app should behave like a workout tool
-- the dashboard should stay compact and action-led
-- Premium should remain visible but secondary
+Routine generation is now cheap-model first, not premium-model always.
 
-## Latest Important Fixes
+Current order:
 
-Recent important commits on `main`:
+1. `gpt-4o-mini`
+2. Anthropic primary fallback
+3. Anthropic premium fallback
+4. curated fallback
 
-- `f766d80` `fix: enforce minimum phase dose across targeted areas`
-- `859147b` `fix: split auth and token-bound supabase clients`
-- `0e0a8ba` `fix: enforce user jwt on server supabase auth client`
-- `2c2effe` `fix: soften routine generation timeout errors`
-- `578b72c` `fix: apply foam roll video overrides on routine page`
-- `9534f6e` `fix: persist generated routines with authenticated client`
-- `b6d39c2` `fix: group admin video manager by area and phase`
+Current defaults in code:
 
-What those fixes changed:
+- OpenAI primary: `gpt-4o-mini`
+- Anthropic primary fallback: `claude-3-5-haiku-20241022`
+- Anthropic premium fallback: `claude-sonnet-4-20250514`
 
-- generated routines now persist through an authenticated, token-bound Supabase client instead of failing RLS
-- auth verification and RLS database access are now split into separate Supabase clients
-- quiz generation timeout now fails more gracefully for the user
-- foam-roll drills on the routine page can now use admin-managed Supabase video overrides
-- readiness is no longer allowed to eliminate a phase for a targeted area
-- AI routines are now rejected if any targeted area is missing release, activation, or range
-- curated fallback now seeds at least one exercise per targeted area per phase before adding extra volume
+Important file:
 
-## What Is Working Now
-
-- auth works
-- sign in / sign up / resend confirmation / reset are usable
-- password reset redirect is hardcoded to production reset route
-- 6-test at-home screening works and saves through `screening_questionnaires.responses`
-- dashboard and results can read valid cloud screening rows
-- readiness logging is working through a server API path
-- routine generation works in production again
-- fallback routine generation works when AI is slow or unavailable
-- routine save works with authenticated RLS-aware flow
-- daily Basic routine limit works
-- dashboard shows today’s routine count
-- post-session flow is hardened
-- results shows recent screening trends
-- routine backgrounds can match sport or body area
-- exercise videos can be managed through `/admin`
-- admin video overrides read from Supabase first, then fall back to the hardcoded library
-
-## Readiness and Routine Generation
-
-Readiness logic now does this:
-
-- checks today’s readiness log before generating
-- if soreness severity is high in an area, biases release and reduces range volume/loading there
-- if sleep is poor, shortens the session and biases release over range
-- if mood is low, shortens and softens the session
-- if readiness is good, generates normally
-
-Important clinical rule now in place:
-
-- readiness can reduce volume and intensity, but must never eliminate a phase
-- every targeted area must still have:
-  - 1 release exercise
-  - 1 activation exercise
-  - 1 range exercise
-
-This minimum-dose rule is enforced in:
-
-- `src/lib/readiness.ts`
 - `src/app/api/routines/generate/route.ts`
 
-## Curated Exercise Library
+Operational truth:
 
-The app now has a curated internal mobility library in:
+- quality/safety is enforced in code, not entrusted to model output
+- if `OPENAI_API_KEY` is missing, Anthropic can still carry the flow
+- if both providers fail, curated fallback should still return a safe routine
+
+### 2. Readiness
+
+Pre-session readiness is now a real gate, not decorative UI.
+
+Current behavior:
+
+- readiness modal appears before building a new routine
+- pre-session must save successfully before the user proceeds
+- post-session is optional and should never block workout completion
+
+Important files:
+
+- `src/components/PreSessionReadinessModal.tsx`
+- `src/components/PostSessionCheckinModal.tsx`
+- `src/app/api/readiness-logs/route.ts`
+- `src/lib/readiness.ts`
+- `src/lib/readiness-log.ts`
+
+Important schema truth:
+
+- `readiness_logs` is still a legacy-risk table
+- one recent live issue came from `intensity_modifier` being typed incorrectly in Supabase
+- code now surfaces a clearer schema-mismatch error if that happens again
+
+### 3. Progress and stats
+
+Weekly stats come from `progress`, not from `readiness_logs`.
+
+Current intended flow:
+
+- finish workout
+- routine page logs a `progress` row
+- dashboard reads `progress`
+- weekly minutes and session counts come from that table
+
+Recent hardening already in code:
+
+- workout completion stamps `completedAt` immediately
+- routine page uses `keepalive` on `/api/progress`
+- dashboard can recover a pending unsynced completed workout from `mg_routine`
+
+Important files:
+
+- `src/app/api/progress/route.ts`
+- `src/app/routine/page.tsx`
+- `src/app/dashboard/page.tsx`
+
+### 4. Saved workouts
+
+Saved workouts are now server-synced.
+
+This is no longer local-storage membership only.
+
+Current model:
+
+- every completed workout can affect `progress`
+- only explicitly saved workouts belong in the repeat library
+- library cap is `10`
+- server truth lives on `routines.is_saved` and `routines.saved_at`
+
+Important files:
+
+- `src/lib/saved-workouts.ts`
+- `src/app/api/saved-workouts/route.ts`
+- `src/app/results/page.tsx`
+- `src/app/dashboard/page.tsx`
+- `src/app/routine/page.tsx`
+
+### 5. Programmes
+
+Multi-week programme persistence is live.
+
+Current model:
+
+- one active plan per user
+- saved to `workout_plans`
+- dashboard reads and shows the active plan
+- `/programs` lets users create 4 / 8 / 12 week plans
+
+Important files:
+
+- `src/app/api/workout-plans/route.ts`
+- `src/app/programs/page.tsx`
+- `src/app/dashboard/page.tsx`
+
+### 6. Admin / videos / exercise management
+
+Admin is now more than a simple override table.
+
+Current capabilities:
+
+- bulk exercise video import
+- YouTube channel sync
+- custom exercise creation with:
+  - exercise name
+  - target area
+  - pillar
+  - YouTube ID / URL
+
+Important files:
+
+- `src/app/admin/page.tsx`
+- `src/app/api/admin/exercise-videos/route.ts`
+- `src/app/api/admin/youtube-sync/route.ts`
+- `src/app/api/admin/custom-exercises/route.ts`
+- `src/app/api/exercise-videos/route.ts`
+
+YouTube sync truth:
+
+- requires:
+  - `YOUTUBE_API_KEY`
+  - `YOUTUBE_CHANNEL_ID`
+- auto-match works best when YouTube titles exactly match the exercise names in the app
+
+## Clinical / Programming Rules That Must Stay True
+
+- readiness may reduce volume and intensity
+- readiness must never eliminate a phase
+- every targeted area must still receive:
+  - 1 release
+  - 1 activation
+  - 1 range
+- rep-based drills must use `reps`
+- hold-based drills must use `holdSeconds`
+- do not fake rep-based work with `holdSeconds: 2`
+
+Important files:
 
 - `src/lib/curated-mobility.ts`
-
-Structure:
-
-- `hips`
-- `shoulders`
-- `spine`
-
-Then within each:
-
-- `release`
-- `activation`
-- `range`
-
-Why it matters:
-
-- fallback routines pull from it
-- the AI prompt is biased toward it
-- this is now one of the most important quality-control layers in the app
-
-## Routine Page
-
-The routine page now includes:
-
-- stronger title naming
-- clearer evidence/trust presentation
-- visible saved-routine flow
-- set ticking within a live block/circuit
-- direct post-session check-in handoff
-- foam-roll video override support from Supabase
-
-Important behavior:
-
-- routine background matches selected sport first, then body area, then fallback
-- foam-roll drills no longer ignore admin-managed video mappings
-
-Relevant files:
-
+- `src/lib/readiness.ts`
+- `src/app/api/routines/generate/route.ts`
 - `src/app/routine/page.tsx`
-- `src/lib/routine-backgrounds.ts`
-- `src/lib/exercise-videos.ts`
 
-## Admin + Video Direction
+## Security Truth
 
-The app now has a working internal admin panel at:
+Security is much better than earlier versions, but easy to regress.
 
-- `/admin`
+Preferred pattern:
 
-Current truths:
+- `createAuthClient(...)` for auth verification
+- `createAccessTokenClient(...)` for RLS-aware user-scoped access
+- `createServiceRoleClient(...)` only where truly necessary on admin/server-managed paths
 
-- only `profiles.is_admin = true` users should access it
-- exercise-video mappings can be saved to Supabase
-- routine page checks Supabase `exercise_videos` first
-- grouped video management is already in place for:
-  - hips release / activation / range
-  - shoulders release / activation / range
-  - spine release / activation / range
-  - foam roll hips / shoulders / spine
+Important files:
 
-## Current Known Realities
+- `src/lib/supabase/admin.ts`
+- `src/app/api/readiness-logs/route.ts`
+- `src/app/api/progress/route.ts`
+- `src/app/api/workout-plans/route.ts`
+- `src/app/api/saved-workouts/route.ts`
+- `src/app/api/exercise-videos/route.ts`
 
+## Operational Truth
+
+Current checks:
+
+- `npm run typecheck` passes
+- `npm run archcheck` passes
+- the architecture-check script is active and catches:
+  - unexpected service-role usage
+  - direct client-side `readiness_logs` access
+  - regressions of saved-workout logic
+
+Current build truth:
+
+- local `npm run build` can still fail on Windows when `.next` is locked by OneDrive / a running process
+- this is usually an environment file-lock issue, not an app compile issue
+- GitHub Actions still runs the clean build in CI:
+  - `.github/workflows/app-health.yml`
+
+## Known Realities
+
+- `readiness_logs` still deserves careful live QA
 - `screening_questionnaires` is still legacy-shaped
-- screening is layered onto an older table model
-- the curated mobility library still needs ongoing cleanup
-- AI routine quality still needs real-world sport-by-sport QA
-- mobile polish is still incomplete on some screens
-- Premium remains secondary and should not distract from Basic polish
+- live Supabase schema drift is still a real risk
+- weekly stats depend on `progress`, so workout completion reliability remains a top-priority QA area
+- `/battery` is still not a real product surface yet
+- video ingestion is much better, but still depends on disciplined naming
 
-## Highest-Priority Next Steps
+## Best Next Steps
 
-1. Continue Basic QA on deployed Vercel.
-2. Clinically QA readiness-affected routines:
-   - Muay Thai + balanced + sore hips / upper back
-   - BJJ + balanced
-   - Golf + flexibility
-3. Confirm the minimum-dose rule holds on live:
-   - every targeted area keeps release, activation, and range
-   - soreness softens range dose but does not remove it
-4. Keep tightening the curated mobility library.
-5. Improve admin visibility for missing exercise-video coverage.
-6. Continue mobile refinement page by page.
-7. Only after Basic feels strong, return to deeper Premium work.
-
-## Short Handoff Truth List
-
-1. Basic is still the priority.
-2. Screening is rebuilt and now saves to cloud with local fallback backup.
-3. Readiness now affects routine generation, but should never eliminate a phase for a targeted area.
-4. The curated exercise library is central to workout quality.
-5. The routine page now supports sport/area-matched backgrounds and foam-roll video overrides.
-6. Auth and RLS around routine generation/save were recently hardened and are easy to regress.
-7. Premium should stay secondary until Basic feels rock solid.
+1. Keep testing workout completion -> `progress` -> dashboard stats on live Vercel.
+2. Continue cleaning up Supabase schema drift, especially old legacy tables.
+3. QA programme persistence and dashboard active-plan behavior on real accounts.
+4. Keep improving admin video workflows and custom exercise coverage.
+5. Continue sport-by-sport routine quality QA.
+6. Keep Basic-first discipline; do not over-surface unfinished Premium experiences.
