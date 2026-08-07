@@ -2,20 +2,29 @@
 
 let browserClient: SupabaseClient | null = null
 
+export const isSupabaseConfigured = Boolean(
+  process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+)
+
 export function createClient() {
   if (browserClient) {
     return browserClient
   }
 
+  // A missing local .env file should not make the public site crash. Requests
+  // that require Supabase remain unavailable until real credentials are added.
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://offline.supabase.invalid'
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'offline-anon-key'
+
   browserClient = createSupabaseClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    supabaseUrl,
+    supabaseAnonKey,
     {
       auth: {
-        autoRefreshToken: true,
+        autoRefreshToken: isSupabaseConfigured,
         detectSessionInUrl: true,
         flowType: 'implicit',
-        persistSession: true,
+        persistSession: isSupabaseConfigured,
       },
     }
   )

@@ -50,6 +50,13 @@ function getScreeningDate(entry: LatestScreening) {
   return entry?.completed_at || entry?.assessed_at || entry?.created_at || null
 }
 
+function isMissingSchemaColumnError(error: unknown) {
+  return typeof error === 'object'
+    && error !== null
+    && 'code' in error
+    && error.code === 'PGRST204'
+}
+
 export default function ScreeningClient() {
   const router = useRouter()
   const supabase = createClient()
@@ -154,11 +161,30 @@ export default function ScreeningClient() {
       const uid = session?.user?.id
       if (uid) {
         const insertPayload = buildScreeningQuestionnaireInsert(uid, answers)
-        const { data, error } = await supabase
+        let { data, error } = await supabase
           .from('screening_questionnaires')
           .insert(insertPayload)
           .select('*')
           .single()
+
+        // Some existing projects still use the legacy questionnaire schema,
+        // which has no `responses` JSON column. Keep the screening usable and
+        // preserve the score locally while writing the compatible base record.
+        if (isMissingSchemaColumnError(error)) {
+          const legacyPayload = {
+            user_id: insertPayload.user_id,
+            goal: insertPayload.goal,
+            activity_level: insertPayload.activity_level,
+            desk_hours_per_day: insertPayload.desk_hours_per_day,
+            average_sleep_quality: insertPayload.average_sleep_quality,
+            stress_level: insertPayload.stress_level,
+          }
+          ;({ data, error } = await supabase
+            .from('screening_questionnaires')
+            .insert(legacyPayload)
+            .select('*')
+            .single())
+        }
 
         if (error) {
           throw error
