@@ -18,6 +18,7 @@ import { readStoredScreening, writeStoredScreening } from '@/lib/screening-stora
 
 type Scores = ReturnType<typeof calculateMobilityScreeningScores>
 type LatestScreening = {
+  id?: string
   assessed_at?: string | null
   created_at?: string | null
   completed_at?: string | null
@@ -50,13 +51,6 @@ function getScreeningDate(entry: LatestScreening) {
   return entry?.completed_at || entry?.assessed_at || entry?.created_at || null
 }
 
-function isMissingSchemaColumnError(error: unknown) {
-  return typeof error === 'object'
-    && error !== null
-    && 'code' in error
-    && error.code === 'PGRST204'
-}
-
 export default function ScreeningClient() {
   const router = useRouter()
   const supabase = createClient()
@@ -76,7 +70,9 @@ export default function ScreeningClient() {
   const testMedia = test ? getAssessmentMedia(test.id) : null
   const latestScreeningDate = getScreeningDate(latestScreening)
   const screeningEligibilityDate = addDays(latestScreeningDate, 30)
-  const screeningLocked = screeningEligibilityDate !== null && screeningEligibilityDate > new Date()
+  // A browser-only snapshot is useful as a temporary fallback, but must never
+  // prevent a retry after a cloud save failed.
+  const screeningLocked = Boolean(latestScreening?.id) && screeningEligibilityDate !== null && screeningEligibilityDate > new Date()
   const nextEligibleDate = screeningEligibilityDate
 
   const testsByRegion = useMemo(
@@ -154,47 +150,32 @@ export default function ScreeningClient() {
       answers,
       created_at: savedAt,
     })
-    setSaveConfirmed(true)
 
     try {
       const { data: { session } } = await supabase.auth.getSession()
       const uid = session?.user?.id
-      if (uid) {
-        const insertPayload = buildScreeningQuestionnaireInsert(uid, answers)
-        let { data, error } = await supabase
-          .from('screening_questionnaires')
-          .insert(insertPayload)
-          .select('*')
-          .single()
-
-        // Some existing projects still use the legacy questionnaire schema,
-        // which has no `responses` JSON column. Keep the screening usable and
-        // preserve the score locally while writing the compatible base record.
-        if (isMissingSchemaColumnError(error)) {
-          const legacyPayload = {
-            user_id: insertPayload.user_id,
-            goal: insertPayload.goal,
-            activity_level: insertPayload.activity_level,
-            desk_hours_per_day: insertPayload.desk_hours_per_day,
-            average_sleep_quality: insertPayload.average_sleep_quality,
-            stress_level: insertPayload.stress_level,
-          }
-          ;({ data, error } = await supabase
-            .from('screening_questionnaires')
-            .insert(legacyPayload)
-            .select('*')
-            .single())
-        }
-
-        if (error) {
-          throw error
-        }
-
-        const cloudSnapshot = deriveScreeningSnapshot(data)
-        if (cloudSnapshot) {
-          setLatestScreening(cloudSnapshot)
-        }
+      if (!uid) {
+        throw new Error('Please sign in before saving your mobility screening.')
       }
+
+      const insertPayload = buildScreeningQuestionnaireInsert(uid, answers)
+      const { data, error } = await supabase
+        .from('screening_questionnaires')
+        .insert(insertPayload)
+        .select('*')
+        .single()
+
+      if (error) {
+        throw error
+      }
+
+      const cloudSnapshot = deriveScreeningSnapshot(data)
+      if (!cloudSnapshot) {
+        throw new Error('Your screening record was saved without responses. Run the Supabase screening migration, then submit the screening again.')
+      }
+
+      setLatestScreening(cloudSnapshot)
+      setSaveConfirmed(true)
       setDone(true)
     } catch (error) {
       const message =
