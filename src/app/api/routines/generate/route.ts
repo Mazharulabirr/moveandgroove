@@ -928,17 +928,25 @@ async function maybePersistRoutineForAuthenticatedUser({
     return routine
   }
 
-  const savedId = await persistGeneratedRoutine({
-    supabaseClient: authenticatedSupabase,
-    userId: authenticatedUserId,
-    routine,
-    sport,
-    areas: targetAreas,
-    duration: sessionDuration,
-    goal: effectiveGoal,
-  })
+  try {
+    const savedId = await persistGeneratedRoutine({
+      supabaseClient: authenticatedSupabase,
+      userId: authenticatedUserId,
+      routine,
+      sport,
+      areas: targetAreas,
+      duration: sessionDuration,
+      goal: effectiveGoal,
+    })
 
-  return { ...routine, savedId }
+    return { ...routine, savedId }
+  } catch (error) {
+    // Saving is an enhancement. The routine itself is fully usable from the
+    // response/local storage even when an older Supabase project has not yet
+    // created routines or routine_items.
+    console.warn('[generate.persistRoutine]', error)
+    return routine
+  }
 }
 
 function buildFallbackRoutine({
@@ -1104,8 +1112,11 @@ export async function POST(req: NextRequest) {
         readBasicDailyRoutineLimit(supabase as never),
       ])
 
+      // Older Supabase projects may not have the optional routine-history
+      // tables yet. In that case skip the cloud-only daily-limit check rather
+      // than blocking routine generation.
       if (routinesError) {
-        throw new Error(routinesError.message)
+        console.warn('[generate.routineCount]', routinesError.message)
       }
 
       // Profiles only controls the optional Pro entitlement. Some Supabase
