@@ -44,6 +44,18 @@ function readAccessToken(req: NextRequest) {
     : ''
 }
 
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error) {
+    return error.message
+  }
+
+  if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string') {
+    return error.message
+  }
+
+  return 'Could not save routine. Please try again.'
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { userId, routine, sport, areas, duration, goal } = await req.json() as SaveRoutineRequest
@@ -129,7 +141,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ savedId: savedRoutine.id })
   } catch (err: unknown) {
     console.error('[routines.save]', err)
-    const message = err instanceof Error ? err.message : 'Unknown error'
-    return NextResponse.json({ error: message }, { status: 500 })
+    return NextResponse.json({ error: getErrorMessage(err) }, { status: 500 })
   }
 }
