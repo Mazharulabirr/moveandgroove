@@ -1108,8 +1108,11 @@ export async function POST(req: NextRequest) {
         throw new Error(routinesError.message)
       }
 
+      // Profiles only controls the optional Pro entitlement. Some Supabase
+      // projects do not provision this legacy table, which must not prevent a
+      // signed-in Basic user from generating a routine.
       if (profileError) {
-        throw new Error(profileError.message)
+        console.warn('[generate.profile]', profileError.message)
       }
 
       const isPro = Boolean(profile?.is_pro)
