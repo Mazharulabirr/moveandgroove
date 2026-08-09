@@ -840,9 +840,33 @@ export default function RoutinePage() {
               </div>
             </div>
             <div className="routine-sidebar" style={{ flexShrink: 0, width: 'min(100%, 320px)' }}>
-              <div className="mg-mobile-stack" style={{ marginBottom: 16 }}>
+              <div className="mg-mobile-stack" style={{ marginBottom: 16, justifyContent: 'flex-end' }}>
                 <button className="btn-outline" onClick={() => router.push(builderHref)}>ADJUST</button>
                 <button className="btn-primary" onClick={() => router.push(builderHref)}>REGENERATE</button>
+              </div>
+              <div style={{ border: '1px solid rgba(0,180,216,0.24)', background: 'rgba(0,180,216,0.07)', padding: '18px 16px' }}>
+                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 3, color: 'var(--cyan)', marginBottom: 9, textTransform: 'uppercase' }}>
+                  {'// Workout Library'}
+                </div>
+                <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 14, color: 'var(--silver2)', lineHeight: 1.65, marginBottom: 14 }}>
+                  {isSaved
+                    ? 'This workout is saved to your library and can be repeated later.'
+                    : 'Keep this workout in your library before you begin, so you can repeat it later.'}
+                </div>
+                {saveError && (
+                  <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 13, color: '#ffb7b7', lineHeight: 1.55, marginBottom: 12 }}>
+                    {saveError}
+                  </div>
+                )}
+                {isSaved ? (
+                  <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 2, color: '#43d17a', textTransform: 'uppercase' }}>
+                    ✓ Saved to My Workouts
+                  </div>
+                ) : (
+                  <button className="btn-primary" onClick={saveRoutine} disabled={saving} style={{ width: '100%' }}>
+                    {saving ? 'SAVING...' : '★ SAVE TO MY WORKOUTS'}
+                  </button>
+                )}
               </div>
             </div>
           </div>

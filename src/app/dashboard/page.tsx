@@ -942,7 +942,6 @@ export default function DashboardPage() {
                     <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: 'var(--silver2)', lineHeight: 1.75 }}>
                       Last saved on <span style={{ color: 'var(--white)' }}>{latestScreeningDate ? formatDate(latestScreeningDate) : 'your latest check'}</span>. {canRetakeScreening ? 'You can complete a new screening now.' : `Your next screening unlocks on ${formatDate(nextScreeningDate!.toISOString())}.`}
                     </div>
-                    {effectiveIsPro && (
                     <div style={{ marginTop: 18, paddingTop: 18, borderTop: '1px solid var(--border2)' }}>
                       <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: 4, color: 'var(--silver3)', marginBottom: 10, textTransform: UC }}>
                         {'// Routine Library'}
@@ -956,7 +955,7 @@ export default function DashboardPage() {
                             Latest: <span style={{ color: 'var(--white)' }}>{latestRoutine.title}</span> on {formatDate(latestRoutine.created_at)}.
                           </div>
                           <div className="mg-mobile-stack">
-                            <button className="btn-outline" onClick={() => router.push('/programs')}>
+                            <button className="btn-outline" onClick={() => router.push('/results')}>
                               OPEN LIBRARY
                             </button>
                             <button className="btn-outline" onClick={() => router.push(`/routine/${latestRoutine.id}`)}>
@@ -970,7 +969,6 @@ export default function DashboardPage() {
                         </div>
                       )}
                     </div>
-                    )}
                   </>
                 ) : (
                   <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 16, color: 'var(--silver2)', lineHeight: 1.8 }}>
