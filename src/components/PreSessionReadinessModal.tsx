@@ -125,9 +125,12 @@ export default function PreSessionReadinessModal({ open, allowClose = false, onC
         body: JSON.stringify({ row }),
       })
 
+      // A readiness check is also stored locally and sent with routine generation.
+      // Do not block the workout when the optional cloud log is temporarily
+      // unavailable (for example, before the readiness_logs migration is run).
       if (!response.ok) {
         const payload = await response.json().catch(() => null)
-        throw new Error(payload?.error || "We couldn't save your readiness check. Please try again.")
+        console.warn('[pre-session-readiness.save]', payload?.error || 'Cloud readiness log could not be saved.')
       }
 
       writeStoredPreSessionReadiness(snapshot)
