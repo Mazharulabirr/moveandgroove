@@ -407,25 +407,6 @@ export default function DashboardPage() {
       href: '/quiz',
     },
   ]
-  const showBasicProcess = !effectiveIsPro && !hasScreening
-  const basicCoreActions = [
-    ...(canRetakeScreening
-      ? [{
-          title: 'MOBILITY SCORE',
-          sub: latestScreening
-            ? `Latest score ${latestScreening.overall_score}%${latestScreeningDate ? ` / ${formatDate(latestScreeningDate)}` : ''}`
-            : 'Review or retake your mobility baseline',
-          href: '/screening',
-          Icon: IconScreening,
-        }]
-      : []),
-    {
-      title: 'CREATE YOUR OWN WORKOUT',
-      sub: 'Build a new sport relevant or general mobility session.',
-      href: '/quiz',
-      Icon: IconRoutine,
-    },
-  ]
   const railStats = [
     { val: stats.totalSessions, label: 'Sessions Done' },
     { val: stats.totalMinutes, label: 'Minutes Moved' },
@@ -680,8 +661,9 @@ export default function DashboardPage() {
                   </div>
                 )}
               </div>
-              ) : showBasicProcess ? (
-                <div style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(8,10,14,0.98) 100%)', border: '1px solid rgba(255,255,255,0.08)', padding: '24px 26px' }}>
+              ) : (
+                <>
+                  <div style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(8,10,14,0.98) 100%)', border: '1px solid rgba(255,255,255,0.08)', padding: '24px 26px' }}>
                   <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 26, fontWeight: 700, letterSpacing: 3, color: 'var(--white)', marginBottom: 18 }}>
                     TIME TO MOVE
                   </div>
@@ -739,42 +721,6 @@ export default function DashboardPage() {
                       </button>
                     ))}
                   </div>
-                </div>
-              ) : (
-                <div style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(8,10,14,0.98) 100%)', border: '1px solid rgba(255,255,255,0.08)', padding: '24px 26px' }}>
-                  <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 24, fontWeight: 700, letterSpacing: 3, color: 'var(--white)', marginBottom: 18 }}>
-                    KEEP MOVING
-                  </div>
-                  <div style={{ display: 'grid', gap: 12 }}>
-                    {basicCoreActions.map((action) => (
-                      <button
-                        key={action.title}
-                        onClick={() => router.push(action.href)}
-                        style={{
-                          display: 'grid',
-                          gridTemplateColumns: '20px minmax(0,1fr)',
-                          gap: 14,
-                          alignItems: 'start',
-                          textAlign: 'left',
-                          padding: '16px 16px 15px',
-                          background: 'rgba(255,255,255,0.02)',
-                          border: '1px solid rgba(255,255,255,0.06)',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        <span style={{ display: 'flex', marginTop: 2 }}>
-                          <action.Icon size={18} color="var(--cyan)" />
-                        </span>
-                        <span>
-                          <span style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 14, fontWeight: 700, letterSpacing: 2, color: 'var(--white)', display: 'block', marginBottom: 6 }}>
-                            {action.title}
-                          </span>
-                          <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 14, color: 'var(--silver2)', lineHeight: 1.6 }}>
-                            {action.sub}
-                          </span>
-                        </span>
-                      </button>
-                    ))}
                   </div>
                   <div style={{ marginTop: 20, borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 20 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 14 }}>
@@ -851,7 +797,7 @@ export default function DashboardPage() {
                       ))}
                     </div>
                   </div>
-                </div>
+                </>
               )}
 
               {effectiveIsPro && (

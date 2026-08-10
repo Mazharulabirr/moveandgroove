@@ -419,7 +419,10 @@ export default function RoutinePage() {
 
       const completedAt = currentMeta.completedAt || new Date().toISOString()
       const durationMinutes = currentMeta.duration
-        ?? Math.max(1, Math.round(estimateRoutineDurationMinutes(currentMeta.routine || routine)))
+
+      if (!Number.isFinite(durationMinutes) || !durationMinutes || durationMinutes < 1 || durationMinutes > 45) {
+        throw new Error('The selected workout duration is missing or invalid, so it cannot be added to your daily total.')
+      }
       const response = await fetch('/api/progress', {
         method: 'POST',
         keepalive: true,
