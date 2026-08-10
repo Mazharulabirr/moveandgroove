@@ -5,7 +5,7 @@ create table if not exists public.progress (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   routine_id bigint references public.routines(id) on delete set null,
-  duration_minutes integer check (duration_minutes is null or (duration_minutes > 0 and duration_minutes <= 45)),
+  duration_minutes integer not null check (duration_minutes in (20, 30, 45)),
   completed_at timestamptz not null default now(),
   sport text,
   areas text[],

@@ -420,7 +420,7 @@ export default function RoutinePage() {
       const completedAt = currentMeta.completedAt || new Date().toISOString()
       const durationMinutes = currentMeta.duration
 
-      if (!Number.isFinite(durationMinutes) || !durationMinutes || durationMinutes < 1 || durationMinutes > 45) {
+      if (durationMinutes !== 20 && durationMinutes !== 30 && durationMinutes !== 45) {
         throw new Error('The selected workout duration is missing or invalid, so it cannot be added to your daily total.')
       }
       const response = await fetch('/api/progress', {

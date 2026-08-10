@@ -373,18 +373,26 @@ export default function QuizPage() {
                 <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 13, letterSpacing: 5, color: 'var(--silver2)', marginBottom: 36, textTransform: 'uppercase' }}>
                   minutes
                 </div>
-                <input
-                  type="range"
-                  min="15"
-                  max="45"
-                  step="5"
-                  value={duration}
-                  onChange={(event) => setDuration(parseInt(event.target.value, 10))}
-                  style={{ width: '100%', height: 1, background: 'var(--silver4)', outline: 'none', cursor: 'pointer', WebkitAppearance: 'none' as never }}
-                />
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 14, fontFamily: "'DM Mono',monospace", fontSize: 9, color: 'var(--silver4)' }}>
-                  {[15, 20, 25, 30, 35, 40, 45].map((value) => (
-                    <span key={value}>{value}</span>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0,1fr))', gap: 10 }}>
+                  {[20, 30, 45].map((value) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setDuration(value)}
+                      style={{
+                        padding: '14px 8px',
+                        border: `1px solid ${duration === value ? 'var(--cyan)' : 'var(--border)'}`,
+                        background: duration === value ? 'rgba(0,180,216,0.12)' : 'rgba(255,255,255,0.02)',
+                        color: duration === value ? 'var(--cyan)' : 'var(--silver2)',
+                        fontFamily: "'Syncopate',sans-serif",
+                        fontSize: 14,
+                        fontWeight: 700,
+                        letterSpacing: 2,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {value} MIN
+                    </button>
                   ))}
                 </div>
               </div>

@@ -37,6 +37,14 @@ type ProgressWriteRow = {
   goal?: string | null
 }
 
+const ALLOWED_WORKOUT_DURATIONS = [20, 30, 45] as const
+const DAILY_WORKOUT_LIMIT = 2
+
+function startOfTodayUtcIso() {
+  const now = new Date()
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString()
+}
+
 function getErrorMessage(error: unknown) {
   if (error instanceof Error) {
     return error.message
@@ -201,6 +209,23 @@ async function findExistingProgressId(
   throw error
 }
 
+async function countCompletedWorkoutsToday(
+  progressClient: ReturnType<typeof createAccessTokenClient>,
+  userId: string,
+) {
+  const { count, error } = await progressClient
+    .from('progress')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .gte('completed_at', startOfTodayUtcIso())
+
+  if (error) {
+    throw error
+  }
+
+  return count || 0
+}
+
 async function insertProgressRow(
   progressClient: ReturnType<typeof createAccessTokenClient> | ReturnType<typeof createServiceRoleClient>,
   baseRow: ProgressWriteRow,
@@ -278,6 +303,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Progress payload is missing or user-scoped incorrectly.' }, { status: 400 })
     }
 
+    if (!ALLOWED_WORKOUT_DURATIONS.includes(row.duration_minutes as typeof ALLOWED_WORKOUT_DURATIONS[number])) {
+      return NextResponse.json({ error: 'Workout duration must be 20, 30, or 45 minutes.' }, { status: 400 })
+    }
+
     const progressClient = createAccessTokenClient(accessToken)
     const completedAt = row.completed_at || new Date().toISOString()
     let existingId: string | null = null
@@ -301,6 +330,14 @@ export async function POST(req: NextRequest) {
         id: existingId,
       })
       return NextResponse.json({ ok: true, mode: 'existing', id: existingId })
+    }
+
+    const completedWorkoutsToday = await countCompletedWorkoutsToday(progressClient, userId)
+    if (completedWorkoutsToday >= DAILY_WORKOUT_LIMIT) {
+      return NextResponse.json(
+        { error: 'DAILY_WORKOUT_LIMIT_REACHED', message: 'You have already completed today\'s two workouts.' },
+        { status: 429 },
+      )
     }
 
     const rowToWrite: ProgressWriteRow = {
