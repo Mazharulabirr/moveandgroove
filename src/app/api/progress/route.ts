@@ -37,7 +37,6 @@ type ProgressWriteRow = {
   goal?: string | null
 }
 
-const ALLOWED_WORKOUT_DURATIONS = [20, 30, 45] as const
 const DAILY_WORKOUT_LIMIT = 2
 
 function startOfTodayUtcIso() {
@@ -303,8 +302,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Progress payload is missing or user-scoped incorrectly.' }, { status: 400 })
     }
 
-    if (!ALLOWED_WORKOUT_DURATIONS.includes(row.duration_minutes as typeof ALLOWED_WORKOUT_DURATIONS[number])) {
-      return NextResponse.json({ error: 'Workout duration must be 20, 30, or 45 minutes.' }, { status: 400 })
+    if (typeof row.duration_minutes !== 'number' || !Number.isInteger(row.duration_minutes) || row.duration_minutes < 1 || row.duration_minutes > 45) {
+      return NextResponse.json({ error: 'Workout duration must be between 1 and 45 minutes.' }, { status: 400 })
     }
 
     const progressClient = createAccessTokenClient(accessToken)
