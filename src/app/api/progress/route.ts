@@ -279,7 +279,6 @@ export async function POST(req: NextRequest) {
     }
 
     const progressClient = createAccessTokenClient(accessToken)
-    const serviceClient = createServiceRoleClient()
     const completedAt = row.completed_at || new Date().toISOString()
     let existingId: string | null = null
 
@@ -289,6 +288,7 @@ export async function POST(req: NextRequest) {
       if (!looksLikeAccessPolicyIssue(error)) {
         throw error
       }
+      const serviceClient = createServiceRoleClient()
       existingId = await findExistingProgressId(serviceClient, userId, completedAt, row.routine_id ?? null)
     }
 
@@ -329,6 +329,7 @@ export async function POST(req: NextRequest) {
         throw error
       }
 
+      const serviceClient = createServiceRoleClient()
       const inserted = await insertProgressRow(serviceClient, rowToWrite)
       console.info('[progress.write]', {
         mode: 'service-role-fallback',
