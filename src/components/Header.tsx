@@ -2,6 +2,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { endDemoSession, isDemoSessionActive } from '@/lib/demo-session'
 import { useEffect, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
 
@@ -9,6 +10,7 @@ export default function Header() {
   const router = useRouter()
   const supabase = createClient()
   const [user, setUser] = useState<User | null>(null)
+  const [demoSession, setDemoSession] = useState(() => isDemoSessionActive())
 
   useEffect(() => {
     supabase.auth.getUser()
@@ -21,14 +23,25 @@ export default function Header() {
   }, [supabase])
 
   async function signOut() {
+    if (demoSession) {
+      endDemoSession()
+      setDemoSession(false)
+      router.push('/')
+      return
+    }
     await supabase.auth.signOut()
     router.push('/')
   }
+  const signedIn = Boolean(user) || demoSession
 const fullName = user?.user_metadata?.full_name
-const firstName = fullName
+const firstName = demoSession
+  ? 'Demo Athlete'
+  : fullName
   ? fullName.split(' ')[0]
   : 'Athlete'
-const initials = fullName
+const initials = demoSession
+  ? 'DA'
+  : fullName
   ? fullName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
   : user?.email?.slice(0, 2).toUpperCase() || 'MG'
 
@@ -42,7 +55,7 @@ const initials = fullName
       backdropFilter: 'blur(24px)',
       borderBottom: '1px solid var(--border)',
     }}>
-      <Link href={user ? '/dashboard' : '/'} style={{ textDecoration: 'none', cursor: 'pointer', minWidth: 0 }}>
+      <Link href={signedIn ? '/dashboard' : '/'} style={{ textDecoration: 'none', cursor: 'pointer', minWidth: 0 }}>
         <div style={{
           fontFamily: "'Syncopate', sans-serif",
           fontSize: 'clamp(13px, 3.4vw, 17px)', fontWeight: 700, letterSpacing: 5,
@@ -82,7 +95,7 @@ const initials = fullName
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-        {user ? (
+        {signedIn ? (
           <div className="mg-header-user-pill" style={{
             display: 'flex', alignItems: 'center', gap: 10,
             background: 'var(--black3)', border: '1px solid var(--border)',

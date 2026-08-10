@@ -12,7 +12,8 @@ import {
 } from '@/components/Icons'
 import { DEFAULT_BASIC_DAILY_ROUTINE_LIMIT, readBasicDailyRoutineLimit } from '@/lib/app-config'
 import { readSavedWorkouts } from '@/lib/saved-workouts'
-import { createClient } from '@/lib/supabase/client'
+import { createClient, isSupabaseConfigured } from '@/lib/supabase/client'
+import { isDemoSessionActive } from '@/lib/demo-session'
 import { deriveScreeningSnapshot } from '@/lib/screening-cloud-v2'
 import { readStoredScreening } from '@/lib/screening-storage'
 
@@ -39,6 +40,12 @@ interface WorkoutPlan {
   created_at: string
   is_active: boolean
 }
+
+const DAILY_WORKOUT_LIMIT = 2
+const WORKOUT_MINUTE_LIMIT = 45
+const DAILY_MINUTE_LIMIT = DAILY_WORKOUT_LIMIT * WORKOUT_MINUTE_LIMIT
+const LOAD_INCREMENT_MINUTES = 15
+const LOAD_SEGMENTS = DAILY_MINUTE_LIMIT / LOAD_INCREMENT_MINUTES
 
 interface PendingRoutineMeta {
   sport?: string | null
@@ -201,7 +208,7 @@ export default function DashboardPage() {
   const [routines, setRoutines] = useState<Routine[]>([])
   const [latestScreening, setLatestScreening] = useState<ScreeningResult | null>(null)
   const [latestBattery, setLatestBattery] = useState<BatteryResult | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(() => !isDemoSessionActive())
   const [dailyRoutineCount, setDailyRoutineCount] = useState(0)
   const [dailyRoutineLimit, setDailyRoutineLimit] = useState(DEFAULT_BASIC_DAILY_ROUTINE_LIMIT)
   const [showWhyFirst, setShowWhyFirst] = useState(false)
@@ -348,13 +355,29 @@ export default function DashboardPage() {
   }, [supabase, syncPendingRoutineProgress])
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) {
-        router.push('/auth')
-        return
-      }
-      void loadData(session.user.id, session.access_token)
-    })
+    if (isDemoSessionActive()) {
+      return
+    }
+
+    if (!isSupabaseConfigured) {
+      router.replace('/auth')
+      return
+    }
+
+    void supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        if (!session) {
+          setLoading(false)
+          router.replace('/auth')
+          return
+        }
+        void loadData(session.user.id, session.access_token)
+      })
+      .catch((error) => {
+        console.error('[dashboard.session]', error)
+        setLoading(false)
+        router.replace('/auth')
+      })
   }, [loadData, router, supabase])
 
   const effectiveIsPro = false
@@ -412,9 +435,10 @@ export default function DashboardPage() {
     ? `Latest overall ${latestScreening.overall_score}%${latestScreeningDate ? ` / ${formatDate(latestScreeningDate)}` : ''}`
     : 'No screening saved yet'
   const weeklyLabels = getLastSevenDayLabels()
-  const weeklyMinutesTotal = weeklyMinutes.reduce((sum, value) => sum + value, 0)
-  const weeklyActiveDays = weeklyMinutes.filter((value) => value > 0).length
-  const weeklyPeak = Math.max(...weeklyMinutes, 0)
+  const displayedWeeklyMinutes = weeklyMinutes.map((value) => Math.min(value, DAILY_MINUTE_LIMIT))
+  const weeklyMinutesTotal = displayedWeeklyMinutes.reduce((sum, value) => sum + value, 0)
+  const weeklyActiveDays = displayedWeeklyMinutes.filter((value) => value > 0).length
+  const weeklyPeak = Math.max(...displayedWeeklyMinutes, 0)
   const weeklyAverage = weeklyActiveDays > 0 ? Math.round(weeklyMinutesTotal / weeklyActiveDays) : 0
   const consistencyPct = Math.round((weeklyActiveDays / 7) * 100)
   const latestRoutineFocus = latestRoutine ? formatRoutineFocus(latestRoutine).toUpperCase() : 'NO SAVED ROUTINE'
@@ -774,33 +798,34 @@ export default function DashboardPage() {
                     <div style={{ border: '1px solid rgba(139,231,255,0.14)', background: 'linear-gradient(180deg, rgba(14,18,24,0.98) 0%, rgba(6,8,12,0.98) 100%)', padding: '16px 16px 14px', marginBottom: 14, boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04)' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
                         <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 3, color: 'var(--silver3)', textTransform: UC }}>
-                          Weekly Mobility Minutes
+                          Daily workout allowance
                         </div>
                         <div style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 12, fontWeight: 700, letterSpacing: 2, color: 'var(--cyan)' }}>
-                          PEAK {weeklyPeak} MIN
+                          PEAK {weeklyPeak} / {DAILY_MINUTE_LIMIT} MIN
                         </div>
                       </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0,1fr))', gap: 8, alignItems: 'end', minHeight: 92 }}>
+                      <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, letterSpacing: 1.5, color: 'var(--silver4)', marginBottom: 12, textTransform: UC }}>
+                        {LOAD_INCREMENT_MINUTES} MIN PER BLOCK · MAX {DAILY_WORKOUT_LIMIT} WORKOUTS × {WORKOUT_MINUTE_LIMIT} MIN
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0,1fr))', gap: 8, alignItems: 'end', minHeight: 132 }}>
                         {weeklyLabels.map((label, index) => (
                           <div key={label} style={{ textAlign: 'center' }}>
-                            <div style={{ height: 54, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', marginBottom: 8 }}>
-                              <div
-                                style={{
-                                  width: 16,
-                                  height: `${Math.max(10, Math.round((weeklyMinutes[index] / Math.max(weeklyPeak, 1)) * 54))}px`,
-                                  borderRadius: 999,
-                                  background: weeklyMinutes[index] > 0
-                                    ? 'linear-gradient(180deg, rgba(139,231,255,0.95) 0%, rgba(0,180,216,0.42) 100%)'
-                                    : 'rgba(255,255,255,0.08)',
-                                  boxShadow: weeklyMinutes[index] > 0 ? '0 0 16px rgba(139,231,255,0.14)' : 'none',
-                                }}
-                              />
+                            <div style={{ height: 88, display: 'flex', flexDirection: 'column-reverse', alignItems: 'center', justifyContent: 'flex-start', gap: 3, marginBottom: 8 }}>
+                              {Array.from({ length: LOAD_SEGMENTS }, (_, segment) => {
+                                const segmentMinutes = Math.max(0, Math.min(LOAD_INCREMENT_MINUTES, displayedWeeklyMinutes[index] - segment * LOAD_INCREMENT_MINUTES))
+                                const fillPercent = (segmentMinutes / LOAD_INCREMENT_MINUTES) * 100
+                                return (
+                                  <div key={segment} style={{ width: 18, height: 12, padding: 1, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(139,231,255,0.16)' }}>
+                                    <div style={{ height: '100%', width: `${fillPercent}%`, background: 'linear-gradient(90deg, rgba(0,180,216,0.58), rgba(139,231,255,0.98))', boxShadow: fillPercent > 0 ? '0 0 10px rgba(139,231,255,0.22)' : 'none' }} />
+                                  </div>
+                                )
+                              })}
                             </div>
                             <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, letterSpacing: 2, color: 'var(--silver4)', textTransform: UC, marginBottom: 4 }}>
                               {label}
                             </div>
                             <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 1.5, color: weeklyMinutes[index] > 0 ? 'var(--silver2)' : 'var(--silver4)' }}>
-                              {weeklyMinutes[index]}
+                              {displayedWeeklyMinutes[index]} / {DAILY_MINUTE_LIMIT}
                             </div>
                           </div>
                         ))}

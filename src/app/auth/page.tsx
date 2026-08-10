@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Header from '@/components/Header'
 import { createClient } from '@/lib/supabase/client'
+import { DEMO_EMAIL, DEMO_PASSWORD, startDemoSession } from '@/lib/demo-session'
 
 type Tab = 'signin' | 'signup'
 
@@ -34,6 +35,13 @@ export default function AuthPage() {
     setError('')
     setInfo('')
     setConfirmSent(false)
+
+    if (siEmail.trim().toLowerCase() === DEMO_EMAIL && siPassword === DEMO_PASSWORD) {
+      startDemoSession()
+      router.push('/dashboard')
+      return
+    }
+
     setLoading(true)
     const { error } = await supabase.auth.signInWithPassword({ email: siEmail, password: siPassword })
     if (error) {
