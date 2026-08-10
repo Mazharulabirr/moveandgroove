@@ -679,8 +679,8 @@ export default function DashboardPage() {
                           alignItems: 'start',
                           textAlign: 'left',
                           padding: '16px 16px 15px',
-                          background: item.done ? 'rgba(67,209,122,0.04)' : 'rgba(255,255,255,0.02)',
-                          border: item.done ? '1px solid rgba(67,209,122,0.16)' : '1px solid rgba(255,255,255,0.06)',
+                          background: 'rgba(255,255,255,0.02)',
+                          border: '1px solid rgba(255,255,255,0.06)',
                           cursor: 'pointer',
                         }}
                       >
@@ -689,28 +689,28 @@ export default function DashboardPage() {
                             width: 34,
                             height: 34,
                             borderRadius: 999,
-                            border: `1px solid ${item.done ? 'rgba(67,209,122,0.35)' : 'rgba(0,180,216,0.18)'}`,
-                            color: item.done ? '#43d17a' : 'var(--cyan)',
+                            border: '1px solid rgba(0,180,216,0.18)',
+                            color: 'var(--cyan)',
                             display: 'grid',
                             placeItems: 'center',
                             fontFamily: "'Syncopate',sans-serif",
                             fontSize: 14,
                             fontWeight: 700,
-                            background: item.done ? 'rgba(67,209,122,0.04)' : 'rgba(0,180,216,0.04)',
-                            boxShadow: item.done ? 'none' : 'inset 0 1px 0 rgba(255,255,255,0.04)',
+                            background: 'rgba(0,180,216,0.04)',
+                            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04)',
                           }}
                         >
                           {index + 1}
                         </span>
                         <span style={{ display: 'flex', marginTop: 4 }}>
-                          <item.Icon size={18} color={item.done ? '#43d17a' : 'var(--silver3)'} />
+                          <item.Icon size={18} color="var(--silver3)" />
                         </span>
                         <span>
                           <span style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 5 }}>
-                            <span style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 14, fontWeight: 700, letterSpacing: 2, color: item.done ? 'var(--white)' : 'var(--silver)' }}>
+                            <span style={{ fontFamily: "'Syncopate',sans-serif", fontSize: 14, fontWeight: 700, letterSpacing: 2, color: 'var(--silver)' }}>
                               {item.label}
                             </span>
-                            <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, letterSpacing: 2, color: item.done ? '#43d17a' : 'var(--silver4)', border: `1px solid ${item.done ? 'rgba(67,209,122,0.35)' : 'rgba(90,100,112,0.35)'}`, background: item.done ? 'rgba(67,209,122,0.08)' : 'rgba(90,100,112,0.08)', padding: '3px 7px', textTransform: UC }}>
+                            <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, letterSpacing: 2, color: 'var(--silver4)', border: '1px solid rgba(90,100,112,0.35)', background: 'rgba(90,100,112,0.08)', padding: '3px 7px', textTransform: UC }}>
                               {item.done ? 'DONE' : 'NEXT'}
                             </span>
                           </span>
